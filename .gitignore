@@ -1,0 +1,20 @@
+.DS_Store
+**/*.pid
+scratchpad/
+*.orig
+*.bak
+*.tmp
+*.new
+
+# machine-local Claude Code permissions
+.claude/settings.local.json
+
+# Unbound TLS control material — host-local secrets, never commit;
+# regenerate with unbound-control-setup if ever in doubt
+unbound-etc/*.key
+unbound-etc/*.pem
+
+# machine-generated blocklist (~13 MB, clobbered daily by update-blocklist.sh);
+# the hand-curated hagezi-allow.rpz stays tracked
+unbound-etc/blocklists/hagezi-pro.rpz
+unbound-etc/blocklists/hagezi-normal.rpz

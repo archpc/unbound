@@ -1,0 +1,12 @@
+; Personal RPZ allowlist — loaded BEFORE hagezi.rpz, so passthru here wins
+; over the blocklist. To un-block a domain: copy the pattern below (bare name
+; + wildcard), BUMP THE SOA SERIAL (first number on the SOA line), then run:
+;   sudo unbound-control auth_zone_reload hagezi.allow
+$TTL 60
+@ IN SOA localhost. root.localhost. 1 3600 1200 604800 60
+  IN NS  localhost.
+
+; placeholder entries — the domain doesn't exist, so these are inert; replace
+; with real exceptions as needed
+example-i-need.com  CNAME rpz-passthru.
+*.example-i-need.com CNAME rpz-passthru.

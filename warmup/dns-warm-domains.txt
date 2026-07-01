@@ -1,0 +1,246 @@
+# DNS cache-warmup list for the home LAN Unbound resolver (mini.lan).
+# Curated by category for household usefulness — not raw popularity.
+# Derived 2026-07-01 from the Tranco top-300 (tranco-list.eu), minus
+# adtech/tracker/analytics domains, entries blocked by our own RPZ,
+# wrong-ecosystem noise, and dead services; plus targeted Apple/dev/AI/
+# infra additions. One domain per line; blank lines and #-comments are
+# ignored by warm-unbound-cache.sh.
+
+# --- Apple / software updates ---
+apple.com
+icloud.com
+apple-dns.net
+aaplimg.com
+cdn-apple.com
+mzstatic.com
+push.apple.com
+time.apple.com
+swcdn.apple.com
+ocsp2.apple.com
+
+# --- Microsoft / Windows / Office ---
+microsoft.com
+bing.com
+live.com
+msn.com
+outlook.com
+office.com
+office.net
+office365.com
+microsoftonline.com
+sharepoint.com
+cloud.microsoft
+windows.com
+windows.net
+windowsupdate.com
+msftncsi.com
+msftconnecttest.com
+static.microsoft
+sfx.ms
+msedge.net
+spo-msedge.net
+ax-msedge.net
+wac-msedge.net
+spov-msedge.net
+trafficmanager.net
+
+# --- Google / YouTube ---
+google.com
+gstatic.com
+googleapis.com
+googleusercontent.com
+gvt1.com
+ggpht.com
+gmail.com
+android.com
+dns.google
+forms.gle
+youtube.com
+youtu.be
+youtube-nocookie.com
+googlevideo.com
+ytimg.com
+
+# --- CDNs / web infrastructure ---
+cloudflare.com
+cloudflare.net
+cloudflare-dns.com
+one.one
+workers.dev
+pages.dev
+akamai.net
+akamaiedge.net
+akadns.net
+akam.net
+edgekey.net
+edgesuite.net
+akamaized.net
+fastly.net
+fastly-edge.com
+cloudfront.net
+b-cdn.net
+cdn77.org
+jsdelivr.net
+gravatar.com
+hcaptcha.com
+ampproject.org
+hubspot.com
+zendesk.com
+launchdarkly.com
+bit.ly
+tinyurl.com
+
+# --- Certificates / PKI ---
+digicert.com
+lencr.org
+pki.goog
+amazontrust.com
+
+# --- Cloud platforms ---
+amazonaws.com
+aws.dev
+amazon.dev
+a2z.com
+azure.com
+azurefd.net
+azureedge.net
+azurewebsites.net
+tm-azurefd.net
+
+# --- Dev tools / package registries ---
+github.com
+github.io
+githubusercontent.com
+ghcr.io
+docker.io
+npmjs.com
+registry.npmjs.org
+pypi.org
+pythonhosted.org
+brew.sh
+formulae.brew.sh
+apache.org
+gnu.org
+php.net
+w3.org
+wordpress.org
+ubuntu.com
+launchpad.net
+sourceforge.net
+
+# --- AI ---
+openai.com
+chatgpt.com
+anthropic.com
+claude.ai
+
+# --- Software vendors / device updates ---
+adobe.com
+adobe.io
+mozilla.org
+mozilla.com
+oracle.com
+ibm.com
+cisco.com
+autodesk.com
+canva.com
+salesforce.com
+dropbox.com
+samsung.com
+samsungcloud.com
+hp.com
+roku.com
+
+# --- Utilities / connectivity / time ---
+ntp.org
+nist.gov
+tailscale.com
+opendns.com
+comcast.net
+weather.com
+ui.com
+
+# --- Social / messaging ---
+facebook.com
+facebook.net
+fbcdn.net
+instagram.com
+cdninstagram.com
+whatsapp.com
+whatsapp.net
+wa.me
+twitter.com
+x.com
+t.co
+linkedin.com
+pinterest.com
+reddit.com
+snapchat.com
+telegram.org
+t.me
+discord.com
+discord.gg
+zoom.us
+webex.com
+linktr.ee
+# tiktok cluster — remove these four if the household doesn't use TikTok
+tiktok.com
+tiktokcdn.com
+tiktokv.com
+tiktokcdn-us.com
+
+# --- Streaming / audio / video ---
+netflix.com
+nflxso.net
+amazonvideo.com
+spotify.com
+soundcloud.com
+vimeo.com
+twitch.tv
+ttvnw.net
+
+# --- Gaming ---
+roblox.com
+steampowered.com
+steamserver.net
+epicgames.com
+playstation.net
+unity3d.com
+
+# --- Shopping / travel ---
+amazon.com
+media-amazon.com
+ebay.com
+etsy.com
+shopify.com
+myshopify.com
+shopifysvc.com
+booking.com
+
+# --- Payments / finance ---
+paypal.com
+stripe.com
+intuit.com
+# Personal banking/utilities: add your own bank, card issuer, and utility
+# provider domains below. Deliberately not pre-filled — keep this section
+# short; it profiles the household, and this file travels with the repo.
+# yourbank.example
+# yourutility.example
+
+# --- News / reference / portals ---
+wikipedia.org
+wikimedia.org
+archive.org
+medium.com
+wordpress.com
+yahoo.com
+nytimes.com
+theguardian.com
+cnn.com
+bbc.com
+reuters.com
+forbes.com
+imdb.com
+nih.gov
+who.int
+creativecommons.org
