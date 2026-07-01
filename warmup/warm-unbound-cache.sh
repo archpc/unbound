@@ -5,7 +5,11 @@
 # delta the warmup produced.
 #
 # Usage:
-#   ./warm-unbound-cache.sh [domain-file]
+#   sudo ./warm-unbound-cache.sh [domain-file]
+#
+#   sudo is required: unbound-control connects to the root-owned control
+#   socket (/opt/homebrew/var/run/unbound-control.sock). Without it the
+#   script dies at the first stats snapshot, before sending any queries.
 #
 #   domain-file   One domain per line. Blank lines and lines starting with
 #                 '#' are ignored. Defaults to dns-warm-domains.txt next to

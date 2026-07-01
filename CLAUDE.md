@@ -66,10 +66,12 @@ if `unbound-checkconf` fails after the swap. It reloads only the `hagezi.rpz` zo
 Cache warming (run after a reload/restart to avoid a cold-cache burst of recursive lookups):
 
 ```sh
-warmup/warm-unbound-cache.sh                          # uses the dns-warm-domains.txt next to the script by default
-warmup/warm-unbound-cache.sh path/to/domains.txt       # or an explicit domain list
-DNS_SERVER=192.168.0.100 warmup/warm-unbound-cache.sh  # query via the LAN address (must still run ON the mini —
-                                                       # stats come from the local unbound-control socket)
+sudo warmup/warm-unbound-cache.sh                          # sudo required: unbound-control talks to a root-owned
+                                                           # unix socket; uses the dns-warm-domains.txt next to
+                                                           # the script by default
+sudo warmup/warm-unbound-cache.sh path/to/domains.txt       # or an explicit domain list
+sudo DNS_SERVER=192.168.0.100 warmup/warm-unbound-cache.sh  # query via the LAN address (must still run ON the mini —
+                                                            # stats come from the local unbound-control socket)
 ```
 
 ## Editing unbound.conf
