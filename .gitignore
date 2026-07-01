@@ -9,12 +9,11 @@ scratchpad/
 # machine-local Claude Code permissions
 .claude/settings.local.json
 
-# Unbound TLS control material — host-local secrets, never commit;
-# regenerate with unbound-control-setup if ever in doubt
+# safety net: TLS control material is retired (certless unix socket since
+# b7c3dc7), but if keys/certs ever reappear, keep them out of history
 unbound-etc/*.key
 unbound-etc/*.pem
 
 # machine-generated blocklist (~13 MB, clobbered daily by update-blocklist.sh);
 # the hand-curated hagezi-allow.rpz stays tracked
-unbound-etc/blocklists/hagezi-pro.rpz
 unbound-etc/blocklists/hagezi-normal.rpz

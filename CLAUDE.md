@@ -20,12 +20,15 @@ config/scripts in place and reloading the live `unbound` process.
   then running `unbound-checkconf` and `unbound-control reload` **there**.
 - [unbound-etc/unbound.bak](unbound-etc/unbound.bak) — a prior version of the config, kept for reference/diffing.
 - [unbound-etc/root.hints](unbound-etc/root.hints) — IANA root server hints.
-- [unbound-etc/unbound_server.pem/.key](unbound-etc/unbound_server.pem), [unbound_control.pem/.key](unbound-etc/unbound_control.pem) — TLS
-  material for `unbound-control` remote control. Treat as secrets; never print or transmit their contents.
+- Remote control uses a certless unix socket (`/opt/homebrew/var/run/unbound-control.sock`,
+  root-owned — hence `sudo` on every `unbound-control` command). The old `unbound_server`/`unbound_control`
+  TLS key/cert files are retired and deleted; if the config ever reverts to `control-interface: 127.0.0.1`,
+  regenerate them with `unbound-control-setup`.
 - [unbound-etc/blocklists/hagezi-normal.rpz](unbound-etc/blocklists/hagezi-normal.rpz) — the HaGeZi
   "Multi NORMAL" DNS blocklist (response-policy-zone format), refreshed daily by the update script.
-  Don't hand-edit; it's overwritten on every run. (Prior setup used the larger "Pro" tier; a stale
-  `hagezi-pro.rpz` may linger until cleaned up.)
+  Don't hand-edit; it's overwritten on every run. (The larger "Pro" tier was retired 2026-07-01 —
+  note Normal blocks fewer domains, so use `google-analytics.com`, not `doubleclick.net`, as the
+  "is RPZ working" canary.)
 - [unbound-etc/blocklists/hagezi-allow.rpz](unbound-etc/blocklists/hagezi-allow.rpz) — personal allowlist
   (RPZ passthru overrides). This is the file to edit when the blocklist wrongly blocks something.
 - [unbound-etc/update-blocklist.sh](unbound-etc/update-blocklist.sh) — daily cron/launchd job that
@@ -85,8 +88,11 @@ sudo DNS_SERVER=192.168.0.100 warmup/warm-unbound-cache.sh  # query via the LAN 
   `hagezi.rpz` (the blocklist, forced to `nxdomain` on match). To un-block a domain, add a passthru entry
   to `hagezi-allow.rpz` (see its `CNAME rpz-passthru.` pattern), bump the SOA serial in its header, then
   reload — don't edit `hagezi-normal.rpz` directly, it gets clobbered daily.
-- After any `unbound.conf` edit: run `unbound-checkconf` first, then `unbound-control reload`. Never
+- After any `unbound.conf` edit: run `unbound-checkconf` first, then `sudo unbound-control reload`. Never
   reload/restart on an unvalidated config on a box that's the LAN's only DNS resolver — a bad config
   breaks name resolution for every device on `192.168.0.0/24`.
+- On a fresh deploy (or any config change that renames the blocklist zonefile): run
+  `sudo update-blocklist.sh` **before** `unbound-checkconf` — checkconf verifies the RPZ zonefile can be
+  opened and fails if the generated file doesn't exist yet.
 - `do-ip6: no` and only the Ethernet (`192.168.0.100`) + loopback interfaces are bound intentionally — this
   host has no working public IPv6 route and Wi-Fi/Tailscale interfaces are excluded on purpose.
