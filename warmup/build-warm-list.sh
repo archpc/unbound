@@ -42,8 +42,9 @@ collapse() {
       print d }'
 }
 
-blocked="$(mktemp)"; candidates="$(mktemp)"; nshosts="$(mktemp)"
-trap 'rm -f "$blocked" "$candidates" "$nshosts"' EXIT
+blocked="$(mktemp)"; candidates="$(mktemp)"
+nshosts="$(mktemp)"; cnhosts="$(mktemp)"; exclude="$(mktemp)"
+trap 'rm -f "$blocked" "$candidates" "$nshosts" "$cnhosts" "$exclude"' EXIT
 
 # Blocked set: registrable domains HaGeZi blocks wholesale (so we don't warm a
 # domain the RPZ would just nxdomain). Subdomain-only blocks don't drop the
@@ -64,22 +65,35 @@ if [ "$status" -ne 0 ]; then
 fi
 
 # Resolver-internal noise filter: the msg cache also holds unbound's OWN
-# lookups — resolving the nameservers of zones it chases (ns-*.awsdns-NN.org,
-# a1-64.akam.net, azure-dns hosts, ...). No client ever asks for those, and
-# warming a client-facing name re-resolves its NS chain anyway, so listing
-# them is redundant by definition. The rrset cache tells us exactly which
-# hostnames are nameservers (NS-record targets) — harvest and exclude them.
+# lookups, not just client questions. Three structural classes, all
+# identifiable from the same dump:
+#   E1  NS-record targets   — nameserver hosts unbound resolved while chasing
+#                             delegations (ns-*.awsdns-NN.org, a1-64.akam.net)
+#   E2  CNAME-record targets — chain hosts resolved while following aliases
+#                             (e####.dsca.akamaiedge.net and friends)
+#   E3  apexes of E1 domains — qname-minimisation probes: walking down to
+#                             ns-80.awsdns-10.com caches a bare
+#                             "awsdns-10.com A" lookup no client ever made
+# Exclusions remove individual cache VOTES, not final domains: google.com
+# survives losing its ns1.google.com vote via real subdomain traffic, while
+# pure infrastructure loses its only votes and drops out. Clients never ask
+# for any of these names, and warming a client-facing name re-resolves its
+# delegation/alias chain anyway — so they are redundant by definition.
 printf '%s\n' "$dump" \
-  | awk '$3 == "IN" && $4 == "NS" { t = tolower($5); sub(/\.$/, "", t); print t }' \
+  | awk '$3 == "IN" && $4 == "NS"    { t = tolower($5); sub(/\.$/, "", t); print t }' \
   | sort -u > "$nshosts"
+printf '%s\n' "$dump" \
+  | awk '$3 == "IN" && $4 == "CNAME" { t = tolower($5); sub(/\.$/, "", t); print t }' \
+  | sort -u > "$cnhosts"
+{ cat "$nshosts" "$cnhosts"; collapse < "$nshosts"; } | sort -u > "$exclude"
 
 # Candidates: query names from the MESSAGE cache (msg lines = actual lookups,
 # not incidental glue rrsets). Keep A/AAAA/HTTPS, drop local/reverse names and
-# NS hosts, collapse to registrable domains, order by frequency.
+# the exclusion set, collapse to registrable domains, order by frequency.
 printf '%s\n' "$dump" \
   | awk '/^msg /{ t = $4; if (t=="A"||t=="AAAA"||t=="HTTPS") { name=$2; sub(/\.$/,"",name); print tolower(name) } }' \
   | grep -vE '(\.lan$|\.arpa$|^$)' \
-  | { if [ -s "$nshosts" ]; then grep -Fxvf "$nshosts"; else cat; fi } \
+  | { if [ -s "$exclude" ]; then grep -Fxvf "$exclude"; else cat; fi } \
   | collapse \
   | sort | uniq -c | sort -rn | awk '{ print $2 }' > "$candidates"
 
