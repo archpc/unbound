@@ -21,3 +21,7 @@ unbound-etc/blocklists/hagezi-normal.rpz
 # personalized warmup lists derived from the live cache/query logs — these are
 # a household behaviour profile, never commit them (build-warm-list.sh output)
 warmup/dns-warm-domains.personal.txt
+
+# one-off backup/debug archives dropped into the repo dir — never commit
+*.tar.gz
+*.zip

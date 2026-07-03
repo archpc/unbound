@@ -42,8 +42,8 @@ collapse() {
       print d }'
 }
 
-blocked="$(mktemp)"; candidates="$(mktemp)"
-trap 'rm -f "$blocked" "$candidates"' EXIT
+blocked="$(mktemp)"; candidates="$(mktemp)"; nshosts="$(mktemp)"
+trap 'rm -f "$blocked" "$candidates" "$nshosts"' EXIT
 
 # Blocked set: registrable domains HaGeZi blocks wholesale (so we don't warm a
 # domain the RPZ would just nxdomain). Subdomain-only blocks don't drop the
@@ -63,11 +63,23 @@ if [ "$status" -ne 0 ]; then
   exit 1
 fi
 
+# Resolver-internal noise filter: the msg cache also holds unbound's OWN
+# lookups — resolving the nameservers of zones it chases (ns-*.awsdns-NN.org,
+# a1-64.akam.net, azure-dns hosts, ...). No client ever asks for those, and
+# warming a client-facing name re-resolves its NS chain anyway, so listing
+# them is redundant by definition. The rrset cache tells us exactly which
+# hostnames are nameservers (NS-record targets) — harvest and exclude them.
+printf '%s\n' "$dump" \
+  | awk '$3 == "IN" && $4 == "NS" { t = tolower($5); sub(/\.$/, "", t); print t }' \
+  | sort -u > "$nshosts"
+
 # Candidates: query names from the MESSAGE cache (msg lines = actual lookups,
-# not incidental glue rrsets). Keep A/AAAA/HTTPS, collapse, order by frequency.
+# not incidental glue rrsets). Keep A/AAAA/HTTPS, drop local/reverse names and
+# NS hosts, collapse to registrable domains, order by frequency.
 printf '%s\n' "$dump" \
   | awk '/^msg /{ t = $4; if (t=="A"||t=="AAAA"||t=="HTTPS") { name=$2; sub(/\.$/,"",name); print tolower(name) } }' \
   | grep -vE '(\.lan$|\.arpa$|^$)' \
+  | { if [ -s "$nshosts" ]; then grep -Fxvf "$nshosts"; else cat; fi } \
   | collapse \
   | sort | uniq -c | sort -rn | awk '{ print $2 }' > "$candidates"
 
