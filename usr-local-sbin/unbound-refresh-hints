@@ -1,24 +1,39 @@
 #!/bin/bash
-set -e
+#
+# unbound-refresh-hints — refresh the root-server hints file.
+#
+# Deployed at /usr/local/sbin/unbound-refresh-hints, run monthly by the
+# local.unbound.roothints LaunchDaemon (1st of the month, 03:00).
+#
+# root.hints only bootstraps priming at (re)start; a running unbound learns
+# the live root NS set by querying the roots directly. So refreshing the file
+# just keeps the next startup current — no unbound reload is needed, and none
+# is done (avoids a pointless monthly cache flush).
+#
+# (Until 2026-07-03 this script also regenerated a hagezi-light.conf blocklist
+# that the live config no longer includes — dropped as dead weight. The live
+# blocklist is the RPZ hagezi-normal.rpz, refreshed by update-blocklist.sh.)
 
-curl -so /opt/homebrew/etc/unbound/root.hints \
-  https://www.internic.net/domain/named.cache
+set -euo pipefail
 
-python3 << 'PYEOF'
-import urllib.request
-url = "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/domains/light.txt"
-output = "/opt/homebrew/etc/unbound/blocklists/hagezi-light.conf"
-with urllib.request.urlopen(url) as r:
-    lines = r.read().decode().splitlines()
-with open(output, "w") as f:
-    f.write("server:\n")
-    for line in lines:
-        line = line.strip()
-        if line and not line.startswith("#"):
-            f.write(f'    local-zone: "{line}." always_nxdomain\n')
-PYEOF
+DEST="/opt/homebrew/etc/unbound/root.hints"
+SRC="https://www.internic.net/domain/named.cache"
+NEW="${DEST}.new"   # staged next to DEST so the final swap is an atomic mv
+trap 'rm -f "$NEW"' EXIT
 
-chown unbound:unbound /opt/homebrew/etc/unbound/blocklists/hagezi-light.conf
+# -f: fail on HTTP errors instead of writing the error page into the hints
+# file. Staged in NEW so a bad download never leaves DEST half-written.
+curl -fsS --max-time 60 "$SRC" -o "$NEW"
 
-/opt/homebrew/sbin/unbound-checkconf /opt/homebrew/etc/unbound/unbound.conf \
-  && /opt/homebrew/sbin/unbound-control reload
+# A real hints file lists all 13 roots (each as NS + A + AAAA, so ~39 hits).
+# Bail — leaving the existing DEST untouched — if it looks wrong.
+if [ "$(grep -c 'ROOT-SERVERS.NET' "$NEW")" -lt 13 ]; then
+    echo "downloaded root.hints looks wrong; keeping existing file" >&2
+    exit 1
+fi
+
+chown unbound:unbound "$NEW"
+chmod 644 "$NEW"
+mv "$NEW" "$DEST"   # atomic: a racing unbound (re)start never sees a partial file
+
+echo "root.hints refreshed: $(grep -c 'ROOT-SERVERS.NET' "$DEST") root-server records"
