@@ -87,14 +87,26 @@ printf '%s\n' "$dump" \
   | sort -u > "$cnhosts"
 { cat "$nshosts" "$cnhosts"; collapse < "$nshosts"; } | sort -u > "$exclude"
 
+# Tail-sweep for what the structural filters CANNOT catch: msg entries
+# outlive the rrset evidence (msg TTLs run to ~21h; NS rrsets expire in
+# minutes), so stale infrastructure lookups have no NS/CNAME record left to
+# prove what they are. Bounded list of pure managed-DNS/CDN-internal domains —
+# names no client ever queries directly. (Deliberately NOT listed: things
+# clients DO query, e.g. cloudfront.net, akamaized.net, cloudflare-dns.com.)
+NSPROVIDERS='^awsdns-[0-9]+\.|^(nsone|twtrdns|dynect|akam|akadns|akamai|akamaiedge|edgekey|edgesuite|aka-ns|gtld-servers|root-servers)\.(com|net|org)$|^(azure-dns|ultradns)\.|^(akagtm|aka-ns)\.org$|^(googledomains|domaincontrol)\.com$'
+
 # Candidates: query names from the MESSAGE cache (msg lines = actual lookups,
-# not incidental glue rrsets). Keep A/AAAA/HTTPS, drop local/reverse names and
-# the exclusion set, collapse to registrable domains, order by frequency.
+# not incidental glue rrsets). Keep A/AAAA/HTTPS **that returned answers** —
+# field 9 of a msg line is the answer count, and 0 means nodata/negative:
+# either a qname-minimisation probe or a name not worth warming anyway.
+# Drop local/reverse names and the exclusion set, collapse to registrable
+# domains, sweep NS-provider patterns, order by frequency.
 printf '%s\n' "$dump" \
-  | awk '/^msg /{ t = $4; if (t=="A"||t=="AAAA"||t=="HTTPS") { name=$2; sub(/\.$/,"",name); print tolower(name) } }' \
+  | awk '/^msg /{ if (($4=="A"||$4=="AAAA"||$4=="HTTPS") && ($9+0) > 0) { name=$2; sub(/\.$/,"",name); print tolower(name) } }' \
   | grep -vE '(\.lan$|\.arpa$|^$)' \
   | { if [ -s "$exclude" ]; then grep -Fxvf "$exclude"; else cat; fi } \
   | collapse \
+  | grep -vE "$NSPROVIDERS" \
   | sort | uniq -c | sort -rn | awk '{ print $2 }' > "$candidates"
 
 if [ ! -s "$candidates" ]; then
