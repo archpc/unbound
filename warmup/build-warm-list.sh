@@ -12,7 +12,10 @@
 # that log instead (then turn it back off).
 #
 # Usage:  sudo ./build-warm-list.sh [output-file] [max-domains]
-#   Defaults: dns-warm-domains.personal.txt next to this script, top 250.
+#   Defaults: dns-warm-domains.personal.txt next to this script, top 250
+#   cache-derived domains; the curated dns-warm-domains.txt (if present next
+#   to the script) is merged in after them, deduplicated, so the output stays
+#   strong even right after a reboot empties the cache.
 #   Needs sudo: dump_cache talks to the root-owned control socket.
 #
 # PRIVACY: the output is a household behaviour profile — far more revealing
@@ -121,15 +124,30 @@ if [ -s "$blocked" ]; then
 fi
 head -n "$MAX" "$candidates" > "$candidates.top"
 
-count="$(wc -l < "$candidates.top" | tr -d ' ')"
+# Merge in the curated popular list shipped next to this script (if present):
+# household traffic ranks first, then popular domains not already covered.
+# This keeps warmups strong right after a reboot, when the cache — and thus
+# the personal signal — is thin or empty.
+GENERIC="$script_dir/dns-warm-domains.txt"
+{
+  cat "$candidates.top"
+  if [ -r "$GENERIC" ]; then
+    tr -d '\r' < "$GENERIC" | grep -vE '^[[:space:]]*(#|$)'
+  fi
+} | awk '!seen[$0]++' > "$candidates.merged"
+
+personal="$(wc -l < "$candidates.top" | tr -d ' ')"
+count="$(wc -l < "$candidates.merged" | tr -d ' ')"
 {
   echo "# Personalized DNS warmup list — generated $(date '+%Y-%m-%d %H:%M')"
-  echo "# Source: unbound message cache (top $count registrable domains by cache"
-  echo "# activity; RPZ-blocked names removed). Regenerate with build-warm-list.sh."
+  echo "# $personal household domains from the unbound message cache (by cache"
+  echo "# activity; RPZ-blocked and resolver-internal names removed), then"
+  echo "# $((count - personal)) curated popular domains not already covered."
+  echo "# Regenerate with build-warm-list.sh."
   echo "# PRIVACY: household profile — keep local, do NOT commit."
-  cat "$candidates.top"
+  cat "$candidates.merged"
 } > "$OUT"
-rm -f "$candidates.top"
+rm -f "$candidates.top" "$candidates.merged"
 
-echo "wrote $count domains to $OUT"
+echo "wrote $count domains to $OUT ($personal personal + $((count - personal)) popular)"
 echo "use it:  sudo $script_dir/warm-unbound-cache.sh \"$OUT\""
