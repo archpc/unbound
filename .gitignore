@@ -17,3 +17,7 @@ unbound-etc/*.pem
 # machine-generated blocklist (~13 MB, clobbered daily by update-blocklist.sh);
 # the hand-curated hagezi-allow.rpz stays tracked
 unbound-etc/blocklists/hagezi-normal.rpz
+
+# personalized warmup lists derived from the live cache/query logs — these are
+# a household behaviour profile, never commit them (build-warm-list.sh output)
+warmup/dns-warm-domains.personal.txt
