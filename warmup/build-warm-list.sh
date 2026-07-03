@@ -53,16 +53,26 @@ if [ -r "$RPZ" ]; then
     | collapse | sort -u > "$blocked"
 fi
 
+# Grab the cache once, surfacing the REAL error if the control call fails
+# (usual cause: run without sudo — the control socket is root-owned). Don't
+# swallow it into a misleading "empty cache" message.
+dump="$(unbound-control dump_cache 2>&1)"; status=$?
+if [ "$status" -ne 0 ]; then
+  printf 'unbound-control dump_cache failed (exit %d):\n%s\n' "$status" "$dump" >&2
+  case "$dump" in *[Pp]ermission*) echo '-> run this script with sudo (control socket is root-owned).' >&2 ;; esac
+  exit 1
+fi
+
 # Candidates: query names from the MESSAGE cache (msg lines = actual lookups,
 # not incidental glue rrsets). Keep A/AAAA/HTTPS, collapse, order by frequency.
-unbound-control dump_cache 2>/dev/null \
+printf '%s\n' "$dump" \
   | awk '/^msg /{ t = $4; if (t=="A"||t=="AAAA"||t=="HTTPS") { name=$2; sub(/\.$/,"",name); print tolower(name) } }' \
   | grep -vE '(\.lan$|\.arpa$|^$)' \
   | collapse \
   | sort | uniq -c | sort -rn | awk '{ print $2 }' > "$candidates"
 
 if [ ! -s "$candidates" ]; then
-  echo "no usable domains in the cache — is the resolver actually serving traffic?" >&2
+  echo "cache dumped OK but held no A/AAAA/HTTPS query names to warm." >&2
   exit 1
 fi
 
