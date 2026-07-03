@@ -1,0 +1,24 @@
+#!/bin/bash
+set -e
+
+curl -so /opt/homebrew/etc/unbound/root.hints \
+  https://www.internic.net/domain/named.cache
+
+python3 << 'PYEOF'
+import urllib.request
+url = "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/domains/light.txt"
+output = "/opt/homebrew/etc/unbound/blocklists/hagezi-light.conf"
+with urllib.request.urlopen(url) as r:
+    lines = r.read().decode().splitlines()
+with open(output, "w") as f:
+    f.write("server:\n")
+    for line in lines:
+        line = line.strip()
+        if line and not line.startswith("#"):
+            f.write(f'    local-zone: "{line}." always_nxdomain\n')
+PYEOF
+
+chown unbound:unbound /opt/homebrew/etc/unbound/blocklists/hagezi-light.conf
+
+/opt/homebrew/sbin/unbound-checkconf /opt/homebrew/etc/unbound/unbound.conf \
+  && /opt/homebrew/sbin/unbound-control reload
