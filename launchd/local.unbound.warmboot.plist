@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>local.unbound.warmboot</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/bash</string>
+        <string>/Users/localadmin/warmup/warm-at-boot.sh</string>
+    </array>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/opt/homebrew/sbin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+    </dict>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>StandardErrorPath</key>
+    <string>/opt/homebrew/var/log/unbound-warmboot.log</string>
+    <key>StandardOutPath</key>
+    <string>/opt/homebrew/var/log/unbound-warmboot.log</string>
+</dict>
+</plist>

@@ -39,12 +39,21 @@ config/scripts in place and reloading the live `unbound` process.
   top ~300 domains (Tranco list) and reports the resulting cache-hit-rate delta.
 - [homebrew.mxcl.unbound.plist](homebrew.mxcl.unbound.plist) — the launchd service definition installed
   by `brew services` (`~/Library/LaunchAgents/` or `/Library/LaunchDaemons/`).
-- [launchd/](launchd/) — snapshots of the two hand-rolled `LaunchDaemon` timers that live in
+- [launchd/](launchd/) — snapshots of the hand-rolled `LaunchDaemon` jobs that live in
   `/Library/LaunchDaemons/` on the mini (they run as root, so blocklist writes + control-socket
   access work). These are captured for disaster recovery; editing them here does nothing until
   copied to `/Library/LaunchDaemons/` and reloaded (`sudo launchctl bootout/bootstrap system/...`).
   - `local.unbound.blocklist.plist` — runs `update-blocklist.sh` **daily at 03:30**, logging to
     `/opt/homebrew/var/log/unbound-blocklist.log`.
+  - `local.unbound.warmlist.plist` — runs `~localadmin/warmup/build-warm-list.sh` **daily at
+    23:30** (when the cache is richest), logging to `/opt/homebrew/var/log/unbound-warmlist.log`.
+    Regenerates the personalized warmup list; sends no queries. A *scheduled* warmup is
+    deliberately absent — `prefetch` + `serve-expired` keep the live cache warm continuously.
+  - `local.unbound.warmboot.plist` — runs [warmup/warm-at-boot.sh](warmup/warm-at-boot.sh)
+    **once per boot** (`RunAtLoad`), logging to `/opt/homebrew/var/log/unbound-warmboot.log`.
+    Waits up to ~90s for unbound (whose first launch attempt dies in the known opendirectoryd
+    boot race before KeepAlive relaunches it), then warms from the personal list, falling back
+    to the curated one. The only automated warmup — the cache only needs rescuing after restarts.
   - `local.unbound.roothints.plist` — runs [usr-local-sbin/unbound-refresh-hints](usr-local-sbin/unbound-refresh-hints)
     (deployed at `/usr/local/sbin/unbound-refresh-hints`) **monthly, 1st at 03:00**, logging to
     `/var/log/unbound-refresh-hints.log`. Refreshes `root.hints` only: downloads from internic
