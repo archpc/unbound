@@ -25,6 +25,3 @@ warmup/dns-warm-domains.personal.txt
 # one-off backup/debug archives dropped into the repo dir — never commit
 *.tar.gz
 *.zip
-
-# dashboard's polled stats history — generated runtime data, not source
-dashboard/data/
