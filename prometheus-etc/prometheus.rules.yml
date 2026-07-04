@@ -1,0 +1,49 @@
+# Snapshot of /opt/homebrew/etc/prometheus.rules.yml on the mini.
+# No Alertmanager is configured, so nothing pages - firing alerts show up in
+# the Prometheus UI at http://192.168.0.100:9090/alerts (and as the
+# ALERTS{alertstate="firing"} series, graphable like any other metric).
+#
+# Metric names follow unbound_exporter's mapping of unbound-control stats
+# (total.num.cachehits -> unbound_cache_hits_total, etc.). After first deploy,
+# sanity-check them against reality before trusting the rules:
+#   curl -s http://127.0.0.1:9167/metrics | /usr/bin/grep -E 'unbound_(up|cache_hits|request_list)'
+
+groups:
+  - name: unbound
+    rules:
+      # Exporter itself unreachable (crashed / not loaded).
+      - alert: UnboundExporterDown
+        expr: up{job="unbound"} == 0
+        for: 5m
+        annotations:
+          summary: "Prometheus cannot scrape unbound_exporter on 127.0.0.1:9167"
+
+      # Exporter is up but unbound-control is not answering. Expected for the
+      # first ~10s of boot (known opendirectoryd race); 2m of it is real.
+      - alert: UnboundDown
+        expr: unbound_up == 0
+        for: 2m
+        annotations:
+          summary: "unbound-control not answering the exporter"
+
+      # The 2026-07-01 incident signature: recursion dead upstream while
+      # cache/serve-expired mask it from clients. Requestlist backs up long
+      # before the household notices - this is the early tripwire.
+      - alert: UnboundRequestListJammed
+        expr: sum(unbound_request_list_current_all) > 100
+        for: 10m
+        annotations:
+          summary: "requestlist jammed - upstream path likely dead (see 2026-07-01 incident)"
+
+      # Sustained cold cache during real traffic; ignores idle periods by
+      # requiring a minimum query rate before judging the hit ratio.
+      - alert: UnboundCacheHitRateLow
+        expr: |
+          (
+            rate(unbound_cache_hits_total[15m])
+              / (rate(unbound_cache_hits_total[15m]) + rate(unbound_cache_misses_total[15m]))
+          ) < 0.5
+          and (rate(unbound_cache_hits_total[15m]) + rate(unbound_cache_misses_total[15m])) > 1
+        for: 30m
+        annotations:
+          summary: "cache hit rate below 50% for 30m under real load"

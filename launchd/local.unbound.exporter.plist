@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>local.unbound.exporter</string>
+    <!-- Runs as root: the certless control socket is root-owned (660 unbound:unbound).
+         The exporter connects per-scrape, so unbound's known slow first launch at boot
+         just shows up as unbound_up=0 until the socket exists - no wait loop needed. -->
+    <key>ProgramArguments</key>
+    <array>
+        <string>/usr/local/sbin/unbound_exporter</string>
+        <string>-unbound.host</string>
+        <string>unix:///opt/homebrew/var/run/unbound-control.sock</string>
+        <!-- empty ca/cert/key: certless unix socket, no TLS (see unbound_exporter README) -->
+        <string>-unbound.ca</string>
+        <string></string>
+        <string>-unbound.cert</string>
+        <string></string>
+        <string>-unbound.key</string>
+        <string></string>
+        <!-- loopback only: Prometheus scrapes locally; never expose raw metrics to the LAN -->
+        <string>-web.listen-address</string>
+        <string>127.0.0.1:9167</string>
+    </array>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+    <key>StandardErrorPath</key>
+    <string>/opt/homebrew/var/log/unbound-exporter.log</string>
+    <key>StandardOutPath</key>
+    <string>/opt/homebrew/var/log/unbound-exporter.log</string>
+</dict>
+</plist>

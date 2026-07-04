@@ -1,0 +1,22 @@
+# Snapshot of /opt/homebrew/etc/prometheus.yml on the mini.
+# Deploy: copy there, `promtool check config /opt/homebrew/etc/prometheus.yml`,
+# then `brew services restart prometheus` (no sudo - Prometheus runs in the
+# user domain; only the exporter needs root, for the control socket).
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+rule_files:
+  - /opt/homebrew/etc/prometheus.rules.yml
+
+scrape_configs:
+  # unbound_exporter (local.unbound.exporter LaunchDaemon), loopback-only
+  - job_name: unbound
+    static_configs:
+      - targets: ["127.0.0.1:9167"]
+
+  # Prometheus scraping itself; target matches --web.listen-address in prometheus.args
+  - job_name: prometheus
+    static_configs:
+      - targets: ["192.168.0.100:9090"]
