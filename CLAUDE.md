@@ -76,6 +76,14 @@ config/scripts in place and reloading the live `unbound` process.
     socket; serves Prometheus metrics on `127.0.0.1:9167` only (Prometheus scrapes it locally —
     raw metrics are never exposed to the LAN). It connects per-scrape, so it tolerates unbound's
     known boot race without a wait loop: it just reports `unbound_up 0` until the socket appears.
+  - `local.unbound.blackbox.plist` — runs `blackbox_exporter` (Homebrew binary)
+    **continuously** as `localadmin` (`UserName` key — DNS probing needs no privileges),
+    listening on `127.0.0.1:9115`, logging to `/opt/homebrew/var/log/unbound-blackbox.log`.
+    Sends real DNS queries every 30s per `prometheus-etc/blackbox.yml` (deployed at
+    `/opt/homebrew/etc/blackbox.yml`): `dns_upstream` asks 1.1.1.1/8.8.8.8 directly (raw
+    upstream path — the 2026-07-01 failure mode, seen from outside), `dns_resolver` resolves
+    through unbound like a LAN client, and `dns_rpz_canary` *succeeds only* while
+    `google-analytics.com` returns NXDOMAIN — i.e. it alarms when ad-blocking silently stops.
 - [prometheus-etc/](prometheus-etc/) — snapshots of the Prometheus config deployed on the mini
   (monitoring stack: `unbound_exporter` → Prometheus + its built-in graph UI at
   `http://192.168.0.100:9090`, no Grafana). This replaced a short-lived DIY canvas dashboard

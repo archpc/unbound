@@ -23,6 +23,34 @@ groups:
         annotations:
           summary: "filesystem {{ $labels.mountpoint }} is over 90% full"
 
+  - name: probes
+    rules:
+      # BOTH public resolvers unreachable on plain :53 from this box - the
+      # outside-in signature of the 2026-07-01 incident. max()==0 means every
+      # upstream target failed; a single one failing is their outage, not ours.
+      - alert: UpstreamDNSPathDown
+        expr: max(probe_success{job="blackbox_upstream"}) == 0
+        for: 5m
+        annotations:
+          summary: "1.1.1.1 AND 8.8.8.8 unreachable on :53 - upstream path dead (2026-07-01 signature)"
+
+      # A LAN client's-eye view of unbound failing while the daemon may still
+      # look healthy from inside.
+      - alert: ResolverEndToEndFailing
+        expr: probe_success{job="blackbox_resolver"} == 0
+        for: 5m
+        annotations:
+          summary: "end-to-end resolution through 192.168.0.100 is failing"
+
+      # Canary probe succeeds only while RPZ blocks google-analytics.com.
+      # Firing means ad-blocking silently stopped (bad blocklist update,
+      # zone misload) - DNS still "works", so nobody would otherwise notice.
+      - alert: RPZCanaryNotBlocking
+        expr: probe_success{job="blackbox_rpz_canary"} == 0
+        for: 30m
+        annotations:
+          summary: "RPZ is no longer blocking the canary - blocklist likely broken"
+
   - name: unbound
     rules:
       # Exporter itself unreachable (crashed / not loaded).

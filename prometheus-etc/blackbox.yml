@@ -1,0 +1,46 @@
+# Snapshot of /opt/homebrew/etc/blackbox.yml on the mini - blackbox_exporter
+# DNS probe modules (the outside-in view unbound can't give about itself).
+# Which module probes which target is wired up in prometheus.yml's
+# blackbox_* scrape jobs; the exporter itself runs via the
+# local.unbound.blackbox LaunchDaemon (as localadmin - probing needs no
+# privileges), listening on 127.0.0.1:9115.
+
+modules:
+  # Ask a public resolver directly, bypassing unbound entirely: is the raw
+  # upstream path on port 53 alive? Both 1.1.1.1 and 8.8.8.8 failing at once
+  # is the exact 2026-07-01 incident signature, seen from outside.
+  dns_upstream:
+    prober: dns
+    timeout: 5s
+    dns:
+      query_name: "cloudflare.com"
+      query_type: "A"
+      transport_protocol: "udp"
+      preferred_ip_protocol: "ip4"
+      validate_answer_rrs:
+        fail_if_none_matches_regexp: [".+"]
+
+  # End-to-end through unbound, exactly like a LAN client would resolve.
+  dns_resolver:
+    prober: dns
+    timeout: 5s
+    dns:
+      query_name: "cloudflare.com"
+      query_type: "A"
+      transport_protocol: "udp"
+      preferred_ip_protocol: "ip4"
+      validate_answer_rrs:
+        fail_if_none_matches_regexp: [".+"]
+
+  # RPZ canary: SUCCEEDS only while google-analytics.com (the documented
+  # Multi-NORMAL canary) comes back NXDOMAIN - i.e. the blocklist is loaded
+  # and blocking. A NOERROR answer means ad-blocking silently stopped.
+  dns_rpz_canary:
+    prober: dns
+    timeout: 5s
+    dns:
+      query_name: "google-analytics.com"
+      query_type: "A"
+      transport_protocol: "udp"
+      preferred_ip_protocol: "ip4"
+      valid_rcodes: ["NXDOMAIN"]

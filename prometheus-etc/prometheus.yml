@@ -26,3 +26,56 @@ scrape_configs:
   - job_name: node
     static_configs:
       - targets: ["127.0.0.1:9100"]
+
+  # blackbox DNS probes - outside-in checks. Every blackbox_* job probes
+  # THROUGH the exporter on 127.0.0.1:9115: the relabeling turns each listed
+  # target into the ?target= parameter and keeps it as the instance label.
+  # 30s interval: these send real DNS queries, no need for 15s granularity.
+
+  # raw upstream path on :53, bypassing unbound (2026-07-01 failure mode)
+  - job_name: blackbox_upstream
+    metrics_path: /probe
+    params:
+      module: [dns_upstream]
+    scrape_interval: 30s
+    static_configs:
+      - targets: ["1.1.1.1", "8.8.8.8"]
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: 127.0.0.1:9115
+
+  # end-to-end resolution through unbound, like a LAN client
+  - job_name: blackbox_resolver
+    metrics_path: /probe
+    params:
+      module: [dns_resolver]
+    scrape_interval: 30s
+    static_configs:
+      - targets: ["192.168.0.100"]
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: 127.0.0.1:9115
+
+  # RPZ canary: probe succeeds only while google-analytics.com is NXDOMAIN
+  - job_name: blackbox_rpz_canary
+    metrics_path: /probe
+    params:
+      module: [dns_rpz_canary]
+    scrape_interval: 30s
+    static_configs:
+      - targets: ["192.168.0.100"]
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: 127.0.0.1:9115
