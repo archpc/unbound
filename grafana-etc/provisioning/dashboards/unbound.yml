@@ -1,0 +1,17 @@
+# -> /opt/homebrew/etc/grafana/provisioning/dashboards/unbound.yml
+# File-provisioned dashboards: Grafana loads every JSON in options.path.
+# The repo's grafana-etc/dashboards/unbound-dns.json is the source of
+# truth - UI edits don't write back to the file, so export + re-snapshot
+# if the dashboard is changed interactively.
+apiVersion: 1
+
+providers:
+  - name: unbound
+    orgId: 1
+    folder: ""
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 30
+    allowUiUpdates: true
+    options:
+      path: /opt/homebrew/etc/grafana/dashboards

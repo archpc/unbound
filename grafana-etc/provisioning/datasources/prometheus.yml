@@ -1,0 +1,13 @@
+# -> /opt/homebrew/etc/grafana/provisioning/datasources/prometheus.yml
+# Provisioned datasource: the dashboard JSON references uid "prometheus".
+apiVersion: 1
+
+datasources:
+  - name: Prometheus
+    uid: prometheus
+    type: prometheus
+    access: proxy
+    url: http://192.168.0.100:9090
+    isDefault: true
+    jsonData:
+      timeInterval: 15s
