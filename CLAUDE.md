@@ -39,6 +39,13 @@ config/scripts in place and reloading the live `unbound` process.
   top ~300 domains (Tranco list) and reports the resulting cache-hit-rate delta.
 - [homebrew.mxcl.unbound.plist](homebrew.mxcl.unbound.plist) — the launchd service definition installed
   by `brew services` (`~/Library/LaunchAgents/` or `/Library/LaunchDaemons/`).
+  **Always use `sudo brew services ...`** for this one — running it without `sudo` installs a second,
+  user-domain copy in `~/Library/LaunchAgents/` alongside the root one in `/Library/LaunchDaemons/`.
+  Found on 2026-07-04: both existed on the mini (likely from an earlier non-sudo invocation); the
+  user-domain copy was booted out (`launchctl bootout gui/$(id -u) ...`) and parked in
+  `~/DisabledLaunchAgents/` rather than deleted. `lsof -i :53` should always show exactly one
+  `unbound` process — if it ever shows two, or `brew services list` disagrees between sudo and
+  non-sudo invocations, check for this duplicate first.
 - [launchd/](launchd/) — snapshots of the hand-rolled `LaunchDaemon` jobs that live in
   `/Library/LaunchDaemons/` on the mini (they run as root, so blocklist writes + control-socket
   access work). These are captured for disaster recovery; editing them here does nothing until
