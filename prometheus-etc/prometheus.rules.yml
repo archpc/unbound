@@ -37,13 +37,15 @@ groups:
 
       # Sustained cold cache during real traffic; ignores idle periods by
       # requiring a minimum query rate before judging the hit ratio.
+      # sum() across threads: the counters are per-thread (verified live
+      # 2026-07-04), and without it this would fire once per thread.
       - alert: UnboundCacheHitRateLow
         expr: |
           (
-            rate(unbound_cache_hits_total[15m])
-              / (rate(unbound_cache_hits_total[15m]) + rate(unbound_cache_misses_total[15m]))
+            sum(rate(unbound_cache_hits_total[15m]))
+              / (sum(rate(unbound_cache_hits_total[15m])) + sum(rate(unbound_cache_misses_total[15m])))
           ) < 0.5
-          and (rate(unbound_cache_hits_total[15m]) + rate(unbound_cache_misses_total[15m])) > 1
+          and (sum(rate(unbound_cache_hits_total[15m])) + sum(rate(unbound_cache_misses_total[15m]))) > 1
         for: 30m
         annotations:
           summary: "cache hit rate below 50% for 30m under real load"
