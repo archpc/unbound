@@ -539,7 +539,7 @@
       "gridPos": { "h": 4, "w": 6, "x": 0, "y": 80 },
       "id": 28,
       "options": { "colorMode": "value", "graphMode": "none", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false } },
-      "targets": [{ "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "time() - unbound_job_last_success_timestamp_seconds{job=\"blocklist\"}", "refId": "A" }],
+      "targets": [{ "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "time() - unbound_job_last_success_timestamp_seconds{task=\"blocklist\"}", "refId": "A" }],
       "title": "Blocklist update: age (daily 03:30)",
       "type": "stat"
     },
@@ -556,7 +556,7 @@
       "gridPos": { "h": 4, "w": 6, "x": 6, "y": 80 },
       "id": 29,
       "options": { "colorMode": "value", "graphMode": "none", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false } },
-      "targets": [{ "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "time() - unbound_job_last_success_timestamp_seconds{job=\"warmlist\"}", "refId": "A" }],
+      "targets": [{ "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "time() - unbound_job_last_success_timestamp_seconds{task=\"warmlist\"}", "refId": "A" }],
       "title": "Warm-list mine: age (daily 23:30)",
       "type": "stat"
     },
@@ -573,7 +573,7 @@
       "gridPos": { "h": 4, "w": 6, "x": 12, "y": 80 },
       "id": 30,
       "options": { "colorMode": "value", "graphMode": "none", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false } },
-      "targets": [{ "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "time() - unbound_job_last_success_timestamp_seconds{job=\"roothints\"}", "refId": "A" }],
+      "targets": [{ "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "time() - unbound_job_last_success_timestamp_seconds{task=\"roothints\"}", "refId": "A" }],
       "title": "Root hints: age (monthly)",
       "type": "stat"
     },
@@ -591,7 +591,7 @@
       "gridPos": { "h": 4, "w": 6, "x": 18, "y": 80 },
       "id": 31,
       "options": { "colorMode": "background", "graphMode": "none", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false } },
-      "targets": [{ "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "unbound_job_last_success_timestamp_seconds{job=\"warmboot\"} - scalar(node_boot_time_seconds)", "refId": "A" }],
+      "targets": [{ "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "unbound_job_last_success_timestamp_seconds{task=\"warmboot\"} - scalar(node_boot_time_seconds)", "refId": "A" }],
       "title": "Warmboot after boot (negative = missed)",
       "type": "stat"
     },
@@ -632,6 +632,6 @@
   "timezone": "browser",
   "title": "Unbound DNS",
   "uid": "unbound-dns",
-  "version": 3,
+  "version": 4,
   "weekStart": ""
 }

@@ -159,7 +159,7 @@ mkdir -p "$METRICS_DIR" 2>/dev/null || true
 if [ -w "$METRICS_DIR" ]; then
     {
         echo '# TYPE unbound_job_last_success_timestamp_seconds gauge'
-        printf 'unbound_job_last_success_timestamp_seconds{job="warmlist"} %s\n' "$(date +%s)"
+        printf 'unbound_job_last_success_timestamp_seconds{task="warmlist"} %s\n' "$(date +%s)"
         echo '# TYPE unbound_warmlist_domains gauge'
         printf 'unbound_warmlist_domains{kind="personal"} %s\n' "$personal"
         printf 'unbound_warmlist_domains{kind="popular"} %s\n' "$((count - personal))"

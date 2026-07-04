@@ -46,7 +46,7 @@ mkdir -p "$METRICS_DIR" 2>/dev/null || true
 if [ -w "$METRICS_DIR" ]; then
     {
         echo '# TYPE unbound_job_last_success_timestamp_seconds gauge'
-        printf 'unbound_job_last_success_timestamp_seconds{job="blocklist"} %s\n' "$(date +%s)"
+        printf 'unbound_job_last_success_timestamp_seconds{task="blocklist"} %s\n' "$(date +%s)"
         echo '# TYPE unbound_blocklist_lines gauge'
         printf 'unbound_blocklist_lines %s\n' "$(wc -l < "$DEST" | tr -d ' ')"
     } > "$METRICS_DIR/unbound-blocklist.prom.$$" \

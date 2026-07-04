@@ -19,19 +19,19 @@ groups:
     rules:
       # daily 03:30 job; 26h = one missed run plus slack
       - alert: BlocklistUpdateStale
-        expr: time() - unbound_job_last_success_timestamp_seconds{job="blocklist"} > 93600
+        expr: time() - unbound_job_last_success_timestamp_seconds{task="blocklist"} > 93600
         annotations:
           summary: "update-blocklist.sh hasn't succeeded in >26h"
 
       # daily 23:30 job
       - alert: WarmlistMineStale
-        expr: time() - unbound_job_last_success_timestamp_seconds{job="warmlist"} > 93600
+        expr: time() - unbound_job_last_success_timestamp_seconds{task="warmlist"} > 93600
         annotations:
           summary: "build-warm-list.sh hasn't succeeded in >26h"
 
       # monthly job (1st, 03:00); 34d = one missed month plus slack
       - alert: RootHintsRefreshStale
-        expr: time() - unbound_job_last_success_timestamp_seconds{job="roothints"} > 2937600
+        expr: time() - unbound_job_last_success_timestamp_seconds{task="roothints"} > 2937600
         annotations:
           summary: "unbound-refresh-hints hasn't succeeded in >34 days"
 
@@ -41,7 +41,7 @@ groups:
       - alert: WarmbootDidNotRun
         expr: |
           (scalar(node_boot_time_seconds)
-            - unbound_job_last_success_timestamp_seconds{job="warmboot"}) > 0
+            - unbound_job_last_success_timestamp_seconds{task="warmboot"}) > 0
         for: 15m
         annotations:
           summary: "warm-at-boot.sh has not succeeded since the last reboot"

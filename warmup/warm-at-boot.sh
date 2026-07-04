@@ -39,7 +39,7 @@ if [ "$status" -eq 0 ]; then
     if [ -w "$METRICS_DIR" ]; then
         {
             echo '# TYPE unbound_job_last_success_timestamp_seconds gauge'
-            printf 'unbound_job_last_success_timestamp_seconds{job="warmboot"} %s\n' "$(date +%s)"
+            printf 'unbound_job_last_success_timestamp_seconds{task="warmboot"} %s\n' "$(date +%s)"
         } > "$METRICS_DIR/unbound-warmboot.prom.$$" \
           && mv "$METRICS_DIR/unbound-warmboot.prom.$$" "$METRICS_DIR/unbound-warmboot.prom"
     fi

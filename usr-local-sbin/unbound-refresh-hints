@@ -45,7 +45,7 @@ mkdir -p "$METRICS_DIR" 2>/dev/null || true
 if [ -w "$METRICS_DIR" ]; then
     {
         echo '# TYPE unbound_job_last_success_timestamp_seconds gauge'
-        printf 'unbound_job_last_success_timestamp_seconds{job="roothints"} %s\n' "$(date +%s)"
+        printf 'unbound_job_last_success_timestamp_seconds{task="roothints"} %s\n' "$(date +%s)"
         echo '# TYPE unbound_roothints_records gauge'
         printf 'unbound_roothints_records %s\n' "$(grep -c 'ROOT-SERVERS.NET' "$DEST")"
     } > "$METRICS_DIR/unbound-roothints.prom.$$" \
