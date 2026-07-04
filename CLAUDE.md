@@ -98,6 +98,21 @@ config/scripts in place and reloading the live `unbound` process.
     `brew upgrade` of any of them: `sudo launchctl kickstart -k system/local.unbound.<name>` to
     restart onto the new binary — and for grafana/prometheus re-run the `socketfilterfw` allow
     (new Cellar path).
+  - `local.unbound.contentcache.plist` — runs
+    [scripts/apple_content_cache_exporter.py](scripts/apple_content_cache_exporter.py) every
+    5 minutes, parsing `AssetCacheManagerUtil status` (no privilege needed for the read) into a
+    node_exporter textfile at `/opt/homebrew/var/lib/node_exporter/textfile/apple-content-cache.prom`.
+    **Not yet installed** (2026-07-04): this box has auto-login off and no active GUI session, so
+    neither `launchctl bootstrap gui/<uid>` nor `user/<uid>` can load a per-user job over SSH
+    (confirmed live) — it has to be a `UserName localadmin` system daemon like the others, which
+    needs `sudo` to install. It also needs a one-time `sudo chmod g+w` on the textfile directory
+    (root:admin 755 — localadmin is in the `admin` group but the dir isn't group-writable yet).
+    Both are one-time manual steps; see the script's module docstring for the exact commands.
+    `TotalBytesReturnedToClients`/`TotalBytesStoredFromOrigin` are exported as counters
+    (`_total`) because the tool itself reports a `TotalBytesAreSince` reset-epoch timestamp —
+    that's the evidence, not a guess — and `apple_content_cache_totals_since_seconds` is exported
+    alongside so a 24h `increase()` panel can be sanity-checked against how long the counters
+    have actually been accumulating. Public/private IP fields are deliberately never exported.
   (monitoring stack: `unbound_exporter`/`node_exporter`/`blackbox_exporter` → Prometheus at
   `http://192.168.0.100:9090`, Grafana dashboards at `http://192.168.0.100:3000`; see
   `grafana-etc/`). This replaced a short-lived DIY canvas dashboard

@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!-- System LaunchDaemon, not a user LaunchAgent: this box has auto-login
+         OFF and no active GUI/Aqua session, so neither `launchctl bootstrap
+         gui/<uid>` nor `user/<uid>` will load a per-user job over SSH
+         (confirmed live 2026-07-04 - both refused). Same reason every other
+         exporter here (prometheus/grafana/node_exporter/blackbox) runs as a
+         localadmin-owned system daemon instead of a brew-services user
+         agent. UserName keeps it unprivileged even though the job itself
+         is installed by root. Needs sudo to install - see CLAUDE.md. -->
+    <key>Label</key>
+    <string>local.unbound.contentcache</string>
+    <key>UserName</key>
+    <string>localadmin</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/usr/bin/python3</string>
+        <string>/Users/localadmin/monitoring/apple_content_cache_exporter.py</string>
+        <string>--output</string>
+        <string>/opt/homebrew/var/lib/node_exporter/textfile/apple-content-cache.prom</string>
+    </array>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>StartInterval</key>
+    <integer>300</integer>
+    <key>StandardOutPath</key>
+    <string>/opt/homebrew/var/log/apple-content-cache-exporter.log</string>
+    <key>StandardErrorPath</key>
+    <string>/opt/homebrew/var/log/apple-content-cache-exporter.log</string>
+</dict>
+</plist>
