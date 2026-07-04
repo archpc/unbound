@@ -93,6 +93,9 @@ config/scripts in place and reloading the live `unbound` process.
     `/alerts` in the UI (no Alertmanager, so nothing pages; they're dashboard tripwires).
     Includes a jammed-requestlist rule — the signature that would have surfaced the
     2026-07-01 upstream-path incident hours earlier.
+  - `node_exporter.args` → `/opt/homebrew/etc/node_exporter.args` — host metrics (CPU, memory,
+    disk fill, network) on `127.0.0.1:9100`, run via `brew services start node_exporter`
+    (no sudo). Same wrapper pattern as `prometheus.args`: **flags only, no comments**.
   - **macOS application firewall gotcha** (found 2026-07-04): the mini's firewall is enabled and
     silently drops inbound SYNs to unapproved binaries — no GUI prompt on a headless box, so the
     symptom is a *hanging* connection to a port `lsof` swears is listening. Prometheus needed

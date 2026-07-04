@@ -9,6 +9,20 @@
 #   curl -s http://127.0.0.1:9167/metrics | /usr/bin/grep -E 'unbound_(up|cache_hits|request_list)'
 
 groups:
+  - name: host
+    rules:
+      # The TSDB, logs, and Time Machine target all live on this box - catch
+      # disk exhaustion before launchd jobs start failing in confusing ways.
+      - alert: DiskAlmostFull
+        expr: |
+          min by (mountpoint) (
+            node_filesystem_avail_bytes{fstype=~"apfs|hfs"}
+              / node_filesystem_size_bytes{fstype=~"apfs|hfs"}
+          ) < 0.10
+        for: 30m
+        annotations:
+          summary: "filesystem {{ $labels.mountpoint }} is over 90% full"
+
   - name: unbound
     rules:
       # Exporter itself unreachable (crashed / not loaded).

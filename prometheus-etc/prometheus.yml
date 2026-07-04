@@ -20,3 +20,9 @@ scrape_configs:
   - job_name: prometheus
     static_configs:
       - targets: ["192.168.0.100:9090"]
+
+  # host metrics (CPU, memory, disk, network) - node_exporter via
+  # `brew services start node_exporter` (no sudo), loopback-only
+  - job_name: node
+    static_configs:
+      - targets: ["127.0.0.1:9100"]
