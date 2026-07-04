@@ -86,14 +86,26 @@ config/scripts in place and reloading the live `unbound` process.
     upstream path — the 2026-07-01 failure mode, seen from outside), `dns_resolver` resolves
     through unbound like a LAN client, and `dns_rpz_canary` *succeeds only* while
     `google-analytics.com` returns NXDOMAIN — i.e. it alarms when ad-blocking silently stops.
-- [prometheus-etc/](prometheus-etc/) — snapshots of the Prometheus config deployed on the mini
+  - `local.unbound.prometheus.plist` / `local.unbound.nodeexporter.plist` /
+    `local.unbound.grafana.plist` — Prometheus, node_exporter, and Grafana as **system daemons
+    running as `localadmin`** (`UserName` key). Converted from `brew services` user agents on
+    2026-07-04 because **auto-login is OFF** on the mini: user LaunchAgents start at GUI login,
+    not boot, so an unattended reboot would leave monitoring down while DNS came back fine.
+    Consequences: (a) do **not** run `brew services start` for these three — it would create a
+    second, user-domain copy (the unbound duplicate gotcha, inverted); (b) prometheus and
+    node_exporter exec Homebrew's `*_brew_services` wrapper scripts so their `.args` files keep
+    working, grafana gets Homebrew's standard CLI args verbatim; (c) after a
+    `brew upgrade` of any of them: `sudo launchctl kickstart -k system/local.unbound.<name>` to
+    restart onto the new binary — and for grafana/prometheus re-run the `socketfilterfw` allow
+    (new Cellar path).
   (monitoring stack: `unbound_exporter`/`node_exporter`/`blackbox_exporter` → Prometheus at
   `http://192.168.0.100:9090`, Grafana dashboards at `http://192.168.0.100:3000`; see
   `grafana-etc/`). This replaced a short-lived DIY canvas dashboard
-  (removed 2026-07-04; see `1fc441a`/`bbfeff7`). Prometheus itself is installed with
-  `brew install prometheus` and runs via `brew services start prometheus` — **no sudo**, and
-  that's correct here, not the unbound gotcha: Prometheus never touches the control socket
-  (the root-owned exporter does that part), so the user domain is where it belongs.
+  (removed 2026-07-04; see `1fc441a`/`bbfeff7`). Prometheus is installed with
+  `brew install prometheus` but runs via the `local.unbound.prometheus` LaunchDaemon (as
+  `localadmin`, unprivileged — it never touches the control socket), **not** `brew services`;
+  see the launchd bullets above for why. Config reload = edit files, then
+  `sudo launchctl kickstart -k system/local.unbound.prometheus`.
   - `prometheus.yml` → `/opt/homebrew/etc/prometheus.yml` — scrapes the exporter and itself
     every 15s. Validate with `promtool check config` before restarting the service.
   - `prometheus.args` → `/opt/homebrew/etc/prometheus.args` — Homebrew's service wrapper
@@ -105,8 +117,8 @@ config/scripts in place and reloading the live `unbound` process.
     Includes a jammed-requestlist rule — the signature that would have surfaced the
     2026-07-01 upstream-path incident hours earlier.
   - `node_exporter.args` → `/opt/homebrew/etc/node_exporter.args` — host metrics (CPU, memory,
-    disk fill, network) on `127.0.0.1:9100`, run via `brew services start node_exporter`
-    (no sudo). Same wrapper pattern as `prometheus.args`: **flags only, no comments**.
+    disk fill, network) on `127.0.0.1:9100`, run via the `local.unbound.nodeexporter`
+    LaunchDaemon. Same wrapper pattern as `prometheus.args`: **flags only, no comments**.
   - **macOS application firewall gotcha** (found 2026-07-04): the mini's firewall is enabled and
     silently drops inbound SYNs to unapproved binaries — no GUI prompt on a headless box, so the
     symptom is a *hanging* connection to a port `lsof` swears is listening. Prometheus needed
@@ -116,8 +128,8 @@ config/scripts in place and reloading the live `unbound` process.
     unreachable after an upgrade, re-run the socketfilterfw pair on the new Cellar binary first.
     The loopback-only exporter (:9167) doesn't need an entry.
 - [grafana-etc/](grafana-etc/) — Grafana as code, deployed under `/opt/homebrew/etc/grafana/`
-  (`brew install grafana`, `brew services start grafana`, **no sudo**; UI on
-  `http://192.168.0.100:3000`, first login admin/admin then forced change). LAN-facing, so it
+  (`brew install grafana`, runs via the `local.unbound.grafana` LaunchDaemon as `localadmin`;
+  UI on `http://192.168.0.100:3000`, first login admin/admin then forced change). LAN-facing, so it
   needs the same `socketfilterfw` allow as Prometheus — including again after every
   `brew upgrade grafana`. `grafana.ini` is a minimal override (unset keys fall back to shipped
   defaults; telemetry/update-checks off). The Prometheus datasource and the "Unbound DNS"

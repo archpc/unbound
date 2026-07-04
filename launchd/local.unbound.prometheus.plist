@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>local.unbound.prometheus</string>
+    <!-- System daemon (boot-time start) because auto-login is OFF on the mini:
+         a brew-services user agent only starts at GUI login, so monitoring
+         would stay down after an unattended reboot. UserName keeps it
+         unprivileged. Do NOT also `brew services start prometheus` - that
+         would create a second, user-domain copy (the unbound gotcha, inverted). -->
+    <key>UserName</key>
+    <string>localadmin</string>
+    <!-- Homebrew's wrapper, so /opt/homebrew/etc/prometheus.args keeps working.
+         The /opt path is a symlink that survives upgrades; after
+         `brew upgrade prometheus`, kickstart this job onto the new binary. -->
+    <key>ProgramArguments</key>
+    <array>
+        <string>/opt/homebrew/opt/prometheus/bin/prometheus_brew_services</string>
+    </array>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/opt/homebrew/sbin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+    </dict>
+    <key>WorkingDirectory</key>
+    <string>/opt/homebrew/var</string>
+    <key>RunAtLoad</key>
+    <true/>
+    <!-- Also retries the early-boot window where 192.168.0.100 isn't
+         assigned yet and the bind fails - same self-healing as unbound. -->
+    <key>KeepAlive</key>
+    <true/>
+    <key>StandardErrorPath</key>
+    <string>/opt/homebrew/var/log/prometheus.log</string>
+    <key>StandardOutPath</key>
+    <string>/opt/homebrew/var/log/prometheus.log</string>
+</dict>
+</plist>

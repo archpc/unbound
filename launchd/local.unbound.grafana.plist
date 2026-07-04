@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>local.unbound.grafana</string>
+    <!-- System daemon for the same reason as local.unbound.prometheus:
+         auto-login is OFF, user agents don't start on unattended reboot.
+         No brew wrapper exists for grafana; these args mirror what
+         Homebrew's own service plist runs. -->
+    <key>UserName</key>
+    <string>localadmin</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/opt/homebrew/opt/grafana/bin/grafana</string>
+        <string>server</string>
+        <string>--config</string>
+        <string>/opt/homebrew/etc/grafana/grafana.ini</string>
+        <string>--homepath</string>
+        <string>/opt/homebrew/opt/grafana/share/grafana</string>
+        <string>--packaging=brew</string>
+        <string>cfg:default.paths.logs=/opt/homebrew/var/log/grafana</string>
+        <string>cfg:default.paths.data=/opt/homebrew/var/lib/grafana</string>
+        <string>cfg:default.paths.plugins=/opt/homebrew/var/lib/grafana/plugins</string>
+    </array>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/opt/homebrew/sbin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+    </dict>
+    <key>WorkingDirectory</key>
+    <string>/opt/homebrew/var/lib/grafana</string>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+    <key>StandardErrorPath</key>
+    <string>/opt/homebrew/var/log/unbound-grafana-launchd.log</string>
+    <key>StandardOutPath</key>
+    <string>/opt/homebrew/var/log/unbound-grafana-launchd.log</string>
+</dict>
+</plist>

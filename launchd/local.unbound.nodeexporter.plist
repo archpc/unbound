@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>local.unbound.nodeexporter</string>
+    <!-- System daemon for the same reason as local.unbound.prometheus:
+         auto-login is OFF, user agents don't start on unattended reboot. -->
+    <key>UserName</key>
+    <string>localadmin</string>
+    <!-- Homebrew's wrapper keeps /opt/homebrew/etc/node_exporter.args working. -->
+    <key>ProgramArguments</key>
+    <array>
+        <string>/opt/homebrew/opt/node_exporter/bin/node_exporter_brew_services</string>
+    </array>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/opt/homebrew/sbin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+    </dict>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+    <key>StandardErrorPath</key>
+    <string>/opt/homebrew/var/log/node_exporter.log</string>
+    <key>StandardOutPath</key>
+    <string>/opt/homebrew/var/log/node_exporter.log</string>
+</dict>
+</plist>
