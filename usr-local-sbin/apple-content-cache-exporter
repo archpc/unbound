@@ -1,0 +1,141 @@
+#!/usr/bin/env python3
+#
+# apple-content-cache-exporter - expose macOS Content Cache status/settings
+# through node_exporter's textfile collector.
+#
+# Deployed at /usr/local/sbin/apple-content-cache-exporter and run by the
+# local.unbound.contentcache LaunchDaemon. The AssetCacheManagerUtil status,
+# settings, isActivated, and canActivate commands do not require root.
+
+import json
+import os
+import re
+import subprocess
+import sys
+import time
+
+
+METRICS_DIR = os.environ.get(
+    "TEXTFILE_DIR", "/opt/homebrew/var/lib/node_exporter/textfile"
+)
+OUT = os.path.join(METRICS_DIR, "apple-content-cache.prom")
+COMMAND = "/usr/bin/AssetCacheManagerUtil"
+
+
+def metric_name(prefix, path):
+    suffix = "_".join(str(part) for part in path)
+    suffix = re.sub(r"([a-z0-9])([A-Z])", r"\1_\2", suffix)
+    suffix = re.sub(r"[^A-Za-z0-9_]", "_", suffix).strip("_").lower()
+    suffix = re.sub(r"_+", "_", suffix)
+    return f"{prefix}_{suffix}" if suffix else prefix
+
+
+def escape_label(value):
+    return str(value).replace("\\", "\\\\").replace("\n", "\\n").replace('"', '\\"')
+
+
+def run(command):
+    proc = subprocess.run(
+        [COMMAND, "--json", command],
+        check=False,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    try:
+        data = json.loads(proc.stdout) if proc.stdout.strip() else None
+    except json.JSONDecodeError:
+        data = None
+    return proc.returncode, data, proc.stderr.strip()
+
+
+def flatten_numeric(prefix, value, path=()):
+    lines = []
+    if isinstance(value, dict):
+        for key, child in value.items():
+            lines.extend(flatten_numeric(prefix, child, path + (key,)))
+    elif isinstance(value, list):
+        for index, child in enumerate(value):
+            lines.extend(flatten_numeric(prefix, child, path + (index,)))
+    elif isinstance(value, bool):
+        lines.append(f"{metric_name(prefix, path)} {1 if value else 0}")
+    elif isinstance(value, (int, float)):
+        lines.append(f"{metric_name(prefix, path)} {value}")
+    return lines
+
+
+def first_bool(value):
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, dict):
+        for key in ("activated", "isActivated", "result", "success"):
+            if isinstance(value.get(key), bool):
+                return value[key]
+        for child in value.values():
+            found = first_bool(child)
+            if found is not None:
+                return found
+    if isinstance(value, list):
+        for child in value:
+            found = first_bool(child)
+            if found is not None:
+                return found
+    return None
+
+
+def main():
+    now = int(time.time())
+    lines = [
+        "# TYPE assetcache_exporter_up gauge",
+        "# TYPE assetcache_command_success gauge",
+        "# TYPE assetcache_last_run_timestamp_seconds gauge",
+        "# TYPE assetcache_last_success_timestamp_seconds gauge",
+        "# TYPE assetcache_activated gauge",
+        f"assetcache_last_run_timestamp_seconds {now}",
+    ]
+
+    all_ok = True
+    saw_success = False
+    parsed = {}
+    for command in ("status", "settings", "isActivated", "canActivate"):
+        code, data, err = run(command)
+        ok = code == 0 and data is not None
+        all_ok = all_ok and ok
+        saw_success = saw_success or ok
+        lines.append(
+            f'assetcache_command_success{{command="{escape_label(command)}"}} {1 if ok else 0}'
+        )
+        if err:
+            lines.append(
+                f'assetcache_command_error{{command="{escape_label(command)}",message="{escape_label(err)[:160]}"}} 1'
+            )
+        if ok:
+            parsed[command] = data
+            if command in ("status", "settings"):
+                lines.extend(flatten_numeric(f"assetcache_{command}", data))
+
+    activated = first_bool(parsed.get("isActivated"))
+    if activated is not None:
+        lines.append(f"assetcache_activated {1 if activated else 0}")
+    can_activate = first_bool(parsed.get("canActivate"))
+    if can_activate is not None:
+        lines.append(f"assetcache_can_activate {1 if can_activate else 0}")
+
+    lines.append(f"assetcache_exporter_up {1 if all_ok else 0}")
+    if saw_success:
+        lines.append(f"assetcache_last_success_timestamp_seconds {now}")
+
+    os.makedirs(METRICS_DIR, exist_ok=True)
+    tmp = f"{OUT}.{os.getpid()}"
+    with open(tmp, "w", encoding="utf-8") as handle:
+        handle.write("\n".join(lines))
+        handle.write("\n")
+    os.replace(tmp, OUT)
+
+
+if __name__ == "__main__":
+    try:
+        main()
+    except Exception as exc:
+        print(f"apple-content-cache-exporter failed: {exc}", file=sys.stderr)
+        sys.exit(1)
