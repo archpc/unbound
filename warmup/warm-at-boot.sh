@@ -27,4 +27,21 @@ LIST="$script_dir/dns-warm-domains.personal.txt"
 [ -r "$LIST" ] || LIST="$script_dir/dns-warm-domains.txt"
 
 echo "boot warmup starting $(date '+%Y-%m-%d %H:%M:%S') with $LIST"
-exec "$script_dir/warm-unbound-cache.sh" "$LIST"
+"$script_dir/warm-unbound-cache.sh" "$LIST"
+status=$?
+
+# Success breadcrumb for the monitoring stack (see update-blocklist.sh for
+# the pattern). The matching alert compares this against node_boot_time_
+# seconds: breadcrumb older than the current boot = warmboot didn't run.
+if [ "$status" -eq 0 ]; then
+    METRICS_DIR="/opt/homebrew/var/lib/node_exporter/textfile"
+    mkdir -p "$METRICS_DIR" 2>/dev/null || true
+    if [ -w "$METRICS_DIR" ]; then
+        {
+            echo '# TYPE unbound_job_last_success_timestamp_seconds gauge'
+            printf 'unbound_job_last_success_timestamp_seconds{job="warmboot"} %s\n' "$(date +%s)"
+        } > "$METRICS_DIR/unbound-warmboot.prom.$$" \
+          && mv "$METRICS_DIR/unbound-warmboot.prom.$$" "$METRICS_DIR/unbound-warmboot.prom"
+    fi
+fi
+exit "$status"

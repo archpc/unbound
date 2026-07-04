@@ -9,6 +9,49 @@
 #   curl -s http://127.0.0.1:9167/metrics | /usr/bin/grep -E 'unbound_(up|cache_hits|request_list)'
 
 groups:
+  # Watches the launchd automation itself, via success breadcrumbs each
+  # script drops into node_exporter's textfile directory
+  # (/opt/homebrew/var/lib/node_exporter/textfile). A stale timestamp means
+  # the job is silently dead - not running, or running and failing.
+  # NB: a job that has NEVER succeeded has no breadcrumb at all, and absent
+  # metrics can't fire these rules - seed them once (kickstart each job).
+  - name: automation
+    rules:
+      # daily 03:30 job; 26h = one missed run plus slack
+      - alert: BlocklistUpdateStale
+        expr: time() - unbound_job_last_success_timestamp_seconds{job="blocklist"} > 93600
+        annotations:
+          summary: "update-blocklist.sh hasn't succeeded in >26h"
+
+      # daily 23:30 job
+      - alert: WarmlistMineStale
+        expr: time() - unbound_job_last_success_timestamp_seconds{job="warmlist"} > 93600
+        annotations:
+          summary: "build-warm-list.sh hasn't succeeded in >26h"
+
+      # monthly job (1st, 03:00); 34d = one missed month plus slack
+      - alert: RootHintsRefreshStale
+        expr: time() - unbound_job_last_success_timestamp_seconds{job="roothints"} > 2937600
+        annotations:
+          summary: "unbound-refresh-hints hasn't succeeded in >34 days"
+
+      # breadcrumb predates the current boot = warmboot didn't complete this
+      # boot. for: 15m gives the boot sequence (unbound's launch race + the
+      # warmup itself) time to finish before this counts as a failure.
+      - alert: WarmbootDidNotRun
+        expr: |
+          (scalar(node_boot_time_seconds)
+            - unbound_job_last_success_timestamp_seconds{job="warmboot"}) > 0
+        for: 15m
+        annotations:
+          summary: "warm-at-boot.sh has not succeeded since the last reboot"
+
+      # mirrors the >100k-lines floor update-blocklist.sh enforces on download
+      - alert: BlocklistSuspiciouslySmall
+        expr: unbound_blocklist_lines < 100000
+        annotations:
+          summary: "deployed blocklist under 100k lines - truncated or wrong file?"
+
   - name: host
     rules:
       # The TSDB, logs, and Time Machine target all live on this box - catch

@@ -151,3 +151,18 @@ rm -f "$candidates.top" "$candidates.merged"
 
 echo "wrote $count domains to $OUT ($personal personal + $((count - personal)) popular)"
 echo "use it:  sudo $script_dir/warm-unbound-cache.sh \"$OUT\""
+
+# Success breadcrumb for the monitoring stack (see update-blocklist.sh for
+# the pattern; prometheus.rules.yml alarms when the timestamp goes stale).
+METRICS_DIR="/opt/homebrew/var/lib/node_exporter/textfile"
+mkdir -p "$METRICS_DIR" 2>/dev/null || true
+if [ -w "$METRICS_DIR" ]; then
+    {
+        echo '# TYPE unbound_job_last_success_timestamp_seconds gauge'
+        printf 'unbound_job_last_success_timestamp_seconds{job="warmlist"} %s\n' "$(date +%s)"
+        echo '# TYPE unbound_warmlist_domains gauge'
+        printf 'unbound_warmlist_domains{kind="personal"} %s\n' "$personal"
+        printf 'unbound_warmlist_domains{kind="popular"} %s\n' "$((count - personal))"
+    } > "$METRICS_DIR/unbound-warmlist.prom.$$" \
+      && mv "$METRICS_DIR/unbound-warmlist.prom.$$" "$METRICS_DIR/unbound-warmlist.prom"
+fi

@@ -37,3 +37,17 @@ chmod 644 "$NEW"
 mv "$NEW" "$DEST"   # atomic: a racing unbound (re)start never sees a partial file
 
 echo "root.hints refreshed: $(grep -c 'ROOT-SERVERS.NET' "$DEST") root-server records"
+
+# Success breadcrumb for the monitoring stack (see update-blocklist.sh for
+# the pattern; prometheus.rules.yml alarms when the timestamp goes stale).
+METRICS_DIR="/opt/homebrew/var/lib/node_exporter/textfile"
+mkdir -p "$METRICS_DIR" 2>/dev/null || true
+if [ -w "$METRICS_DIR" ]; then
+    {
+        echo '# TYPE unbound_job_last_success_timestamp_seconds gauge'
+        printf 'unbound_job_last_success_timestamp_seconds{job="roothints"} %s\n' "$(date +%s)"
+        echo '# TYPE unbound_roothints_records gauge'
+        printf 'unbound_roothints_records %s\n' "$(grep -c 'ROOT-SERVERS.NET' "$DEST")"
+    } > "$METRICS_DIR/unbound-roothints.prom.$$" \
+      && mv "$METRICS_DIR/unbound-roothints.prom.$$" "$METRICS_DIR/unbound-roothints.prom"
+fi

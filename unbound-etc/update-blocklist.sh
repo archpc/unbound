@@ -37,3 +37,18 @@ fi
 # Don't discard stderr: a failed zone reload must show up in cron/launchd logs.
 "$CTRL" auth_zone_reload hagezi.rpz || "$CTRL" reload
 echo "updated: $(wc -l < "$DEST") lines"
+
+# Success breadcrumb for the monitoring stack: node_exporter's textfile
+# collector serves these gauges, and prometheus.rules.yml alarms if the
+# timestamp goes stale (i.e. this job silently stopped running/succeeding).
+METRICS_DIR="/opt/homebrew/var/lib/node_exporter/textfile"
+mkdir -p "$METRICS_DIR" 2>/dev/null || true
+if [ -w "$METRICS_DIR" ]; then
+    {
+        echo '# TYPE unbound_job_last_success_timestamp_seconds gauge'
+        printf 'unbound_job_last_success_timestamp_seconds{job="blocklist"} %s\n' "$(date +%s)"
+        echo '# TYPE unbound_blocklist_lines gauge'
+        printf 'unbound_blocklist_lines %s\n' "$(wc -l < "$DEST" | tr -d ' ')"
+    } > "$METRICS_DIR/unbound-blocklist.prom.$$" \
+      && mv "$METRICS_DIR/unbound-blocklist.prom.$$" "$METRICS_DIR/unbound-blocklist.prom"
+fi
