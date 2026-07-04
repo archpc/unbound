@@ -730,6 +730,161 @@
       },
       "fieldConfig": {
         "defaults": {
+          "unit": "bytes",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 0,
+        "y": 24
+      },
+      "id": 17,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "apple_content_cache_returned_to_clients_bytes_total",
+          "refId": "A"
+        }
+      ],
+      "title": "Returned to Clients \u2014 Since Reset",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 6,
+        "y": 24
+      },
+      "id": 18,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "apple_content_cache_stored_from_origin_bytes_total",
+          "refId": "A"
+        }
+      ],
+      "title": "Stored from Origin \u2014 Since Reset",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "min": 0,
+          "max": 1,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 12,
+        "y": 24
+      },
+      "id": 19,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "clamp_max(apple_content_cache_returned_to_clients_bytes_total / clamp_min(apple_content_cache_stored_from_origin_bytes_total, 1), 1)",
+          "refId": "A"
+        }
+      ],
+      "title": "Local Serving Ratio \u2014 Since Reset",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
           "unit": "s",
           "thresholds": {
             "mode": "absolute",
@@ -745,11 +900,11 @@
       },
       "gridPos": {
         "h": 4,
-        "w": 12,
-        "x": 12,
-        "y": 20
+        "w": 6,
+        "x": 18,
+        "y": 24
       },
-      "id": 13,
+      "id": 20,
       "options": {
         "colorMode": "value",
         "graphMode": "none",
@@ -771,7 +926,7 @@
           "refId": "A"
         }
       ],
-      "title": "Counters age (sanity check for the 24h panels below)",
+      "title": "Counter Age / Since Reset",
       "type": "stat"
     },
     {
@@ -792,9 +947,9 @@
         "h": 8,
         "w": 8,
         "x": 0,
-        "y": 24
+        "y": 28
       },
-      "id": 14,
+      "id": 21,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -817,7 +972,7 @@
           "legendFormat": "returned to clients"
         }
       ],
-      "title": "Returned to Clients (24h)",
+      "title": "Returned to Clients \u2014 Last 24h",
       "type": "timeseries"
     },
     {
@@ -838,9 +993,9 @@
         "h": 8,
         "w": 8,
         "x": 8,
-        "y": 24
+        "y": 28
       },
-      "id": 15,
+      "id": 22,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -863,7 +1018,55 @@
           "legendFormat": "stored from origin"
         }
       ],
-      "title": "Stored from Origin (24h)",
+      "title": "Stored from Origin \u2014 Last 24h",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "unit": "percentunit",
+          "min": 0,
+          "max": 1
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 16,
+        "y": 28
+      },
+      "id": 23,
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "clamp_max(increase(apple_content_cache_returned_to_clients_bytes_total[24h]) / clamp_min(increase(apple_content_cache_stored_from_origin_bytes_total[24h]), 1), 1)",
+          "refId": "A",
+          "legendFormat": "served-locally ratio (capped at 100%)"
+        }
+      ],
+      "title": "Local Serving Ratio / WAN Savings (24h)",
       "type": "timeseries"
     },
     {
@@ -881,12 +1084,12 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 8,
-        "w": 8,
-        "x": 16,
-        "y": 24
+        "h": 6,
+        "w": 12,
+        "x": 0,
+        "y": 36
       },
-      "id": 16,
+      "id": 24,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -906,10 +1109,10 @@
           },
           "expr": "increase(apple_content_cache_returned_to_clients_bytes_total[24h]) / clamp_min(increase(apple_content_cache_stored_from_origin_bytes_total[24h]), 1)",
           "refId": "A",
-          "legendFormat": "served-locally ratio"
+          "legendFormat": "uncapped ratio"
         }
       ],
-      "title": "Local Serving Ratio / WAN Savings (24h)",
+      "title": "Returned / Origin Ratio (24h, uncapped)",
       "type": "timeseries"
     }
   ],
@@ -932,6 +1135,6 @@
   "timezone": "browser",
   "title": "Apple Content Cache",
   "uid": "apple-content-cache",
-  "version": 1,
+  "version": 2,
   "weekStart": ""
 }
