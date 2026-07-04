@@ -76,7 +76,9 @@ config/scripts in place and reloading the live `unbound` process.
     socket; serves Prometheus metrics on `127.0.0.1:9167` only (Prometheus scrapes it locally —
     raw metrics are never exposed to the LAN). It connects per-scrape, so it tolerates unbound's
     known boot race without a wait loop: it just reports `unbound_up 0` until the socket appears.
-  - `local.unbound.blackbox.plist` — runs `blackbox_exporter` (Homebrew binary)
+  - `local.unbound.blackbox.plist` — runs `blackbox_exporter` (no Homebrew formula exists;
+    built like `unbound_exporter` via `go install github.com/prometheus/blackbox_exporter@latest`,
+    deployed at `/usr/local/sbin/blackbox_exporter`)
     **continuously** as `localadmin` (`UserName` key — DNS probing needs no privileges),
     listening on `127.0.0.1:9115`, logging to `/opt/homebrew/var/log/unbound-blackbox.log`.
     Sends real DNS queries every 30s per `prometheus-etc/blackbox.yml` (deployed at

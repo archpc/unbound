@@ -10,7 +10,7 @@
     <string>localadmin</string>
     <key>ProgramArguments</key>
     <array>
-        <string>/opt/homebrew/bin/blackbox_exporter</string>
+        <string>/usr/local/sbin/blackbox_exporter</string>
         <string>--config.file=/opt/homebrew/etc/blackbox.yml</string>
         <string>--web.listen-address=127.0.0.1:9115</string>
     </array>
