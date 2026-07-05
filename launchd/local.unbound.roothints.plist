@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
     <key>Label</key>
@@ -8,12 +9,6 @@
     <array>
         <string>/usr/local/sbin/unbound-refresh-hints</string>
     </array>
-    <key>RunAtLoad</key>
-    <false/>
-    <key>StandardErrorPath</key>
-    <string>/var/log/unbound-refresh-hints.log</string>
-    <key>StandardOutPath</key>
-    <string>/var/log/unbound-refresh-hints.log</string>
     <key>StartCalendarInterval</key>
     <dict>
         <key>Day</key>
@@ -23,5 +18,11 @@
         <key>Minute</key>
         <integer>0</integer>
     </dict>
+    <key>StandardOutPath</key>
+    <string>/var/log/unbound-refresh-hints.log</string>
+    <key>StandardErrorPath</key>
+    <string>/var/log/unbound-refresh-hints.log</string>
+    <key>RunAtLoad</key>
+    <false/>
 </dict>
 </plist>

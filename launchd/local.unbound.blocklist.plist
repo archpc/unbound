@@ -9,16 +9,14 @@
         <string>/bin/bash</string>
         <string>/opt/homebrew/etc/unbound/update-blocklist.sh</string>
     </array>
-    <key>StandardErrorPath</key>
-    <string>/opt/homebrew/var/log/unbound-blocklist.log</string>
-    <key>StandardOutPath</key>
-    <string>/opt/homebrew/var/log/unbound-blocklist.log</string>
     <key>StartCalendarInterval</key>
     <dict>
-        <key>Hour</key>
-        <integer>3</integer>
-        <key>Minute</key>
-        <integer>30</integer>
+        <key>Hour</key><integer>3</integer>
+        <key>Minute</key><integer>30</integer>
     </dict>
+    <key>StandardOutPath</key>
+    <string>/opt/homebrew/var/log/unbound-blocklist.log</string>
+    <key>StandardErrorPath</key>
+    <string>/opt/homebrew/var/log/unbound-blocklist.log</string>
 </dict>
 </plist>

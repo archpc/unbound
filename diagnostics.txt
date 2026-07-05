@@ -1,3 +1,7 @@
+### HISTORICAL SNAPSHOT — captured 2026-07-01, PRE-monitoring-stack.
+### Do NOT use for current state: live truth is Grafana (http://192.168.0.100:3000),
+### Prometheus (http://192.168.0.100:9090), and the commands in CLAUDE.md.
+
 ### uname
 Darwin mini.lan 25.5.0 Darwin Kernel Version 25.5.0: Mon Apr 27 20:41:26 PDT 2026; root:xnu-12377.121.6~2/RELEASE_ARM64_T8132 arm64
 
