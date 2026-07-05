@@ -29,6 +29,13 @@ scrape_configs:
     static_configs:
       - targets: ["127.0.0.1:9100"]
 
+  # Grafana's own health - without this, a dead/firewalled Grafana is
+  # invisible to the monitoring stack it fronts. /metrics is unauthenticated
+  # by Grafana default (verified live 2026-07-05).
+  - job_name: grafana
+    static_configs:
+      - targets: ["192.168.0.100:3000"]
+
   # blackbox DNS probes - outside-in checks. Every blackbox_* job probes
   # THROUGH the exporter on 127.0.0.1:9115: the relabeling turns each listed
   # target into the ?target= parameter and keeps it as the instance label.
