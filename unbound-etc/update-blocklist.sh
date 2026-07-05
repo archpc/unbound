@@ -1,4 +1,18 @@
 #!/usr/bin/env bash
+#
+# update-blocklist.sh — download the HaGeZi Multi NORMAL RPZ blocklist,
+# sanity-check it, atomically swap it in, and reload just that zone.
+#
+# Run by:    local.unbound.blocklist LaunchDaemon, daily 03:30, as root.
+# Manual:    sudo /opt/homebrew/etc/unbound/update-blocklist.sh   (safe anytime)
+# Needs:     root (writes unbound-owned zonefile + talks to the control socket).
+# Writes:    /opt/homebrew/etc/unbound/blocklists/hagezi-normal.rpz (+ .bak of
+#            the previous version), success breadcrumb .prom for node_exporter.
+# Logs:      /opt/homebrew/var/log/unbound-blocklist.log (launchd) or stdout.
+# Exit:      0 = updated + reloaded; 1 = bad download / checkconf failure
+#            (auto-rolled-back) — DNS keeps serving the previous list either way.
+# Verify:    dig @127.0.0.1 google-analytics.com  -> NXDOMAIN with 'aa' flag
+#            curl -s localhost:9100/metrics | grep unbound_blocklist_lines
 set -euo pipefail
 
 # HaGeZi "Multi NORMAL" list (upstream file rpz/multi.txt; the Pro tier was rpz/pro.txt)

@@ -219,3 +219,111 @@ sudo DNS_SERVER=192.168.0.100 warmup/warm-unbound-cache.sh  # query via the LAN 
   opened and fails if the generated file doesn't exist yet.
 - `do-ip6: no` and only the Ethernet (`192.168.0.100`) + loopback interfaces are bound intentionally — this
   host has no working public IPv6 route and Wi-Fi/Tailscale interfaces are excluded on purpose.
+
+## When DNS breaks (the 1:37 AM checklist)
+
+Work down this list in order; each step isolates one layer. All commands run **on the mini**.
+
+```sh
+# 1. Is unbound even up and answering?
+dig @127.0.0.1 +time=2 +tries=1 cloudflare.com A | /usr/bin/grep status:
+#    NOERROR -> resolver fine, problem is client-side/DHCP. Stop here.
+#    timeout -> step 2.  SERVFAIL -> step 3.
+
+# 2. Process dead or socket gone?
+ps aux | /usr/bin/grep '[u]nbound'
+launchctl print system/homebrew.mxcl.unbound | /usr/bin/grep -E 'state|last exit'
+#    Not running -> sudo brew services restart unbound, then
+#    sudo ~localadmin/warmup/warm-at-boot.sh. If it crash-loops, check
+#    unbound-checkconf before touching anything else.
+
+# 3. SERVFAIL: upstream path dead, or DNSSEC?
+#    Check Grafana "Upstream path (:53)" stat, or from a shell:
+dig @1.1.1.1 +time=2 +tries=1 cloudflare.com | /usr/bin/grep status:
+#    1.1.1.1 direct FAILS too -> network-path problem (the 2026-07-01 mode).
+#    NOT a resolver bug - do not edit unbound.conf. Check router/modem/ISP.
+#    1.1.1.1 works but unbound SERVFAILs one domain -> likely that domain's
+#    DNSSEC is genuinely broken (verify: does 1.1.1.1 resolve it with +cd?).
+
+# 4. "DNS works but some site is blocked"
+dig @127.0.0.1 thesite.com | /usr/bin/grep -E 'status:|flags:'
+#    NXDOMAIN **with aa flag** = RPZ block -> allowlist procedure below.
+#    NXDOMAIN without aa = the domain really doesn't exist.
+```
+
+Known boot behavior (do not chase at 1:37 AM): after a reboot,
+`launchctl print` shows `runs = 2, last exit code = 1` for unbound
+(opendirectoryd race), prometheus, and grafana (bind before the interface
+has its IP). KeepAlive relaunches all three within ~10s. This is
+self-healing by design; it is only a problem if `runs` keeps climbing.
+
+## Adding / removing / testing block+allow rules
+
+Un-block a domain (the only rule edit you'll routinely make):
+
+```sh
+# 1. confirm it IS an RPZ block (aa + NXDOMAIN):
+dig @127.0.0.1 example.com | /usr/bin/grep -E 'status:|flags:'
+# 2. edit /opt/homebrew/etc/unbound/blocklists/hagezi-allow.rpz — copy the
+#    placeholder pattern (bare name + *.wildcard), and BUMP THE SOA SERIAL.
+# 3. reload just that zone (no cache loss):
+sudo unbound-control auth_zone_reload hagezi.allow
+# 4. verify the unblock took:
+dig @127.0.0.1 example.com | /usr/bin/grep status:     # now NOERROR (or real NXDOMAIN)
+# 5. sync the repo copy on Honk (rsync/scp, never Finder), commit.
+```
+
+Block a domain the list misses: don't edit `hagezi-normal.rpz` (clobbered
+nightly). Add a `local-zone: "domain.com." always_nxdomain` line to
+unbound.conf's server section, `unbound-checkconf`, `sudo unbound-control reload`.
+
+Known test domains (memorize the first one):
+- `google-analytics.com` — must be BLOCKED (NXDOMAIN + `aa`). The canary; blackbox alerts if not.
+- `cloudflare.com` — must resolve NOERROR with `ad` (DNSSEC validated).
+- `dnssec-failed.org` — must SERVFAIL (validation working). If it resolves, DNSSEC is off/broken.
+- `mini.lan` / `router.lan` — must return their static IPs; any other `.lan` name -> NXDOMAIN.
+
+## Monitoring operations
+
+| Service | Restart | Log |
+|---|---|---|
+| unbound | `sudo brew services restart unbound` (drops cache — warm after) | syslog (`log show --predicate 'process == "unbound"' --last 1h`) |
+| prometheus | `sudo launchctl kickstart -k system/local.unbound.prometheus`; config-only reload: `pkill -HUP -f Cellar/prometheus` (no sudo, keeps TSDB hot) | `/opt/homebrew/var/log/prometheus.log` |
+| grafana | `sudo launchctl kickstart -k system/local.unbound.grafana` | `/opt/homebrew/var/log/unbound-grafana-launchd.log` + `/opt/homebrew/var/log/grafana/grafana.log` |
+| node_exporter | `sudo launchctl kickstart -k system/local.unbound.nodeexporter` | `/opt/homebrew/var/log/node_exporter.log` |
+| unbound_exporter | `sudo launchctl kickstart -k system/local.unbound.exporter` | `/opt/homebrew/var/log/unbound-exporter.log` |
+| blackbox | `sudo launchctl kickstart -k system/local.unbound.blackbox` | `/opt/homebrew/var/log/unbound-blackbox.log` |
+| contentcache | runs itself every 5 min; force: `sudo launchctl kickstart system/local.unbound.contentcache` | `/opt/homebrew/var/log/apple-content-cache-exporter.log` |
+
+Job status without sudo: `launchctl print system/local.unbound.<name> | /usr/bin/grep -E 'state|last exit'`.
+Scheduled-job logs: `/opt/homebrew/var/log/unbound-{blocklist,warmlist,warmboot}.log`, `/var/log/unbound-refresh-hints.log`.
+
+After `brew upgrade` of prometheus/grafana: kickstart the daemon onto the
+new binary AND re-run the `socketfilterfw --add/--unblockapp` pair on the
+new **Cellar** path (LAN-facing binaries only; loopback exporters exempt).
+
+Health one-liners:
+```sh
+curl -s 'http://192.168.0.100:9090/api/v1/targets' | /usr/bin/grep -c '"health":"up"'   # expect 8
+curl -s 'http://192.168.0.100:9090/api/v1/alerts'                                       # expect no firing alerts
+curl -s http://127.0.0.1:9100/metrics | /usr/bin/grep node_textfile_scrape_error        # expect 0
+```
+
+## Backup / rollback
+
+- Config bundle (run on the mini): `tar czf ~/unbound-backup-$(date +%Y%m%d-%H%M%S).tar.gz /opt/homebrew/etc/unbound /opt/homebrew/etc/{prometheus,blackbox}* /opt/homebrew/etc/grafana /Library/LaunchDaemons/local.unbound.*.plist 2>/dev/null`
+- The repo IS the restore source: every deployed file is committed here (binaries excepted:
+  `unbound_exporter`/`blackbox_exporter` are rebuilt via `go install`, see launchd bullets).
+- Rolling back a bad change = `git log` -> `git revert <sha>` on Honk -> redeploy that file ->
+  validate (`unbound-checkconf` / `promtool check config` / `plutil -lint`) -> reload the one
+  affected service. The blocklist rolls itself back automatically on a failed update.
+
+## Do not do this unless you mean it
+
+- **Never `brew services start` prometheus/grafana/node_exporter** — creates a second,
+  login-scoped copy fighting the system daemon. They are launchd-managed now.
+- **Never plain `brew services` (without sudo) for unbound** — same duplicate problem, inverted.
+- **Never edit `hagezi-normal.rpz`** — nightly clobber. Allowlist goes in `hagezi-allow.rpz`.
+- **Never reload unbound on an unvalidated config** — it's the only resolver the LAN has.
+- **Never run `tailscale funnel`** — everything here is LAN/tailnet-only by design.
+- **Never Finder-drag into this repo** — it has deleted tracked files twice. rsync/scp only.
