@@ -90,6 +90,45 @@ groups:
         annotations:
           summary: "filesystem {{ $labels.mountpoint }} is over 90% full"
 
+      # Trend-based warning, complementing DiskAlmostFull's instant-percentage
+      # check: fires on WHERE THINGS ARE HEADED, before root actually crosses
+      # 10%. 3d window (not 24h) + a boot-settled gate are load-bearing, not
+      # decoration - verified live 2026-07-06 that a naive 24h-window/no-gate
+      # version predicts -237 GiB in 7d on a 7h-old boot, because the box's
+      # first day of life includes one-time cost (initial blocklist download,
+      # Grafana's first-run plugin installs, pre-compaction TSDB growth) that
+      # a short lookback can't distinguish from a recurring daily drain. count_
+      # over_time requires the window to be genuinely ~70%+ full of real
+      # samples (not just technically present); the boot-settled gate refuses
+      # to trust a week-ahead extrapolation until a full day of steady-state
+      # history exists past the last restart.
+      - alert: RootDiskFreePredictedLow
+        expr: |
+          predict_linear(node_filesystem_avail_bytes{mountpoint="/"}[3d], 7 * 24 * 3600) < 10 * 1024 * 1024 * 1024
+          and count_over_time(node_filesystem_avail_bytes{mountpoint="/"}[3d]) > 12000
+          and (time() - node_boot_time_seconds) > 86400
+        for: 30m
+        labels:
+          severity: warning
+        annotations:
+          summary: "root disk trending below 10 GiB free within 7 days at current rate"
+
+      # Short-horizon companion: 6h window is fine for a 24h reach (verified
+      # live: 64.95 GiB predicted vs the [3d]->7d version's -237 GiB garbage
+      # at the same moment - a week out needs a wider, damped window; a day
+      # out doesn't). Still gated on sample count so a freshly-reset TSDB
+      # (not just a reboot - node_exporter itself restarting) can't trigger it
+      # on a near-empty window.
+      - alert: RootDiskFreePredictedCritical
+        expr: |
+          predict_linear(node_filesystem_avail_bytes{mountpoint="/"}[6h], 24 * 3600) < 5 * 1024 * 1024 * 1024
+          and count_over_time(node_filesystem_avail_bytes{mountpoint="/"}[6h]) > 1000
+        for: 15m
+        labels:
+          severity: critical
+        annotations:
+          summary: "root disk trending below 5 GiB free within 24 hours - act now"
+
   - name: probes
     rules:
       # BOTH public resolvers unreachable on plain :53 from this box - the
