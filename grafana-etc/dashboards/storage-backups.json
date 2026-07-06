@@ -59,8 +59,9 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "1 - (node_filesystem_avail_bytes{mountpoint=\"/\"} / node_filesystem_size_bytes{mountpoint=\"/\"})",
-          "refId": "A"
+          "expr": "max(1 - (node_filesystem_avail_bytes{mountpoint=\"/\"} / node_filesystem_size_bytes{mountpoint=\"/\"}))",
+          "refId": "A",
+          "legendFormat": "Root used"
         }
       ],
       "title": "Root volume used",
@@ -114,8 +115,9 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "node_filesystem_avail_bytes{mountpoint=\"/\"}",
-          "refId": "A"
+          "expr": "min(node_filesystem_avail_bytes{mountpoint=\"/\"})",
+          "refId": "A",
+          "legendFormat": "Root free"
         }
       ],
       "title": "Root volume free",
@@ -413,8 +415,9 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "clamp_min(predict_linear(node_filesystem_avail_bytes{mountpoint=\"/\"}[6h], 86400), 0) and count_over_time(node_filesystem_avail_bytes{mountpoint=\"/\"}[6h]) > 1000",
-          "refId": "A"
+          "expr": "min(clamp_min(predict_linear(node_filesystem_avail_bytes{mountpoint=\"/\"}[6h], 86400), 0)) and max(count_over_time(node_filesystem_avail_bytes{mountpoint=\"/\"}[6h])) > 1000",
+          "refId": "A",
+          "legendFormat": "Predicted free 24h"
         }
       ],
       "title": "Root free predicted in 24h",
@@ -473,8 +476,9 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "clamp_min(predict_linear(node_filesystem_avail_bytes{mountpoint=\"/\"}[3d], 7 * 24 * 3600), 0) and count_over_time(node_filesystem_avail_bytes{mountpoint=\"/\"}[3d]) > 12000 and (time() - node_boot_time_seconds) > 86400",
-          "refId": "A"
+          "expr": "min(clamp_min(predict_linear(node_filesystem_avail_bytes{mountpoint=\"/\"}[3d], 7 * 24 * 3600), 0)) and max(count_over_time(node_filesystem_avail_bytes{mountpoint=\"/\"}[3d])) > 12000 and max(time() - node_boot_time_seconds) > 86400",
+          "refId": "A",
+          "legendFormat": "Predicted free 7d"
         }
       ],
       "title": "Root free predicted in 7d",
@@ -533,8 +537,9 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "-deriv(node_filesystem_avail_bytes{mountpoint=\"/\"}[6h]) * 86400 / 1024 / 1024 / 1024",
-          "refId": "A"
+          "expr": "max(-deriv(node_filesystem_avail_bytes{mountpoint=\"/\"}[6h]) * 86400 / 1024 / 1024 / 1024)",
+          "refId": "A",
+          "legendFormat": "Burn rate"
         }
       ],
       "title": "Root disk burn rate (GiB/day)",
@@ -593,8 +598,9 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "(node_filesystem_avail_bytes{mountpoint=\"/\"} / clamp_min(-deriv(node_filesystem_avail_bytes{mountpoint=\"/\"}[6h]), 1) / 86400) and (-deriv(node_filesystem_avail_bytes{mountpoint=\"/\"}[6h]) > 1000) and count_over_time(node_filesystem_avail_bytes{mountpoint=\"/\"}[6h]) > 1000",
-          "refId": "A"
+          "expr": "min(node_filesystem_avail_bytes{mountpoint=\"/\"} / clamp_min(-deriv(node_filesystem_avail_bytes{mountpoint=\"/\"}[6h]), 1) / 86400) and max(-deriv(node_filesystem_avail_bytes{mountpoint=\"/\"}[6h])) > 1000 and max(count_over_time(node_filesystem_avail_bytes{mountpoint=\"/\"}[6h])) > 1000",
+          "refId": "A",
+          "legendFormat": "Days until full"
         }
       ],
       "title": "Root days until full",
