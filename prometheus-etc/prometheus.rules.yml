@@ -68,6 +68,14 @@ groups:
         annotations:
           summary: "node_exporter textfile collector failed to parse a .prom file"
 
+      # The alert NOTIFIER going stale is the one alert that can't reach your
+      # phone (it's the thing that pushes) - it only shows here and on the
+      # dashboard. Runs every 120s; 600s = five missed runs.
+      - alert: AlertNotifierStale
+        expr: time() - unbound_job_last_success_timestamp_seconds{task="alertnotify"} > 600
+        annotations:
+          summary: "prometheus_alert_notifier.py hasn't succeeded in >10m - phone pushes are dead"
+
   - name: host
     rules:
       # The TSDB, logs, and Time Machine target all live on this box - catch

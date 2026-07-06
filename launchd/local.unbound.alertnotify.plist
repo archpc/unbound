@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!-- System daemon (auto-login is OFF; user agents don't start on
+         unattended reboot - same rationale as every other job here).
+         UserName keeps it unprivileged: it only reads the Prometheus API
+         and POSTs to ntfy. Needs sudo to install; see CLAUDE.md. -->
+    <key>Label</key>
+    <string>local.unbound.alertnotify</string>
+    <key>UserName</key>
+    <string>localadmin</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/usr/bin/python3</string>
+        <string>/Users/localadmin/monitoring/prometheus_alert_notifier.py</string>
+    </array>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>StartInterval</key>
+    <integer>120</integer>
+    <key>StandardErrorPath</key>
+    <string>/opt/homebrew/var/log/unbound-alertnotify.log</string>
+    <key>StandardOutPath</key>
+    <string>/opt/homebrew/var/log/unbound-alertnotify.log</string>
+</dict>
+</plist>

@@ -98,6 +98,17 @@ config/scripts in place and reloading the live `unbound` process.
     `brew upgrade` of any of them: `sudo launchctl kickstart -k system/local.unbound.<name>` to
     restart onto the new binary — and for grafana/prometheus re-run the `socketfilterfw` allow
     (new Cellar path).
+  - `local.unbound.alertnotify.plist` — runs
+    [scripts/prometheus_alert_notifier.py](scripts/prometheus_alert_notifier.py) **every 120s**
+    as `localadmin`, logging to `/opt/homebrew/var/log/unbound-alertnotify.log`. Polls
+    Prometheus `/api/v1/alerts` and pushes newly-firing alerts (priority high) and resolutions
+    (priority default) to ntfy.sh — the deliberate lightweight alternative to Alertmanager+bridge
+    (two extra daemons for grouping/silencing features 17 rules don't need). The topic name lives
+    ONLY in `~localadmin/monitoring/ntfy.topic` (mode 600) — it is the only auth ntfy has, treat
+    it like a password, never commit it. Subscribe the phone app to that topic. State in
+    `~/monitoring/state/notified-alerts.json` (reboot wipes it → still-firing alerts re-announce
+    once, intentionally). Known gap: a dead notifier can't push its own death —
+    `AlertNotifierStale` shows on the dashboard/alerts page only.
   - `local.unbound.contentcache.plist` — runs
     [scripts/apple_content_cache_exporter.py](scripts/apple_content_cache_exporter.py) every
     5 minutes, parsing `AssetCacheManagerUtil status` (no privilege needed for the read) into a
@@ -297,6 +308,15 @@ Known test domains (memorize the first one):
 
 Job status without sudo: `launchctl print system/local.unbound.<name> | /usr/bin/grep -E 'state|last exit'`.
 Scheduled-job logs: `/opt/homebrew/var/log/unbound-{blocklist,warmlist,warmboot}.log`, `/var/log/unbound-refresh-hints.log`.
+
+Log rotation: [etc-newsyslog.d/unbound-monitoring.conf](etc-newsyslog.d/unbound-monitoring.conf)
+(deployed at `/etc/newsyslog.d/`) rotates the scheduled-job logs at 1 MB, 5 gzipped
+generations; macOS's built-in newsyslog run (every 30 min) does the work. Daemon-held logs
+are deliberately excluded — see the comments in that file. Dry-run test:
+`sudo newsyslog -nv -f /etc/newsyslog.d/unbound-monitoring.conf`.
+
+Phone alerts: firing Prometheus alerts push to ntfy (see the `alertnotify` launchd bullet).
+Test the channel: `curl -H "Title: test" -d "hello" https://ntfy.sh/$(cat ~localadmin/monitoring/ntfy.topic)`.
 
 After `brew upgrade` of prometheus/grafana: kickstart the daemon onto the
 new binary AND re-run the `socketfilterfw --add/--unblockapp` pair on the
