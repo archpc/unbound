@@ -927,7 +927,8 @@
         }
       ],
       "title": "Counter Age / Since Reset",
-      "type": "stat"
+      "type": "stat",
+      "description": "How long the TotalBytes* counters have been accumulating (AssetCacheManagerUtil resets them when the service restarts). Sanity-check the 24h panels against this: if age < 24h, those panels cover less history than their title implies."
     },
     {
       "datasource": {
@@ -1067,7 +1068,8 @@
         }
       ],
       "title": "Local Serving Ratio / WAN Savings (24h)",
-      "type": "timeseries"
+      "type": "timeseries",
+      "description": "Capped at 100%: early in Prometheus history the 24h increase() denominator is tiny and the raw ratio explodes. ~0.2-0.3 is normal for a young cache; it climbs as devices re-fetch shared content. Low is not an error - it may just mean no repeat Apple traffic."
     }
   ],
   "refresh": "1m",
@@ -1089,6 +1091,6 @@
   "timezone": "browser",
   "title": "Apple Content Cache",
   "uid": "apple-content-cache",
-  "version": 3,
+  "version": 4,
   "weekStart": ""
 }

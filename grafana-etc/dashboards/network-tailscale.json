@@ -155,13 +155,14 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum by (device) (rate(node_network_receive_bytes_total{device!~\"lo0|utun.*|awdl.*|llw.*\"}[5m]))",
+          "expr": "sum by (device) (rate(node_network_receive_bytes_total{device!~\"lo0|utun.*|awdl.*|llw.*\"}[5m])) > 0",
           "refId": "A",
           "legendFormat": "{{device}}"
         }
       ],
       "title": "Receive by device (physical-ish)",
-      "type": "timeseries"
+      "type": "timeseries",
+      "description": "Devices with zero traffic in the window are hidden (> 0 filter) - macOS exposes ~15 permanently-idle interfaces (anpi*, en1-7, gif0...) that would otherwise bury en0 in legend noise."
     },
     {
       "datasource": {
@@ -201,13 +202,14 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum by (device) (rate(node_network_transmit_bytes_total{device!~\"lo0|utun.*|awdl.*|llw.*\"}[5m]))",
+          "expr": "sum by (device) (rate(node_network_transmit_bytes_total{device!~\"lo0|utun.*|awdl.*|llw.*\"}[5m])) > 0",
           "refId": "A",
           "legendFormat": "{{device}}"
         }
       ],
       "title": "Transmit by device (physical-ish)",
-      "type": "timeseries"
+      "type": "timeseries",
+      "description": "Devices with zero traffic in the window are hidden (> 0 filter) - macOS exposes ~15 permanently-idle interfaces (anpi*, en1-7, gif0...) that would otherwise bury en0 in legend noise."
     },
     {
       "datasource": {
@@ -330,6 +332,6 @@
   "timezone": "browser",
   "title": "Network / Tailscale",
   "uid": "network-tailscale",
-  "version": 1,
+  "version": 2,
   "weekStart": ""
 }

@@ -293,7 +293,8 @@
         }
       ],
       "title": "RPZ canary (google-analytics.com)",
-      "type": "stat"
+      "type": "stat",
+      "description": "Green BLOCKING = the canary domain returns NXDOMAIN through the full RPZ path (allowlist evaluated first, blocklist forced-nxdomain). NOT BLOCKING for 30m fires RPZCanaryNotBlocking - usually a bad nightly blocklist update or zone misload."
     },
     {
       "datasource": {
@@ -580,7 +581,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum(rate(unbound_cache_hits_total[5m])) / clamp_min(sum(rate(unbound_cache_hits_total[5m])) + sum(rate(unbound_cache_misses_total[5m])), 1)",
+          "expr": "sum(rate(unbound_cache_hits_total[5m])) / clamp_min(sum(rate(unbound_cache_hits_total[5m])) + sum(rate(unbound_cache_misses_total[5m])), 1) and (sum(rate(unbound_cache_hits_total[5m])) + sum(rate(unbound_cache_misses_total[5m]))) > 0",
           "refId": "A",
           "legendFormat": "cache hit rate"
         },
@@ -589,13 +590,14 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum(rate(unbound_rpz_action_count[5m])) / clamp_min(sum(rate(unbound_queries_total[5m])), 1)",
+          "expr": "sum(rate(unbound_rpz_action_count[5m])) / clamp_min(sum(rate(unbound_queries_total[5m])), 1) and sum(rate(unbound_queries_total[5m])) > 0",
           "refId": "B",
           "legendFormat": "blocked fraction"
         }
       ],
       "title": "Cache hit rate and blocked fraction",
-      "type": "timeseries"
+      "type": "timeseries",
+      "description": "Gaps = no traffic in the window (idle LAN), not a broken cache. Healthy steady-state hit rate on this network: ~80-90%. Sustained <50% under real load fires UnboundCacheHitRateLow."
     },
     {
       "datasource": {
@@ -1148,7 +1150,8 @@
         }
       ],
       "title": "Requestlist depth (Jul-1 tripwire - should hug zero)",
-      "type": "timeseries"
+      "type": "timeseries",
+      "description": "Queries parked waiting on upstream recursion. Hugs zero on a healthy resolver. A sustained climb is THE early signature of a dead upstream path (2026-07-01 incident) while serve-expired masks it from clients."
     },
     {
       "datasource": {
@@ -1261,8 +1264,9 @@
           "refId": "A"
         }
       ],
-      "title": "Unwanted replies (poisoning tripwire)",
-      "type": "stat"
+      "title": "Unwanted replies (since unbound start)",
+      "type": "stat",
+      "description": "Lifetime count since the unbound process started - resets to 0 on restart, so a low number after a reboot is meaningless. The config tripwire (unwanted-reply-threshold) trips at 10M and flushes defensively. Anything past a few thousand deserves a look."
     },
     {
       "datasource": {
@@ -1367,6 +1371,6 @@
   "timezone": "browser",
   "title": "Unbound DNS",
   "uid": "unbound-dns",
-  "version": 5,
+  "version": 6,
   "weekStart": ""
 }
