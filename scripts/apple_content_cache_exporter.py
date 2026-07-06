@@ -220,10 +220,14 @@ def build_metrics(top, cache_details, now=None):
     since_raw = top.get("TotalBytesAreSince")
     is_counter = since_raw is not None
     suffix = "_total" if is_counter else ""
-    reason = ("TotalBytesAreSince present -> treating as a cumulative counter reset epoch"
-              if is_counter else
-              "TotalBytesAreSince absent -> could not confirm counter semantics; using gauge naming")
-    warnings.append(f"ReturnedToClients/StoredFromOrigin: {reason}")
+    # Only warn on the UNEXPECTED path (gauge fallback). The counter case is
+    # this exporter's documented normal behavior - warning about it on every
+    # scheduled run just fills the launchd log with identical noise
+    # (~288 lines/day at a 300s interval).
+    if not is_counter:
+        warnings.append("ReturnedToClients/StoredFromOrigin: TotalBytesAreSince absent -> "
+                        "could not confirm counter semantics; using gauge naming (no _total, "
+                        "and Grafana increase() panels will be wrong until this is resolved)")
 
     want("TotalBytesReturnedToClients", parse_size_to_bytes,
          f"apple_content_cache_returned_to_clients_bytes{suffix}",
