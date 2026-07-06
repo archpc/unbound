@@ -304,7 +304,8 @@ new **Cellar** path (LAN-facing binaries only; loopback exporters exempt).
 
 Health one-liners:
 ```sh
-curl -s 'http://192.168.0.100:9090/api/v1/targets' | /usr/bin/grep -c '"health":"up"'   # expect 8
+curl -s 'http://192.168.0.100:9090/api/v1/targets' | /usr/bin/grep -o '"health":"up"' | wc -l   # expect 8
+#  (-o then wc, NOT grep -c: the API returns single-line JSON, so -c always says 1)
 curl -s 'http://192.168.0.100:9090/api/v1/alerts'                                       # expect no firing alerts
 curl -s http://127.0.0.1:9100/metrics | /usr/bin/grep node_textfile_scrape_error        # expect 0
 ```
