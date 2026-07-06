@@ -136,7 +136,7 @@ config/scripts in place and reloading the live `unbound` process.
     every 15s. Validate with `promtool check config` before restarting the service.
   - `prometheus.args` → `/opt/homebrew/etc/prometheus.args` — Homebrew's service wrapper
     word-splits this file into CLI flags, so it must contain **flags only, no comments**:
-    UI bound to `192.168.0.100:9090` (LAN-only, same discipline as unbound's interfaces),
+    UI listens on `0.0.0.0:9090`; local automation uses `127.0.0.1:9090`, LAN access uses `192.168.0.100:9090`,
     90-day retention, TSDB at `/opt/homebrew/var/prometheus`.
   - `prometheus.rules.yml` → `/opt/homebrew/etc/prometheus.rules.yml` — alert rules shown at
     `/alerts` in the UI (no Alertmanager, so nothing pages; they're dashboard tripwires).
@@ -324,9 +324,9 @@ new **Cellar** path (LAN-facing binaries only; loopback exporters exempt).
 
 Health one-liners:
 ```sh
-curl -s 'http://192.168.0.100:9090/api/v1/targets' | /usr/bin/grep -o '"health":"up"' | wc -l   # expect 8
+curl -s 'http://127.0.0.1:9090/api/v1/targets' | /usr/bin/grep -o '"health":"up"' | wc -l   # expect 8
 #  (-o then wc, NOT grep -c: the API returns single-line JSON, so -c always says 1)
-curl -s 'http://192.168.0.100:9090/api/v1/alerts'                                       # expect no firing alerts
+curl -s 'http://127.0.0.1:9090/api/v1/alerts'                                       # expect no firing alerts
 curl -s http://127.0.0.1:9100/metrics | /usr/bin/grep node_textfile_scrape_error        # expect 0
 ```
 

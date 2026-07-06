@@ -1,4 +1,4 @@
 --config.file /opt/homebrew/etc/prometheus.yml
---web.listen-address=192.168.0.100:9090
+--web.listen-address=0.0.0.0:9090
 --storage.tsdb.path /opt/homebrew/var/prometheus
 --storage.tsdb.retention.time=90d

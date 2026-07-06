@@ -35,7 +35,7 @@ import time
 import urllib.error
 import urllib.request
 
-PROMETHEUS_ALERTS_URL = "http://192.168.0.100:9090/api/v1/alerts"
+PROMETHEUS_ALERTS_URL = "http://127.0.0.1:9090/api/v1/alerts"
 NTFY_SERVER = "https://ntfy.sh"
 HOME = os.path.expanduser("~")
 TOPIC_FILE = os.path.join(HOME, "monitoring", "ntfy.topic")
