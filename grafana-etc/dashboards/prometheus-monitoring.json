@@ -461,7 +461,17 @@
         }
       ],
       "title": "Rule group evaluation duration",
-      "type": "timeseries"
+      "type": "timeseries",
+      "transformations": [
+        {
+          "id": "renameByRegex",
+          "options": {
+            "regexp": ".*;(.*)",
+            "renamePattern": "$1"
+          }
+        }
+      ],
+      "description": "Prometheus labels rule_group as \"<rules-file-path>;<group-name>\" - stripped to just the group name via a rename transform. Sub-2ms across all four groups is healthy; a sustained climb toward the 15s evaluation_interval would mean rules are falling behind."
     }
   ],
   "refresh": "30s",
@@ -483,6 +493,6 @@
   "timezone": "browser",
   "title": "Prometheus / Monitoring",
   "uid": "prometheus-monitoring",
-  "version": 1,
+  "version": 2,
   "weekStart": ""
 }
