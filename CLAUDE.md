@@ -136,8 +136,10 @@ config/scripts in place and reloading the live `unbound` process.
     every 15s. Validate with `promtool check config` before restarting the service.
   - `prometheus.args` → `/opt/homebrew/etc/prometheus.args` — Homebrew's service wrapper
     word-splits this file into CLI flags, so it must contain **flags only, no comments**:
-    UI listens on `0.0.0.0:9090`; local automation uses `127.0.0.1:9090`, LAN access uses `192.168.0.100:9090`,
-    90-day retention, TSDB at `/opt/homebrew/var/prometheus`.
+    UI bound explicitly to both `127.0.0.1:9090` (local automation) and `192.168.0.100:9090`
+    (LAN access) via two repeated `--web.listen-address` flags — not `0.0.0.0`, same
+    explicit-interface discipline as unbound's own binding (Wi-Fi/Tailscale excluded on
+    purpose), 90-day retention, TSDB at `/opt/homebrew/var/prometheus`.
   - `prometheus.rules.yml` → `/opt/homebrew/etc/prometheus.rules.yml` — alert rules shown at
     `/alerts` in the UI (no Alertmanager, so nothing pages; they're dashboard tripwires).
     Includes a jammed-requestlist rule — the signature that would have surfaced the
