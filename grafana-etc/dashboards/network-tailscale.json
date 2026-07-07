@@ -114,7 +114,7 @@
           "legendFormat": "{{device}} tx"
         }
       ],
-      "description": "macOS creates a utun interface per network extension (Tailscale, iCloud Private Relay, content/Screen-Time filters, VPN-on-demand), not just Tailscale - and their numbering is not stable across reboots. node_exporter has no way to label which is which, so the '> 0' filter drops the always-idle ones and draws only the utun actually carrying tunnel traffic (Tailscale). No Tailscale-native metrics exist yet; this is node_exporter's per-interface byte counters as a proxy.",
+      "description": "macOS creates a utun interface per network extension (Tailscale, iCloud Private Relay, content/Screen-Time filters, VPN-on-demand), not just Tailscale - and their numbering is not stable across reboots. node_exporter can't label which is which, so the '> 0' filter drops the always-idle ones and draws only the utun carrying tunnel traffic. To identify Tailscale's utun by hand, look at ROUTES, not the count: `netstat -rn -f inet | grep utun` - Tailscale's owns 100.64/10 (tailnet CGNAT) and 100.100.100.100 (MagicDNS); `netstat -rn -f inet6` shows it owns fd7a:115c:a1e0::/48; and `scutil --nwi` lists only en0 + Tailscale's utun as active. Apple's internal utuns carry only fe80:: link-local + ff00:: multicast. No Tailscale-native metrics exist yet; this is node_exporter's per-interface byte counters as a proxy.",
       "title": "Tailscale tunnel throughput (utun*)",
       "type": "timeseries"
     },
