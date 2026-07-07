@@ -100,7 +100,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum by (device) (rate(node_network_receive_bytes_total{device=~\"utun.*\"}[5m]))",
+          "expr": "sum by (device) (rate(node_network_receive_bytes_total{device=~\"utun.*\"}[5m])) > 0",
           "refId": "A",
           "legendFormat": "{{device}} rx"
         },
@@ -109,11 +109,12 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum by (device) (rate(node_network_transmit_bytes_total{device=~\"utun.*\"}[5m]))",
+          "expr": "sum by (device) (rate(node_network_transmit_bytes_total{device=~\"utun.*\"}[5m])) > 0",
           "refId": "B",
           "legendFormat": "{{device}} tx"
         }
       ],
+      "description": "macOS creates a utun interface per network extension (Tailscale, iCloud Private Relay, content/Screen-Time filters, VPN-on-demand), not just Tailscale - and their numbering is not stable across reboots. node_exporter has no way to label which is which, so the '> 0' filter drops the always-idle ones and draws only the utun actually carrying tunnel traffic (Tailscale). No Tailscale-native metrics exist yet; this is node_exporter's per-interface byte counters as a proxy.",
       "title": "Tailscale tunnel throughput (utun*)",
       "type": "timeseries"
     },
