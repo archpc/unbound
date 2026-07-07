@@ -344,6 +344,40 @@ curl -s http://127.0.0.1:9100/metrics | /usr/bin/grep node_textfile_scrape_error
   validate (`unbound-checkconf` / `promtool check config` / `plutil -lint`) -> reload the one
   affected service. The blocklist rolls itself back automatically on a failed update.
 
+## Remote access / attack surface
+
+Access this box over **SSH** (LAN `192.168.0.100` or the tailnet) or, occasionally,
+**Screen Sharing**. The macOS Application Firewall is enabled (see the socketfilterfw
+gotcha under monitoring). On 2026-07-07 three unused inbound services were shut off to
+shrink the surface — all had been listening on `*` (LAN + tailnet):
+
+- **SMB file sharing (`:445`)** — was on but shared nothing (`sharing -l` empty).
+  Disabled: `sudo launchctl disable system/com.apple.smbd` (+ `bootout`).
+- **Screen Sharing (`:5900`)** — rarely used, so kept off by default and flipped on
+  on-demand (below) rather than left listening. Disabled the same way
+  (`system/com.apple.screensharing`).
+- **Local Kerberos KDC (`:88`)** — the machine's LKDC (realm `LKDC:SHA1.…`), which exists
+  only to back Kerberos SSO for those sharing services. With both off it has nothing to
+  serve, so disabled too (`system/com.apple.Kerberos.kdc`).
+
+These are `launchctl disable` (persists across reboots via the override DB; works under
+SIP). Re-enable any with `sudo launchctl enable system/<label>` + a reboot or `bootstrap`.
+**Don't `kill` the PIDs** — launchd relaunches them; disable the job instead. The
+`RemoteManagement.framework`/`remotemanagementd` fleet also seen running is the macOS
+baseline Declarative-Management subsystem — this box is **not** MDM-enrolled
+(`profiles status -type enrollment` → No), it exposes no port, leave it alone.
+
+On-demand Screen Sharing (deployed to `/usr/local/sbin/`, need sudo — same root-owned
+dir as `unbound-refresh-hints`; install with `sudo cp` + `sudo chmod 755`):
+- [usr-local-sbin/screenshare-on](usr-local-sbin/screenshare-on) — `sudo screenshare-on`
+  enables `com.apple.screensharing` and confirms `:5900` is listening.
+- [usr-local-sbin/screenshare-off](usr-local-sbin/screenshare-off) — `sudo screenshare-off`
+  disables it again and confirms `:5900` is closed. Run it when done.
+
+With the KDC off, Screen Sharing authenticates by password rather than Kerberos SSO —
+which is how a remote VNC login works anyway. To audit the live surface:
+`sudo lsof -nP -iTCP -sTCP:LISTEN` (non-root lsof can't see root-owned `:22`/`:53`).
+
 ## Do not do this unless you mean it
 
 - **Never `brew services start` prometheus/grafana/node_exporter** — creates a second,
