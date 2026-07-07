@@ -25,3 +25,8 @@ warmup/dns-warm-domains.personal.txt
 # one-off backup/debug archives dropped into the repo dir — never commit
 *.tar.gz
 *.zip
+
+# Python bytecode cache, created when scripts/*.py are imported (e.g. running
+# the exporter's unit tests or importing a module) — machine-generated, never commit
+__pycache__/
+*.pyc
