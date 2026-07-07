@@ -2,7 +2,7 @@
   "annotations": {
     "list": []
   },
-  "editable": true,
+  "editable": false,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 1,
   "links": [],
@@ -480,6 +480,7 @@
     "prometheus",
     "monitoring",
     "grafana",
+    "mac-mini",
     "homelab"
   ],
   "templating": {
@@ -493,6 +494,6 @@
   "timezone": "browser",
   "title": "Prometheus / Monitoring",
   "uid": "prometheus-monitoring",
-  "version": 2,
+  "version": 3,
   "weekStart": ""
 }

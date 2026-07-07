@@ -2,7 +2,7 @@
   "annotations": {
     "list": []
   },
-  "editable": true,
+  "editable": false,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 1,
   "links": [],
@@ -509,6 +509,6 @@
   "timezone": "browser",
   "title": "Services",
   "uid": "services",
-  "version": 1,
+  "version": 2,
   "weekStart": ""
 }

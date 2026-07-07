@@ -2,7 +2,7 @@
   "annotations": {
     "list": []
   },
-  "editable": true,
+  "editable": false,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 1,
   "links": [],
@@ -31,7 +31,9 @@
                 "value": 0.9
               }
             ]
-          }
+          },
+          "min": 0,
+          "max": 1
         },
         "overrides": []
       },
@@ -628,6 +630,6 @@
   "timezone": "browser",
   "title": "Storage / Backups",
   "uid": "storage-backups",
-  "version": 2,
+  "version": 3,
   "weekStart": ""
 }

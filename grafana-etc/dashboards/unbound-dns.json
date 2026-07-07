@@ -2,7 +2,7 @@
   "annotations": {
     "list": []
   },
-  "editable": true,
+  "editable": false,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 1,
   "links": [],
@@ -303,7 +303,11 @@
       },
       "fieldConfig": {
         "defaults": {
-          "unit": "short"
+          "unit": "short",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "text"
+          }
         },
         "overrides": []
       },
@@ -345,7 +349,11 @@
       },
       "fieldConfig": {
         "defaults": {
-          "unit": "short"
+          "unit": "short",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "text"
+          }
         },
         "overrides": []
       },
@@ -1275,7 +1283,11 @@
       },
       "fieldConfig": {
         "defaults": {
-          "unit": "short"
+          "unit": "short",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "text"
+          }
         },
         "overrides": []
       },
@@ -1317,7 +1329,11 @@
       },
       "fieldConfig": {
         "defaults": {
-          "unit": "short"
+          "unit": "short",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "text"
+          }
         },
         "overrides": []
       },
@@ -1358,6 +1374,7 @@
   "tags": [
     "unbound",
     "dns",
+    "mac-mini",
     "homelab"
   ],
   "templating": {
@@ -1371,6 +1388,6 @@
   "timezone": "browser",
   "title": "Unbound DNS",
   "uid": "unbound-dns",
-  "version": 6,
+  "version": 7,
   "weekStart": ""
 }
