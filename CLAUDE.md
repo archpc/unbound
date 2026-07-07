@@ -10,6 +10,10 @@ plus loopback, with DNSSEC validation, ad/tracker blocking via RPZ, and a home `
 an application codebase — there is no build, lint, or test suite. Changes here take effect by editing
 config/scripts in place and reloading the live `unbound` process.
 
+For a human, task-oriented operator guide (how to log in, health-check, unblock a site,
+recover from an outage), see [RUNBOOK.md](RUNBOOK.md). This file is the deep technical
+reference behind it.
+
 ## Layout
 
 - [unbound-etc/unbound.conf](unbound-etc/unbound.conf) — a **snapshot** of
