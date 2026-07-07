@@ -157,12 +157,18 @@ echo "use it:  sudo $script_dir/warm-unbound-cache.sh \"$OUT\""
 METRICS_DIR="/opt/homebrew/var/lib/node_exporter/textfile"
 mkdir -p "$METRICS_DIR" 2>/dev/null || true
 if [ -w "$METRICS_DIR" ]; then
+    tmp="$METRICS_DIR/unbound-warmlist.prom.$$"
+    # Clean our own temp on any exit; a run killed between the write and the mv
+    # otherwise leaves an orphan .prom.<pid> forever (node_exporter globs only
+    # *.prom so it's inert, but it's litter). Also sweep any pre-existing orphans.
+    trap 'rm -f "$tmp"' EXIT
+    rm -f "$METRICS_DIR"/unbound-warmlist.prom.[0-9]* 2>/dev/null || true
     {
         echo '# TYPE unbound_job_last_success_timestamp_seconds gauge'
         printf 'unbound_job_last_success_timestamp_seconds{task="warmlist"} %s\n' "$(date +%s)"
         echo '# TYPE unbound_warmlist_domains gauge'
         printf 'unbound_warmlist_domains{kind="personal"} %s\n' "$personal"
         printf 'unbound_warmlist_domains{kind="popular"} %s\n' "$((count - personal))"
-    } > "$METRICS_DIR/unbound-warmlist.prom.$$" \
-      && mv "$METRICS_DIR/unbound-warmlist.prom.$$" "$METRICS_DIR/unbound-warmlist.prom"
+    } > "$tmp" \
+      && mv "$tmp" "$METRICS_DIR/unbound-warmlist.prom"
 fi
