@@ -170,8 +170,10 @@ reference behind it.
   defaults; telemetry/update-checks off). The Prometheus datasource and all dashboards are
   file-provisioned from [dashboards/](grafana-etc/dashboards/) — the JSON files are the source
   of truth (regenerable via a script; UI edits do **not** write back, so export + re-snapshot
-  here if a dashboard is changed interactively). The suite is split by question, not one
-  junk-drawer board:
+  here if a dashboard is changed interactively — and every board sets `editable: false` to
+  block that footgun). The editing conventions (units-per-use, threshold/color rules, tags,
+  refresh cadence, per-dashboard admission rules) are codified in [DASHBOARDS.md](DASHBOARDS.md).
+  The suite is split by question, not one junk-drawer board:
   - `unbound-dns.json` — DNS resolver behavior only ("is DNS broken, and where?")
   - `system-stats.json` — host health: CPU, memory, load, swap, uptime
   - `services.json` — scrape-target health + the automation-job breadcrumb ages
