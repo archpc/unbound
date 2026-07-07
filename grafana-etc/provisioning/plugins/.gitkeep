@@ -1,0 +1,5 @@
+# Intentionally empty. Grafana scans provisioning/plugins/ on every provision
+# cycle and logs a level=error if the directory is absent:
+#   "Failed to read plugin provisioning files from directory ... no such file"
+# We provision no plugins, but the directory must exist to keep that error out
+# of the logs. Deployed to /opt/homebrew/etc/grafana/provisioning/plugins/.
