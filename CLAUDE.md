@@ -368,11 +368,16 @@ baseline Declarative-Management subsystem — this box is **not** MDM-enrolled
 (`profiles status -type enrollment` → No), it exposes no port, leave it alone.
 
 On-demand Screen Sharing (deployed to `/usr/local/sbin/`, need sudo — same root-owned
-dir as `unbound-refresh-hints`; install with `sudo cp` + `sudo chmod 755`):
-- [usr-local-sbin/screenshare-on](usr-local-sbin/screenshare-on) — `sudo screenshare-on`
-  enables `com.apple.screensharing` and confirms `:5900` is listening.
-- [usr-local-sbin/screenshare-off](usr-local-sbin/screenshare-off) — `sudo screenshare-off`
-  disables it again and confirms `:5900` is closed. Run it when done.
+dir as `unbound-refresh-hints`; install with
+`sudo install -m 755 /tmp/screenshare-* /usr/local/sbin/`). **Invoke by full path:**
+`sudo`'s `secure_path` does not include `/usr/local/sbin`, so `sudo screenshare-on`
+gives "command not found" — use `sudo /usr/local/sbin/screenshare-on`.
+- [usr-local-sbin/screenshare-on](usr-local-sbin/screenshare-on) —
+  `sudo /usr/local/sbin/screenshare-on` enables `com.apple.screensharing` and confirms
+  `:5900` is listening.
+- [usr-local-sbin/screenshare-off](usr-local-sbin/screenshare-off) —
+  `sudo /usr/local/sbin/screenshare-off` disables it again and confirms `:5900` is
+  closed. Run it when done.
 
 With the KDC off, Screen Sharing authenticates by password rather than Kerberos SSO —
 which is how a remote VNC login works anyway. To audit the live surface:

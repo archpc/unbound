@@ -25,7 +25,7 @@ launchctl bootstrap system "$PLIST" 2>/dev/null || true
 sleep 1
 
 if lsof -nP -iTCP:5900 -sTCP:LISTEN >/dev/null 2>&1; then
-    echo "Screen Sharing ON — listening on :5900. Run 'sudo screenshare-off' when done."
+    echo "Screen Sharing ON — listening on :5900. Close it with: sudo /usr/local/sbin/screenshare-off"
 else
     echo "screenshare-on: job enabled but :5900 is not listening yet." >&2
     echo "  re-check: sudo lsof -nP -iTCP:5900 -sTCP:LISTEN" >&2
