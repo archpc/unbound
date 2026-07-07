@@ -30,3 +30,8 @@ warmup/dns-warm-domains.personal.txt
 # the exporter's unit tests or importing a module) — machine-generated, never commit
 __pycache__/
 *.pyc
+
+# generated from DISASTER-RECOVERY.md via scripts/render-disaster-recovery-pdf.py —
+# the Markdown is the source of truth, regenerate the PDF anytime, never commit the binary
+DISASTER-RECOVERY.pdf
+scripts/.dr-render-tmp.html
