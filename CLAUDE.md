@@ -113,12 +113,15 @@ config/scripts in place and reloading the live `unbound` process.
     [scripts/apple_content_cache_exporter.py](scripts/apple_content_cache_exporter.py) every
     5 minutes, parsing `AssetCacheManagerUtil status` (no privilege needed for the read) into a
     node_exporter textfile at `/opt/homebrew/var/lib/node_exporter/textfile/apple-content-cache.prom`.
-    **Not yet installed** (2026-07-04): this box has auto-login off and no active GUI session, so
-    neither `launchctl bootstrap gui/<uid>` nor `user/<uid>` can load a per-user job over SSH
-    (confirmed live) — it has to be a `UserName localadmin` system daemon like the others, which
-    needs `sudo` to install. It also needs a one-time `sudo chmod g+w` on the textfile directory
-    (root:admin 755 — localadmin is in the `admin` group but the dir isn't group-writable yet).
-    Both are one-time manual steps; see the script's module docstring for the exact commands.
+    **Installed and running** as a `UserName localadmin` system daemon (verified live
+    2026-07-07: `runs`>0, breadcrumb fresh, `apple-content-cache.prom` rewritten every 5 min).
+    It is a system daemon rather than a per-user agent because this box has auto-login off and
+    no active GUI session, so neither `launchctl bootstrap gui/<uid>` nor `user/<uid>` can load
+    a per-user job over SSH (confirmed live) — same reason as prometheus/grafana/node_exporter.
+    Two one-time steps were needed at install (kept here for disaster recovery): `sudo` to
+    bootstrap the daemon, and a one-time `sudo chmod g+w` on the textfile directory (it ships
+    root:admin 755 — localadmin is in `admin` but the dir wasn't group-writable). See the
+    script's module docstring for the exact commands if rebuilding from scratch.
     `TotalBytesReturnedToClients`/`TotalBytesStoredFromOrigin` are exported as counters
     (`_total`) because the tool itself reports a `TotalBytesAreSince` reset-epoch timestamp —
     that's the evidence, not a guess — and `apple_content_cache_totals_since_seconds` is exported
