@@ -46,7 +46,9 @@ On the home network, open in a browser:
 - **Grafana (the dashboards):** http://192.168.0.100:3000
 - **Prometheus (raw metrics/alerts):** http://192.168.0.100:9090/alerts
 
-First Grafana login is `admin` / `admin`, then it forces a new password.
+**On a fresh rebuild only**, first Grafana login is `admin` / `admin` and it forces a
+password change immediately. On the live box, use the password you already set — it's
+not stored here (see [DISASTER-RECOVERY.md](DISASTER-RECOVERY.md) §4 for why).
 
 ### Screen Sharing (rare — a full desktop)
 Kept **off** for security. Turn it on only when you need a desktop, then off again:
@@ -184,7 +186,10 @@ dig @127.0.0.1 +time=2 +tries=1 cloudflare.com | grep status:
 # STEP 2 — is the unbound process even running?
 ps aux | grep '[u]nbound'
 #   nothing -> restart it:  sudo brew services restart unbound
-#              then warm it: sudo /Users/localadmin/warmup/warm-at-boot.sh
+#              then warm it: sudo /Users/localadmin/warmup/warm-unbound-cache.sh
+#              (warm-at-boot.sh is the launchd boot-time wrapper — it waits out the
+#              opendirectoryd race on every boot. You just restarted it yourself, so
+#              go straight to warm-unbound-cache.sh, not the boot wrapper.)
 
 # STEP 3 — is the upstream internet path dead, or is it just DNSSEC?
 dig @1.1.1.1 +time=2 +tries=1 cloudflare.com | grep status:

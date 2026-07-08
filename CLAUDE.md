@@ -107,8 +107,8 @@ reference behind it.
     as `localadmin`, logging to `/opt/homebrew/var/log/unbound-alertnotify.log`. Polls
     Prometheus `/api/v1/alerts` and pushes newly-firing alerts (priority high) and resolutions
     (priority default) to ntfy.sh — the deliberate lightweight alternative to Alertmanager+bridge
-    (two extra daemons for grouping/silencing features 17 rules don't need). The topic name lives
-    ONLY in `~localadmin/monitoring/ntfy.topic` (mode 600) — it is the only auth ntfy has, treat
+    (two extra daemons for grouping/silencing features this small local rule set doesn't need).
+    The topic name lives ONLY in `~localadmin/monitoring/ntfy.topic` (mode 600) — it is the only auth ntfy has, treat
     it like a password, never commit it. Subscribe the phone app to that topic. State in
     `~/monitoring/state/notified-alerts.json` (reboot wipes it → still-firing alerts re-announce
     once, intentionally). Known gap: a dead notifier can't push its own death —

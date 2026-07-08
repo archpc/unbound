@@ -71,7 +71,7 @@ technical reference behind every file, see [CLAUDE.md](CLAUDE.md).
 │                                                                      │
 │  node_exporter :9100 (loopback) ── textfile dir ◀── scheduled jobs  │
 │  blackbox_exporter :9115 (loopback) ── active DNS probes            │
-│  apple_content_cache_exporter (cron, writes textfile)               │
+│  apple_content_cache_exporter (LaunchDaemon every 5 min, writes textfile)
 │                                                                      │
 │              all scraped by ▼                                      │
 │         Prometheus :9090 (loopback + LAN, explicit binds)           │
@@ -104,17 +104,18 @@ are repo-relative; the runbook tells you where each deploys to on the live box.
 | `usr-local-sbin/screenshare-on` / `-off` | `/usr/local/sbin/screenshare-{on,off}` | on-demand Screen Sharing toggle |
 | `prometheus-etc/prometheus.yml` | `/opt/homebrew/etc/prometheus.yml` | scrape targets |
 | `prometheus-etc/prometheus.args` | `/opt/homebrew/etc/prometheus.args` | CLI flags (flags only, no comments) |
-| `prometheus-etc/prometheus.rules.yml` | `/opt/homebrew/etc/prometheus.rules.yml` | all 19 alert rules |
+| `prometheus-etc/prometheus.rules.yml` | `/opt/homebrew/etc/prometheus.rules.yml` | the full local alert rule set (`grep -c '- alert:'` the file for the current count) |
 | `prometheus-etc/blackbox.yml` | `/opt/homebrew/etc/blackbox.yml` | DNS probe module definitions |
 | `prometheus-etc/node_exporter.args` | `/opt/homebrew/etc/node_exporter.args` | CLI flags |
 | `grafana-etc/grafana.ini` | `/opt/homebrew/etc/grafana/grafana.ini` | Grafana server config |
 | `grafana-etc/provisioning/**` | `/opt/homebrew/etc/grafana/provisioning/**` | datasource + dashboard provider config |
 | `grafana-etc/dashboards/*.json` (7 files) | `/opt/homebrew/etc/grafana/dashboards/*.json` | all dashboards (source of truth — see [DASHBOARDS.md](DASHBOARDS.md)) |
-| `launchd/*.plist` (12 files) | `/Library/LaunchDaemons/*.plist` | every scheduled job + daemon definition |
+| `launchd/local.unbound.*.plist` (11 files) | `/Library/LaunchDaemons/local.unbound.*.plist` | every hand-rolled scheduled job + daemon definition — deployed directly, see §10 |
+| `launchd/homebrew.mxcl.unbound.plist` | — (reference snapshot only) | **not** hand-deployed — managed entirely by `sudo brew services start/restart unbound` (§8); kept here for disaster-recovery reference, not copied into place |
 | `etc-newsyslog.d/unbound-monitoring.conf` | `/etc/newsyslog.d/unbound-monitoring.conf` | log rotation for scheduled-job logs |
 | `etc-ssh-sshd_config.d/500-keyonly.conf` | `/etc/ssh/sshd_config.d/500-keyonly.conf` | SSH key-only hardening |
-| `scripts/apple_content_cache_exporter.py` | `~/apple_content_cache_exporter.py` (wherever its plist points) | content-cache metrics |
-| `scripts/prometheus_alert_notifier.py` | same pattern | polls alerts → pushes ntfy |
+| `scripts/apple_content_cache_exporter.py` | `/Users/localadmin/monitoring/apple_content_cache_exporter.py` | content-cache metrics |
+| `scripts/prometheus_alert_notifier.py` | `/Users/localadmin/monitoring/prometheus_alert_notifier.py` | polls alerts → pushes ntfy |
 | `warmup/*.sh`, `warmup/dns-warm-domains.txt` | `~localadmin/warmup/` | cache warming (curated list only — personal list is NOT in repo, see §4) |
 | `CLAUDE.md`, `RUNBOOK.md`, `DASHBOARDS.md` | — | technical reference, operator guide, dashboard conventions |
 
@@ -341,9 +342,11 @@ sudo chown -R localadmin:admin /opt/homebrew/etc/grafana
 sudo launchctl bootstrap system /Library/LaunchDaemons/local.unbound.grafana.plist
 ```
 
-Validate:
+Validate — **Grafana binds `192.168.0.100` only, no loopback** (confirmed live
+2026-07-07: `curl 127.0.0.1:3000` fails on the box itself; this is deliberate, same
+LAN-only discipline as the rest of this stack, not a bug to "fix"):
 ```sh
-curl -s http://127.0.0.1:3000/api/health   # {"database":"ok", ...}
+curl -s http://192.168.0.100:3000/api/health   # {"database":"ok", ...}
 ```
 
 First browser login is `admin`/`admin` — Grafana forces an immediate password change.
@@ -376,10 +379,11 @@ curl -s http://127.0.0.1:9090/api/v1/targets | grep -o '"health":"up"' | wc -l
 ## 14. Apple Content Cache exporter restore
 
 ```sh
-sudo cp ~/unbound-repo/scripts/apple_content_cache_exporter.py /path/matching/the/plist's/ProgramArguments
+mkdir -p ~/monitoring
+sudo cp ~/unbound-repo/scripts/apple_content_cache_exporter.py /Users/localadmin/monitoring/apple_content_cache_exporter.py
 ```
-Check `/Library/LaunchDaemons/local.unbound.contentcache.plist` for the exact deployed
-path it expects the script at, and match it exactly.
+(confirmed live 2026-07-07 via `local.unbound.contentcache.plist`'s `ProgramArguments` —
+if you ever change the deploy path, update it there first, then here.)
 
 **One-time permission fix required** (the textfile directory ships `root:admin 755`,
 not group-writable, and `localadmin` is in `admin` but needs write access):
@@ -485,9 +489,10 @@ cp ~/mini-final-backup/ntfy.topic ~/monitoring/ntfy.topic
 openssl rand -hex 16 > ~/monitoring/ntfy.topic
 chmod 600 ~/monitoring/ntfy.topic
 ```
-Then deploy the notifier and its daemon:
+Then deploy the notifier and its daemon (deploy path confirmed live 2026-07-07 via
+`local.unbound.alertnotify.plist`'s `ProgramArguments`):
 ```sh
-sudo cp ~/unbound-repo/scripts/prometheus_alert_notifier.py /path/matching/its/plist
+sudo cp ~/unbound-repo/scripts/prometheus_alert_notifier.py /Users/localadmin/monitoring/prometheus_alert_notifier.py
 sudo cp ~/unbound-repo/launchd/local.unbound.alertnotify.plist /Library/LaunchDaemons/
 sudo launchctl bootstrap system /Library/LaunchDaemons/local.unbound.alertnotify.plist
 ```

@@ -137,14 +137,19 @@ def convert(md):
             i += 1
             continue
 
-        m = re.match(r'^> \*\*(.+?)\*\*\s*(.*)', line)
-        if m:
+        if line.startswith('> '):
+            # Detect purely by the '> ' prefix, not by whether **bold** happens to
+            # close on this same line — a callout's bold lead-in commonly wraps
+            # across two source lines, and requiring it to close on line 1 left the
+            # whole callout unmatched, leaking raw '>'/'**' into the output.
             flush_para(); close_lists()
-            quote_lines = [m.group(0)[2:]]
+            quote_lines = [line[2:] if line.startswith('> ') else line[1:]]
             j = i + 1
             while j < len(lines) and lines[j].startswith('>'):
                 quote_lines.append(lines[j][2:] if lines[j].startswith('> ') else lines[j][1:])
                 j += 1
+            # join THEN inline() — so a **bold** span that crossed a line break in
+            # the source is still a single string when the bold regex runs on it
             out.append(f'<div class="callout"><p>{inline(" ".join(quote_lines))}</p></div>')
             i = j
             continue
