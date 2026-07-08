@@ -14,6 +14,32 @@ For a human, task-oriented operator guide (how to log in, health-check, unblock 
 recover from an outage), see [RUNBOOK.md](RUNBOOK.md). This file is the deep technical
 reference behind it.
 
+## Workflow rules for multi-issue fix requests
+
+Codified 2026-07-08 after a 10-item review turned into ~50 tool calls and nearly two
+hours of wall-clock time on a task that should have been a single pass — mostly from
+per-item edit→verify loops and redundant image-based PDF checks where text extraction
+had already answered the question. When given a batch of issues to fix (a review, an
+audit, a list of inconsistencies):
+
+1. **Do not commit** unless explicitly asked, every time — no exceptions for "this
+   seems like the kind of thing that gets committed."
+2. **Do not make cosmetic edits** (line-wrap tidying, rewording that doesn't fix a
+   reported issue) bundled into a fix pass — they're free to skip and not free to verify.
+3. **Gather facts first, then stop.** Do whatever live/read verification is needed to
+   confirm the disputed facts, then show the intended patch (or a precise description
+   of it) plus a verification plan, and wait for approval before editing anything.
+4. **After approval, make all edits in one pass** — don't interleave edit → verify →
+   edit → verify per item. Batch the edits, then verify once at the end.
+5. **Regenerate derived artifacts (PDFs, builds, etc.) once**, after all edits land —
+   not once per edit.
+6. **Verify with text extraction / grep first.** For a PDF, `pdftotext` + `grep` is the
+   default verification tool.
+7. **Render images only for explicitly visual bugs** (layout, color, clipping,
+   spacing) — never to re-confirm something text extraction already answered.
+8. **Stop after one verification pass** and show `git status` + `git diff --stat` (not
+   full diffs unless asked) — then wait, don't keep re-checking.
+
 ## Layout
 
 - [unbound-etc/unbound.conf](unbound-etc/unbound.conf) — a **snapshot** of
