@@ -20,7 +20,11 @@ modules:
       validate_answer_rrs:
         fail_if_none_matches_regexp: [".+"]
 
-  # End-to-end through unbound, exactly like a LAN client would resolve.
+  # Is unbound answering at all, from a client's vantage point. NOT an
+  # end-to-end recursion check: this repeats one hot name every 30s, and
+  # prefetch + serve-expired answer it from cache for up to a day even with
+  # recursion fully dead. Recursion health is dns_upstream + the
+  # requestlist-jam alert.
   dns_resolver:
     prober: dns
     timeout: 5s

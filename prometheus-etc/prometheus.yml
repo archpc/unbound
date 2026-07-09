@@ -57,7 +57,9 @@ scrape_configs:
       - target_label: __address__
         replacement: 127.0.0.1:9115
 
-  # end-to-end resolution through unbound, like a LAN client
+  # resolver answering-at-all, from a client's vantage point. NOT proof of
+  # fresh recursion: the probe repeats one name every 30s and serve-expired
+  # answers it from cache for up to a day with recursion dead (see rules).
   - job_name: blackbox_resolver
     metrics_path: /probe
     params:

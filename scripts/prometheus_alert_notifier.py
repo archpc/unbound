@@ -18,12 +18,19 @@ State:    ~/monitoring/state/notified-alerts.json - fingerprints of alerts
           once after boot, which is a feature, not a bug.
 Logs:     /opt/homebrew/var/log/unbound-alertnotify.log (launchd).
 Exit:     0 = ok (including "nothing to send"); 1 = Prometheus unreachable,
-          topic file missing, or every ntfy POST failed (state is NOT updated
+          topic file missing, or an ntfy POST failed (state is NOT updated
           for failed sends, so they retry next run).
-Breadcrumb: writes task="alertnotify" into node_exporter's textfile dir on
-          success. NB the circular gap: a dead notifier can't notify about
-          itself - its staleness alert shows on the dashboard/alerts page
-          only. If that gap ever matters, add a daily heartbeat push.
+Prometheus down: after UNREACHABLE_THRESHOLD consecutive failed polls
+          (~6 min at the 120s cadence), pushes "Prometheus unreachable"
+          DIRECTLY to ntfy - Prometheus can't report its own death, but this
+          script doesn't need it to. One push per outage (suppressed after
+          the first); a RESOLVED push and a state reset when it comes back.
+Breadcrumb: writes task="alertnotify" into node_exporter's textfile dir ONLY
+          when the run fully succeeded (Prometheus reachable AND every push
+          delivered) - so AlertNotifierStale genuinely means "phone pushes
+          are dead", not merely "the script crashed". Remaining circular gap:
+          a dead notifier still can't notify about itself; that staleness
+          alert shows on the dashboard/alerts page only.
 
 Priorities: firing -> ntfy "high" (buzzes), resolved -> "default".
 """
@@ -42,6 +49,12 @@ TOPIC_FILE = os.path.join(HOME, "monitoring", "ntfy.topic")
 STATE_FILE = os.path.join(HOME, "monitoring", "state", "notified-alerts.json")
 METRICS_DIR = "/opt/homebrew/var/lib/node_exporter/textfile"
 TIMEOUT = 10
+# Reserved state-file key for the Prometheus-unreachable tracker. Cannot
+# collide with alert fingerprints (those are "k=v|..." label joins).
+UNREACHABLE_KEY = "__prometheus_unreachable__"
+# Consecutive failed polls before pushing "Prometheus unreachable" directly
+# (3 x 120s StartInterval ~= 6 min - same spirit as the rules' `for:` windows).
+UNREACHABLE_THRESHOLD = 3
 
 
 def read_topic():
@@ -58,12 +71,16 @@ def read_topic():
 
 
 def fetch_firing_alerts():
+    """Returns the list of firing alerts, or None if Prometheus is unreachable
+    (the caller handles that case - it must NOT be a silent exit, because a
+    dead Prometheus means ALL alerting is dark and this script is the only
+    component positioned to say so)."""
     try:
         with urllib.request.urlopen(PROMETHEUS_ALERTS_URL, timeout=TIMEOUT) as resp:
             payload = json.load(resp)
     except (urllib.error.URLError, OSError, json.JSONDecodeError) as exc:
         print(f"cannot query Prometheus alerts API: {exc}", file=sys.stderr)
-        sys.exit(1)
+        return None
     alerts = payload.get("data", {}).get("alerts", [])
     # 'pending' alerts are still inside their `for:` window - not actionable yet.
     return [a for a in alerts if a.get("state") == "firing"]
@@ -144,11 +161,40 @@ def main():
     firing = fetch_firing_alerts()
     state = load_state()
 
-    current = {fingerprint(a): a for a in firing}
-    known = set(state.keys())
-    now_firing = set(current.keys())
+    if firing is None:
+        # Prometheus unreachable: every rule-based alert is dark. Track
+        # consecutive failures in the state file; past the threshold, push
+        # ONCE directly (no Prometheus needed for that), then stay quiet
+        # until it recovers.
+        entry = state.get(UNREACHABLE_KEY) or {"failures": 0, "notified": False}
+        entry["failures"] += 1
+        if entry["failures"] >= UNREACHABLE_THRESHOLD and not entry["notified"]:
+            if push_ntfy(topic, "FIRING: PrometheusUnreachable",
+                         f"alert polling has failed {entry['failures']} consecutive times "
+                         f"(~{entry['failures'] * 2} min) - Prometheus is down or unreachable; "
+                         "ALL rule-based alerting is dark until this recovers",
+                         "high", args.dry_run):
+                entry["notified"] = True
+        state[UNREACHABLE_KEY] = entry
+        if not args.dry_run:
+            save_state(state)
+        sys.exit(1)
 
     failures = 0
+
+    # Prometheus is back: clear the unreachable tracker. If we had announced
+    # the outage, announce the recovery too; a failed recovery push keeps the
+    # tracker so it retries next run.
+    prev_outage = state.pop(UNREACHABLE_KEY, None)
+    if prev_outage and prev_outage.get("notified"):
+        if not push_ntfy(topic, "RESOLVED: PrometheusUnreachable",
+                         "Prometheus is reachable again", "default", args.dry_run):
+            failures += 1
+            state[UNREACHABLE_KEY] = prev_outage
+
+    current = {fingerprint(a): a for a in firing}
+    known = set(state.keys()) - {UNREACHABLE_KEY}
+    now_firing = set(current.keys())
 
     for fp in sorted(now_firing - known):
         name, message = describe(current[fp])
@@ -166,7 +212,11 @@ def main():
 
     if not args.dry_run:
         save_state(state)
-        write_breadcrumb()
+        # Breadcrumb = "last fully-successful run": Prometheus answered AND
+        # every push was delivered. Writing it on failed-delivery runs would
+        # keep AlertNotifierStale green while the phone channel is dead.
+        if failures == 0:
+            write_breadcrumb()
 
     if args.dry_run:
         print(f"[dry-run] firing now: {len(now_firing)}, previously known: {len(known)}")
