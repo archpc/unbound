@@ -1057,7 +1057,7 @@
         }
       ],
       "title": "Cache edge behavior: prefetch vs serve-expired",
-      "description": "Prefetch (refreshes a popular entry before its TTL runs out) and serve-expired (answers from a stale entry while refreshing) are distinct counters that are expected to track closely on this box: prefetch:yes + serve-expired:yes together are the reason there's no warmup cron, and both fire on the same population of hot, low-remaining-TTL cache entries. See the 'Served-expired share' stat below for the ratio between them.",
+      "description": "Shows Unbound cache refresh behavior around TTL expiration. Prefetch refreshes hot records before expiry; serve-expired answers from expired cache while refreshing.",
       "type": "timeseries"
     },
     {
@@ -1080,10 +1080,6 @@
               {
                 "color": "orange",
                 "value": 0.5
-              },
-              {
-                "color": "red",
-                "value": 0.75
               }
             ]
           }
@@ -1119,7 +1115,7 @@
         }
       ],
       "title": "Served-expired share",
-      "description": "Fraction of cache-edge refresh events (prefetch + serve-expired) that were serve-expired rather than prefetch. High share means the resolver is more often caught answering stale than refreshing ahead of expiry. clamp_min avoids a 0/0 spike when both rates are near zero.",
+      "description": "Share of cache refresh edge events that were served from expired cache instead of prefetched before expiry. High values are not automatically bad unless paired with high traffic, latency, SERVFAIL, or probe failures.",
       "type": "stat"
     },
     {
@@ -1165,7 +1161,8 @@
           "refId": "A"
         }
       ],
-      "title": "Cache edge events/s",
+      "title": "Cache refresh edge events/s",
+      "description": "Combined rate of Unbound prefetches and served-expired answers. Use this with served-expired share to tell whether the ratio matters.",
       "type": "stat"
     },
     {
@@ -1497,6 +1494,6 @@
   "timezone": "browser",
   "title": "Unbound DNS",
   "uid": "unbound-dns",
-  "version": 8,
+  "version": 10,
   "weekStart": ""
 }
