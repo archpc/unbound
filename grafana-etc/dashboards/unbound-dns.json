@@ -1056,8 +1056,117 @@
           "legendFormat": "served-expired/s"
         }
       ],
-      "title": "Prefetch and serve-expired (the reason there's no warmup cron)",
+      "title": "Cache edge behavior: prefetch vs serve-expired",
+      "description": "Prefetch (refreshes a popular entry before its TTL runs out) and serve-expired (answers from a stale entry while refreshing) are distinct counters that are expected to track closely on this box: prefetch:yes + serve-expired:yes together are the reason there's no warmup cron, and both fire on the same population of hot, low-remaining-TTL cache entries. See the 'Served-expired share' stat below for the ratio between them.",
       "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "min": 0,
+          "max": 1,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 0.5
+              },
+              {
+                "color": "red",
+                "value": 0.75
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 0,
+        "y": 56
+      },
+      "id": 26,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum(rate(unbound_expired_total[5m]))\n/\nclamp_min(\n  sum(rate(unbound_prefetches_total[5m])) + sum(rate(unbound_expired_total[5m])),\n  0.001\n)",
+          "refId": "A"
+        }
+      ],
+      "title": "Served-expired share",
+      "description": "Fraction of cache-edge refresh events (prefetch + serve-expired) that were serve-expired rather than prefetch. High share means the resolver is more often caught answering stale than refreshing ahead of expiry. clamp_min avoids a 0/0 spike when both rates are near zero.",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "text"
+          },
+          "unit": "reqps"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 6,
+        "y": 56
+      },
+      "id": 27,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum(rate(unbound_prefetches_total[5m])) + sum(rate(unbound_expired_total[5m]))",
+          "refId": "A"
+        }
+      ],
+      "title": "Cache edge events/s",
+      "type": "stat"
     },
     {
       "datasource": {
@@ -1132,7 +1241,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 56
+        "y": 60
       },
       "id": 21,
       "options": {
@@ -1179,7 +1288,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 56
+        "y": 60
       },
       "id": 22,
       "options": {
@@ -1248,7 +1357,7 @@
         "h": 4,
         "w": 8,
         "x": 0,
-        "y": 64
+        "y": 68
       },
       "id": 23,
       "options": {
@@ -1295,7 +1404,7 @@
         "h": 4,
         "w": 8,
         "x": 8,
-        "y": 64
+        "y": 68
       },
       "id": 24,
       "options": {
@@ -1341,7 +1450,7 @@
         "h": 4,
         "w": 8,
         "x": 16,
-        "y": 64
+        "y": 68
       },
       "id": 25,
       "options": {
@@ -1388,6 +1497,6 @@
   "timezone": "browser",
   "title": "Unbound DNS",
   "uid": "unbound-dns",
-  "version": 7,
+  "version": 8,
   "weekStart": ""
 }
