@@ -162,7 +162,13 @@ def build_metrics(blocks, last_block, unattributed, parse_errors, now=None):
     lines.append("# TYPE unbound_client_rpz_parse_errors_5m gauge")
     lines.append(f"unbound_client_rpz_parse_errors_5m {parse_errors}")
 
-    lines.append("# HELP unbound_job_last_success_timestamp_seconds Unix timestamp of the last successful run, by task.")
+    # Deliberately NO "# HELP" here: the other five breadcrumb producers emit
+    # TYPE-only, and node_exporter rewrites a multi-file family's help to
+    # "Metric read from <files>" - a sample carrying its own conflicting HELP
+    # gets REJECTED from the merged family (error in node_exporter.log on
+    # every scrape, while node_textfile_scrape_error stays 0). Found live
+    # 2026-07-09 at first daemon start: everything looked healthy except the
+    # clientstats breadcrumb silently missing from /metrics.
     lines.append("# TYPE unbound_job_last_success_timestamp_seconds gauge")
     lines.append(f'unbound_job_last_success_timestamp_seconds{{task="clientstats"}} {now}')
 
