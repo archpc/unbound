@@ -113,11 +113,12 @@ are repo-relative; the runbook tells you where each deploys to on the live box.
 | `grafana-etc/grafana.ini` | `/opt/homebrew/etc/grafana/grafana.ini` | Grafana server config |
 | `grafana-etc/provisioning/**` | `/opt/homebrew/etc/grafana/provisioning/**` | datasource + dashboard provider config |
 | `grafana-etc/dashboards/*.json` (7 files) | `/opt/homebrew/etc/grafana/dashboards/*.json` | all dashboards (source of truth — see [DASHBOARDS.md](DASHBOARDS.md)) |
-| `launchd/local.unbound.*.plist` (11 files) | `/Library/LaunchDaemons/local.unbound.*.plist` | every hand-rolled scheduled job + daemon definition — deployed directly, see §10 |
+| `launchd/local.unbound.*.plist` (12 files) | `/Library/LaunchDaemons/local.unbound.*.plist` | every hand-rolled scheduled job + daemon definition — deployed directly, see §10 |
 | `launchd/homebrew.mxcl.unbound.plist` | — (reference snapshot only) | **not** hand-deployed — managed entirely by `sudo brew services start/restart unbound` (§8); kept here for disaster-recovery reference, not copied into place |
 | `etc-newsyslog.d/unbound-monitoring.conf` | `/etc/newsyslog.d/unbound-monitoring.conf` | log rotation for scheduled-job logs |
 | `etc-ssh-sshd_config.d/500-keyonly.conf` | `/etc/ssh/sshd_config.d/500-keyonly.conf` | SSH key-only hardening |
 | `scripts/apple_content_cache_exporter.py` | `/Users/localadmin/monitoring/apple_content_cache_exporter.py` | content-cache metrics |
+| `scripts/unbound_client_rpz_exporter.py` | `/Users/localadmin/monitoring/unbound_client_rpz_exporter.py` | RPZ block visibility by client only — not general DNS-client visibility |
 | `scripts/prometheus_alert_notifier.py` | `/Users/localadmin/monitoring/prometheus_alert_notifier.py` | polls alerts → pushes ntfy |
 | `warmup/*.sh`, `warmup/dns-warm-domains.txt` | `~localadmin/warmup/` | cache warming (curated list only — personal list is NOT in repo, see §4) |
 | `CLAUDE.md`, `RUNBOOK.md`, `DASHBOARDS.md` | — | technical reference, operator guide, dashboard conventions |
@@ -134,7 +135,7 @@ state. **Do not expect `git clone` to restore any of these:**
 
 | Item | Location (live) | Why it's excluded | Rebuild impact if lost |
 |---|---|---|---|
-| **ntfy topic** | `~localadmin/monitoring/ntfy.topic` (mode 600) | it's the *only* auth ntfy has — treated like a password | phone alerts silently stop; you must recreate the topic and file (§16) |
+| **ntfy topic** | `~localadmin/monitoring/ntfy.topic` (mode 600) | it's the *only* auth ntfy has — treated like a password | phone alerts silently stop; you must recreate the topic and file (§17) |
 | Generated blocklist | `.../blocklists/hagezi-normal.rpz` | ~9 MB, clobbered nightly by `update-blocklist.sh` | none — regenerates on first run, but **must exist before `unbound-checkconf`** (§9) |
 | Personal warmup list | `~localadmin/warmup/dns-warm-domains.personal.txt` | household behavior profile — privacy-sensitive | none — self-regenerates from the live cache over time; curated list still works meanwhile |
 | Notifier state | `~localadmin/monitoring/state/notified-alerts.json` | ephemeral by design (reboot already wipes it) | none — still-firing alerts just re-announce once |
@@ -142,7 +143,7 @@ state. **Do not expect `git clone` to restore any of these:**
 | Grafana's internal DB | `/opt/homebrew/var/lib/grafana/grafana.db` | holds users/sessions/API keys — dashboards themselves are file-provisioned, not stored here | admin password resets to `admin`/`admin` (forced change); any manually-created users/API keys are gone; **dashboards are unaffected** (they reprovision from JSON) |
 | SSH private key | lives on **Honk**, never on the mini | the mini only ever holds the *public* key | if Honk's key is lost, you need physical/console access to add a new one |
 | Grafana admin password | nowhere — resets to default | not a secret worth storing; forced-change flow handles it | you'll be prompted to set a new one on first login, every fresh install |
-| Tailscale device identity | Apple's System Extension keychain state | tied to the specific install/auth, not file-based | rejoining is a new node unless you dis-associate the old one first (§16) |
+| Tailscale device identity | Apple's System Extension keychain state | tied to the specific install/auth, not file-based | rejoining is a new node unless you dis-associate the old one first (§17) |
 | macOS itself, Xcode CLT, Homebrew | — | not this repo's concern | see §6 |
 
 ---
@@ -150,7 +151,7 @@ state. **Do not expect `git clone` to restore any of these:**
 ## 5. Required backups — do this **before** you wipe anything
 
 If the box is dying but still reachable, grab these first. If it's already dead, skip
-to §6 — you've lost the items below and §16/§4 tell you how to recreate or accept the loss.
+to §6 — you've lost the items below and §17/§4 tell you how to recreate or accept the loss.
 
 ```sh
 # Run FROM Honk (or any machine with SSH access), while the mini is still reachable.
@@ -174,7 +175,7 @@ ssh localadmin@mini.tail3fd0f4.ts.net \
   Apple Silicon support before proceeding).
 - [ ] Create the **`localadmin`** account (the account every service in this stack runs
   as, other than root-owned pieces). Standard admin account, no auto-login (this box
-  deliberately runs with **auto-login OFF** — see §16 for why that matters).
+  deliberately runs with **auto-login OFF** — see §17 for why that matters).
 - [ ] Install Xcode Command Line Tools: `xcode-select --install`
 - [ ] Install Homebrew (Apple Silicon path, `/opt/homebrew`):
   ```sh
@@ -182,7 +183,7 @@ ssh localadmin@mini.tail3fd0f4.ts.net \
   ```
 - [ ] Enable **Remote Login (SSH)**: System Settings → General → Sharing → Remote Login → on.
   Leave **Screen Sharing off** for now — it's re-enabled deliberately, on-demand, at the
-  end (§16).
+  end (§17).
 - [ ] Confirm you're logged in as `localadmin` for the remainder of this runbook.
 
 ---
@@ -259,7 +260,7 @@ Continue here only **after** §9 has produced `hagezi-normal.rpz`:
 ```sh
 unbound-checkconf                       # must print "no errors" — do not proceed otherwise
 sudo brew services start unbound        # NOTE: sudo, always — non-sudo creates a duplicate
-                                         # user-domain copy fighting the root one (see §20)
+                                         # user-domain copy fighting the root one (see §21)
 ```
 
 Warm the cache (a cold resolver means every query recurses from scratch):
@@ -306,7 +307,7 @@ wc -l /opt/homebrew/etc/unbound/blocklists/blocklist-secondary.rpz  # secondary
 
 ## 10. LaunchDaemon restore
 
-All 11 hand-rolled daemons/jobs, plus the one managed by `brew services` (unbound):
+All 12 hand-rolled daemons/jobs, plus the one managed by `brew services` (unbound):
 
 ```sh
 # unbound's plist is managed BY brew services — do not hand-copy it; §8 already
@@ -314,9 +315,9 @@ All 11 hand-rolled daemons/jobs, plus the one managed by `brew services` (unboun
 
 # Everything else: copy, fix ownership/mode, then bootstrap.
 for p in local.unbound.alertnotify local.unbound.blackbox local.unbound.blocklist \
-         local.unbound.contentcache local.unbound.exporter local.unbound.grafana \
-         local.unbound.nodeexporter local.unbound.prometheus local.unbound.roothints \
-         local.unbound.warmboot local.unbound.warmlist; do
+         local.unbound.clientstats local.unbound.contentcache local.unbound.exporter \
+         local.unbound.grafana local.unbound.nodeexporter local.unbound.prometheus \
+         local.unbound.roothints local.unbound.warmboot local.unbound.warmlist; do
   sudo cp ~/unbound-repo/launchd/$p.plist /Library/LaunchDaemons/$p.plist
   sudo chown root:wheel /Library/LaunchDaemons/$p.plist
   sudo chmod 644 /Library/LaunchDaemons/$p.plist
@@ -428,7 +429,31 @@ curl -s http://127.0.0.1:9100/metrics | grep '^node_textfile_scrape_error 0$'
 
 ---
 
-## 15. Firewall allow rules
+## 15. RPZ clientstats exporter restore
+
+This powers the dashboard's per-client RPZ block view only. It does **not** export
+general DNS-client visibility, total queries, or NXDOMAINs; with query/reply logging
+off, RPZ block log lines are the only per-client DNS trace this stack keeps.
+
+```sh
+mkdir -p ~/monitoring
+sudo cp ~/unbound-repo/scripts/unbound_client_rpz_exporter.py /Users/localadmin/monitoring/unbound_client_rpz_exporter.py
+sudo -u localadmin /usr/bin/python3 /Users/localadmin/monitoring/unbound_client_rpz_exporter.py --test
+
+sudo launchctl bootstrap system /Library/LaunchDaemons/local.unbound.clientstats.plist
+```
+
+Validate:
+```sh
+curl -s http://127.0.0.1:9100/metrics | grep -E '^unbound_client_rpz_(blocks_5m|unattributed_5m|parse_errors_5m)'
+curl -s http://127.0.0.1:9100/metrics | grep 'unbound_job_last_success_timestamp_seconds{task="clientstats"}'
+launchctl print system/local.unbound.clientstats | grep -E 'state|last exit'
+# expect last exit code = 0 after the first run
+```
+
+---
+
+## 16. Firewall allow rules
 
 ```sh
 sudo /usr/libexec/ApplicationFirewall/socketfilterfw --setglobalstate on
@@ -460,7 +485,7 @@ never need an entry.
 
 ---
 
-## 16. Tailscale / SSH access
+## 17. Tailscale / SSH access
 
 **SSH (the primary remote path):**
 ```sh
@@ -525,7 +550,7 @@ curl -H "Title: test" -d "hello" https://ntfy.sh/$(cat ~/monitoring/ntfy.topic)
 
 ---
 
-## 17. Validation checklist
+## 18. Validation checklist
 
 Work this in order. Every check should pass before you consider the rebuild complete.
 
@@ -537,16 +562,16 @@ Work this in order. Every check should pass before you consider the rebuild comp
 - [ ] **No alerts firing:** `curl -s http://127.0.0.1:9090/api/v1/alerts` → empty alerts array
 - [ ] **No textfile scrape errors:** `curl -s http://127.0.0.1:9100/metrics | grep node_textfile_scrape_error` → `0`
 - [ ] **Grafana reachable + dashboards render:** open `http://192.168.0.100:3000` from a LAN device, confirm all 7 dashboards load with data
-- [ ] **ntfy pushes work:** the test push from §16 arrived on your phone
-- [ ] **Job breadcrumbs are fresh:** `curl -s http://127.0.0.1:9100/metrics | grep unbound_job_last_success` → all 5 tasks present (will show old timestamps until each job's next scheduled run — that's expected, not a failure)
-- [ ] **Firewall correct:** `sudo lsof -nP -iTCP -sTCP:LISTEN` shows exactly what §21's port table expects — nothing extra
+- [ ] **ntfy pushes work:** the test push from §17 arrived on your phone
+- [ ] **Job breadcrumbs are fresh:** `curl -s http://127.0.0.1:9100/metrics | grep unbound_job_last_success` → all 6 tasks present (will show old timestamps until each job's next scheduled run — that's expected, not a failure)
+- [ ] **Firewall correct:** `sudo lsof -nP -iTCP -sTCP:LISTEN` shows exactly what §22's port table expects — nothing extra
 - [ ] **SSH key-only confirmed:** a forced-password connection attempt is refused (`Permission denied (publickey)`)
 
-Only after every box above is checked, proceed to §18.
+Only after every box above is checked, proceed to §19.
 
 ---
 
-## 18. DNS client cutover
+## 19. DNS client cutover
 
 If this rebuild happened on a **replacement** box (new hardware, same IP plan), or you
 temporarily pointed clients elsewhere during the outage:
@@ -558,7 +583,7 @@ temporarily pointed clients elsewhere during the outage:
 
 ---
 
-## 19. Rollback plan
+## 20. Rollback plan
 
 - **If the rebuild is going wrong and the old box (or its disk) still exists:** stop,
   don't make it worse. Re-point DHCP at nothing / a public resolver temporarily (see the
@@ -576,7 +601,7 @@ temporarily pointed clients elsewhere during the outage:
 
 ---
 
-## 20. Do-not-do list
+## 21. Do-not-do list
 
 - **Don't restart or reload unbound on an unvalidated config.** `unbound-checkconf`
   first, every time, no exceptions — it's the LAN's primary resolver; breaking it
@@ -593,21 +618,21 @@ temporarily pointed clients elsewhere during the outage:
   go in `hagezi-allow.rpz`, which **is** tracked in the repo.
 - **Don't assume `grafana.db` needs restoring.** It doesn't — see §4. Restoring it is
   more likely to reintroduce stale state than help.
-- **Don't reinstall Tailscale via Homebrew.** See §16 — the real install path is the
+- **Don't reinstall Tailscale via Homebrew.** See §17 — the real install path is the
   System Extension app, not the brew formula (whose old LaunchDaemon is dead weight).
 - **Don't blindly restart every process `ps aux` shows you.** Not everything running on
   a live box is supposed to be there — a stray manually-started `iperf3 -s -D` server
   was found and killed during a 2026-07-07 review; it wasn't part of any job. Cross-check
   against this repo's `launchd/` directory before assuming a process belongs.
 - **Don't trust the live firewall's current allow-list paths as a template without
-  checking them** — see the observed symlink-vs-Cellar-path inconsistency in §15.
+  checking them** — see the observed symlink-vs-Cellar-path inconsistency in §16.
 - **Don't drag files into this repo with Finder.** `scp`/`rsync` only.
 - **Don't run `tailscale funnel`.** Nothing in this stack is meant to face the public internet.
-- **Don't skip the fresh-login verification in §16** before closing your original SSH session.
+- **Don't skip the fresh-login verification in §17** before closing your original SSH session.
 
 ---
 
-## 21. Appendix: paths, ports, services, commands
+## 22. Appendix: paths, ports, services, commands
 
 ### Services & restart commands
 | Service | Managed by | Restart |
