@@ -85,6 +85,13 @@ audit, a list of inconsistencies):
   `oisd-big`); `sudo update-blocklist.sh <source> [slot]` is a one-time override, `off secondary`
   disables the second slot. Driven nightly (no-arg → refreshes both slots from their files) by the
   `local.unbound.blocklist` launchd job; the script header is the full reference.
+- [unbound-etc/blocklist-tui.sh](unbound-etc/blocklist-tui.sh) — interactive menu over the same
+  two-slot system: `sudo blocklist-tui.sh` shows both slots' current source, live line count, and
+  breadcrumb age, and lets you pick a new source per slot (one-time or made permanent by writing
+  the slot's source file). It does no downloading/validating/swapping itself — every real change
+  is delegated to `update-blocklist.sh` next to it, so there's one place that knows how to do that
+  safely. Read-only display logic is hand-kept in sync with `resolve_source`/`slot_source` in that
+  script.
 - [warmup/warm-unbound-cache.sh](warmup/warm-unbound-cache.sh) and
   [warmup/dns-warm-domains.txt](warmup/dns-warm-domains.txt) — pre-populates the resolver cache with the
   top ~300 domains (Tranco list) and reports the resulting cache-hit-rate delta.
