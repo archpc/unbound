@@ -31,7 +31,7 @@ warmup/dns-warm-domains.personal.txt
 __pycache__/
 *.pyc
 
-# generated from DISASTER-RECOVERY.md via scripts/render-disaster-recovery-pdf.py —
+# generated from DISASTER-RECOVERY.md via tools/render-disaster-recovery-pdf.py —
 # the Markdown is the source of truth, regenerate the PDF anytime, never commit the binary
 DISASTER-RECOVERY.pdf
-scripts/.dr-render-tmp.html
+tools/.dr-render-tmp.html

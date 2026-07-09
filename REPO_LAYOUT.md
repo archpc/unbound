@@ -13,7 +13,8 @@ config reference, docs, and validation.
 | `prometheus-etc/` | Prometheus config, alert rules, blackbox modules, node_exporter args |
 | `grafana-etc/` | Grafana config, provisioning, dashboard JSON source of truth |
 | `launchd/` | LaunchDaemon snapshots; `homebrew.mxcl.unbound.plist` is reference-only |
-| `scripts/` | Python textfile exporters, alert notifier, local PDF renderer |
+| `scripts/` | Runtime Python textfile exporters and alert notifier |
+| `tools/` | Local-only repository and documentation tooling; never deployed |
 | `warmup/` | Cache warmup scripts and curated domain list |
 | `usr-local-sbin/` | Root-owned helper scripts deployed under `/usr/local/sbin` |
 | `etc-newsyslog.d/` | newsyslog config snapshot |
@@ -50,6 +51,7 @@ config reference, docs, and validation.
 - Config: `unbound-etc/unbound.conf`, `prometheus-etc/*`, `grafana-etc/grafana.ini`,
   `grafana-etc/provisioning/**`, `etc-newsyslog.d/*`, `etc-ssh-sshd_config.d/*`.
 - Scripts: `unbound-etc/*.sh`, `scripts/*.py`, `warmup/*.sh`, `usr-local-sbin/*`.
+- Local tooling: `tools/*.py`; these files are not deployed to the mini.
 - Generated output: `DISASTER-RECOVERY.pdf`, generated RPZ blocklists, `.prom` textfiles,
   Python bytecode, Grafana/Prometheus runtime databases.
 - State/logs: `/opt/homebrew/var/**`, `/opt/homebrew/var/log/**`,
@@ -115,7 +117,7 @@ HELP strings can make node_exporter reject samples from the merged family while
 
 - Local-only docs and generated PDF output.
 - `fixtures/` to `testdata/`, if exporter selftests are updated.
-- `scripts/render-disaster-recovery-pdf.py` to `tools/`.
+- Additional local-only repository tooling under `tools/`.
 - Repo source directories, only after a deploy manifest/tool can map old source names
   to unchanged runtime destinations.
 
@@ -125,7 +127,7 @@ HELP strings can make node_exporter reject samples from the merged family while
 |---|---|
 | Unbound config | `unbound-checkconf unbound-etc/unbound.conf` when available |
 | Shell scripts | `bash -n unbound-etc/*.sh warmup/*.sh usr-local-sbin/*` |
-| Python scripts | `PYTHONPYCACHEPREFIX=/private/tmp/pycache-unbound python3 -m py_compile scripts/*.py` |
+| Python scripts | `PYTHONPYCACHEPREFIX=/private/tmp/pycache-unbound python3 -m py_compile scripts/*.py tools/*.py` |
 | Python selftests | `python3 scripts/apple_content_cache_exporter.py --test`; `python3 scripts/unbound_client_rpz_exporter.py --test`; `python3 scripts/prometheus_alert_notifier.py --selftest` |
 | launchd plists | `plutil -lint launchd/*.plist` |
 | Prometheus | `promtool check config prometheus-etc/prometheus.yml`; `promtool check rules prometheus-etc/prometheus.rules.yml` |

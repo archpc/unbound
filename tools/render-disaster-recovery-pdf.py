@@ -2,7 +2,7 @@
 """
 Render DISASTER-RECOVERY.md into a clean, Apple-manual-styled PDF.
 
-Usage:  python3 scripts/render-disaster-recovery-pdf.py
+Usage:  python3 tools/render-disaster-recovery-pdf.py
 
 Regenerate this any time DISASTER-RECOVERY.md changes — the PDF is a build
 artifact (gitignored), never hand-edited. Requires Google Chrome for the
@@ -20,7 +20,7 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parent.parent
 SRC = REPO / "DISASTER-RECOVERY.md"
 OUT_PDF = REPO / "DISASTER-RECOVERY.pdf"
-TMP_HTML = REPO / "scripts" / ".dr-render-tmp.html"
+TMP_HTML = REPO / "tools" / ".dr-render-tmp.html"
 
 CHROME_CANDIDATES = [
     "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
