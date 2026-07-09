@@ -23,17 +23,38 @@ groups:
         annotations:
           summary: "update-blocklist.sh hasn't succeeded in >26h"
 
+      - alert: BlocklistBreadcrumbAbsent
+        expr: absent(unbound_job_last_success_timestamp_seconds{task="blocklist"})
+        for: 15m
+        annotations:
+          summary: "blocklist job breadcrumb metric is missing entirely"
+          description: "Stale-age rules cannot detect an absent series. This may mean the job never seeded, the textfile was deleted, or node_exporter rejected the breadcrumb sample."
+
       # daily 23:30 job
       - alert: WarmlistMineStale
         expr: time() - unbound_job_last_success_timestamp_seconds{task="warmlist"} > 93600
         annotations:
           summary: "build-warm-list.sh hasn't succeeded in >26h"
 
+      - alert: WarmlistBreadcrumbAbsent
+        expr: absent(unbound_job_last_success_timestamp_seconds{task="warmlist"})
+        for: 15m
+        annotations:
+          summary: "warmlist job breadcrumb metric is missing entirely"
+          description: "Stale-age rules cannot detect an absent series. This may mean the job never seeded, the textfile was deleted, or node_exporter rejected the breadcrumb sample."
+
       # monthly job (1st, 03:00); 34d = one missed month plus slack
       - alert: RootHintsRefreshStale
         expr: time() - unbound_job_last_success_timestamp_seconds{task="roothints"} > 2937600
         annotations:
           summary: "unbound-refresh-hints hasn't succeeded in >34 days"
+
+      - alert: RootHintsBreadcrumbAbsent
+        expr: absent(unbound_job_last_success_timestamp_seconds{task="roothints"})
+        for: 15m
+        annotations:
+          summary: "roothints job breadcrumb metric is missing entirely"
+          description: "Stale-age rules cannot detect an absent series. This may mean the job never seeded, the textfile was deleted, or node_exporter rejected the breadcrumb sample."
 
       # breadcrumb predates the current boot = warmboot didn't complete this
       # boot. for: 15m gives the boot sequence (unbound's launch race + the
@@ -45,6 +66,13 @@ groups:
         for: 15m
         annotations:
           summary: "warm-at-boot.sh has not succeeded since the last reboot"
+
+      - alert: WarmbootBreadcrumbAbsent
+        expr: absent(unbound_job_last_success_timestamp_seconds{task="warmboot"})
+        for: 15m
+        annotations:
+          summary: "warmboot job breadcrumb metric is missing entirely"
+          description: "Stale-age rules cannot detect an absent series. This may mean the job never seeded, the textfile was deleted, or node_exporter rejected the breadcrumb sample."
 
       # mirrors the >100k-lines floor update-blocklist.sh enforces on download
       - alert: BlocklistSuspiciouslySmall
@@ -60,6 +88,13 @@ groups:
         expr: time() - node_textfile_mtime_seconds{file=~".*apple-content-cache.prom"} > 900
         annotations:
           summary: "apple-content-cache.prom not rewritten in >15m - contentcache job dead?"
+
+      - alert: ContentCacheTextfileMissing
+        expr: absent(node_textfile_mtime_seconds{file="/opt/homebrew/var/lib/node_exporter/textfile/apple-content-cache.prom"})
+        for: 15m
+        annotations:
+          summary: "Apple Content Cache textfile metric is missing entirely"
+          description: "Catches never-seeded or deleted apple-content-cache.prom cases that stale-mtime rules cannot detect because the mtime series is absent."
 
       # Catches malformed .prom files (bad exposition format) from ANY
       # textfile writer - the collector skips bad files silently otherwise.

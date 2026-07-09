@@ -421,7 +421,9 @@ sudo launchctl bootstrap system /Library/LaunchDaemons/local.unbound.contentcach
 
 Validate:
 ```sh
-curl -s http://127.0.0.1:9100/metrics | grep apple_content_cache_up
+curl -s http://127.0.0.1:9100/metrics | grep 'node_textfile_mtime_seconds{file="/opt/homebrew/var/lib/node_exporter/textfile/apple-content-cache.prom"}'
+curl -s http://127.0.0.1:9100/metrics | grep -E '^(apple_content_cache_active|apple_content_cache_activated|apple_content_cache_status_ok) '
+curl -s http://127.0.0.1:9100/metrics | grep '^node_textfile_scrape_error 0$'
 ```
 
 ---
