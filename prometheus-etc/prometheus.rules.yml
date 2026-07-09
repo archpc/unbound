@@ -76,6 +76,15 @@ groups:
         annotations:
           summary: "prometheus_alert_notifier.py hasn't succeeded in >10m - phone pushes are dead"
 
+      # Same absent-series trap as clientstats below: stale-age rules cannot
+      # fire when the breadcrumb series is missing entirely.
+      - alert: AlertNotifierBreadcrumbAbsent
+        expr: absent(unbound_job_last_success_timestamp_seconds{task="alertnotify"})
+        for: 15m
+        annotations:
+          summary: "alertnotify breadcrumb metric absent - missing .prom sample or textfile merge rejection"
+          description: "Catches a missing alertnotify breadcrumb, which AlertNotifierStale cannot see because stale-age rules evaluate empty when the series is absent."
+
       # Runs every 120s; 900s = seven missed runs. Guards a failure class
       # proven silent on 2026-07-09: node_exporter rejected the clientstats
       # breadcrumb sample over a HELP-string conflict while
@@ -105,7 +114,8 @@ groups:
       - alert: NtfyDeliveryFailures
         expr: increase(unbound_ntfy_delivery_failures_total[30m]) >= 2
         annotations:
-          summary: "2+ failed ntfy pushes in 30m - phone alert channel broken (visible on dashboard only, by nature)"
+          summary: "2+ failed ntfy pushes in 30m - phone alert channel broken or recently recovered"
+          description: "The 30m increase window can remain firing briefly after delivery recovers because it still contains earlier failed sends; visible on dashboard only, by nature."
 
   - name: host
     rules:

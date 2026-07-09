@@ -56,8 +56,10 @@ Priorities: severity=critical -> "urgent", severity=warning or unset ->
           "high" (buzzes), resolved -> "default".
 """
 import argparse
+import http.client
 import json
 import os
+import re
 import sys
 import time
 import urllib.error
@@ -81,27 +83,38 @@ RESERVED_KEYS = {UNREACHABLE_KEY, METRICS_KEY}
 UNREACHABLE_THRESHOLD = 3
 
 PRIORITY_BY_SEVERITY = {"critical": "urgent", "warning": "high"}
+TOPIC_RE = re.compile(r"^[A-Za-z0-9._-]{1,128}$")
+
+
+class TopicError(Exception):
+    pass
 
 
 def redact_topic(topic):
     """Never print the topic (it's the only auth ntfy has). First 4 chars is
     enough to recognize which topic file was read without disclosing it."""
+    if topic is None:
+        return "(unreadable)"
     if not topic:
         return "(empty)"
-    return f"{topic[:4]}***({len(topic)} chars)"
+    prefix = "".join(
+        ch if ch.isascii() and (ch.isalnum() or ch in "._-") else "?"
+        for ch in topic[:4]
+    )
+    return f"{prefix}***({len(topic)} chars)"
 
 
 def read_topic():
     try:
         with open(TOPIC_FILE) as fh:
-            topic = fh.read().strip()
+            topic = fh.read().rstrip("\r\n")
     except OSError as exc:
-        print(f"cannot read ntfy topic file {TOPIC_FILE}: {exc}", file=sys.stderr)
-        sys.exit(1)
-    if not topic or "/" in topic or " " in topic:
-        print(f"ntfy topic in {TOPIC_FILE} looks invalid: {redact_topic(topic)}",
-              file=sys.stderr)
-        sys.exit(1)
+        raise TopicError(f"cannot read ntfy topic file {TOPIC_FILE}: {exc}")
+    if not TOPIC_RE.fullmatch(topic):
+        raise TopicError(
+            f"ntfy topic in {TOPIC_FILE} is invalid: {redact_topic(topic)} "
+            "(allowed: 1-128 ASCII letters, digits, dot, underscore, dash)"
+        )
     return topic
 
 
@@ -120,6 +133,11 @@ def fetch_firing_alerts():
     # {"data": {"alerts": [ {...}, ... ]}} must not traceback the poller.
     if not isinstance(payload, dict) or not isinstance(payload.get("data"), dict):
         print("malformed Prometheus alerts API response (unexpected shape)", file=sys.stderr)
+        return None
+    if payload.get("status") != "success":
+        status = payload.get("status", "(missing)")
+        print(f"Prometheus alerts API response status was not success: {status!r}",
+              file=sys.stderr)
         return None
     alerts = payload["data"].get("alerts")
     if not isinstance(alerts, list):
@@ -173,6 +191,10 @@ def push_ntfy(topic, title, message, priority, dry_run):
     try:
         with urllib.request.urlopen(req, timeout=TIMEOUT) as resp:
             return 200 <= resp.status < 300
+    except http.client.InvalidURL:
+        print(f"ntfy push failed for {title!r}: invalid topic/URL configuration "
+              f"({redact_topic(topic)})", file=sys.stderr)
+        return False
     except (urllib.error.URLError, OSError) as exc:
         # NB: exc messages from urllib carry no URL, so no topic leak here.
         print(f"ntfy push failed for {title!r}: {exc}", file=sys.stderr)
@@ -324,6 +346,10 @@ def test_send(topic):
             ok = 200 <= resp.status < 300
             print(f"HTTP {resp.status} -> {'delivered' if ok else 'NOT delivered'}")
             return 0 if ok else 1
+    except http.client.InvalidURL:
+        print(f"test-send failed: invalid topic/URL configuration "
+              f"({redact_topic(topic)})", file=sys.stderr)
+        return 1
     except (urllib.error.URLError, OSError) as exc:
         print(f"test-send failed: {exc}", file=sys.stderr)
         return 1
@@ -346,6 +372,31 @@ def selftest():
         fail(f"redact_topic -> {redact_topic('fixture-topic-value00')!r}")
     if "secretsecret" in redact_topic("fixture-topic-value00"):
         fail("redact_topic leaks")
+
+    global TOPIC_FILE
+    orig_topic = TOPIC_FILE
+    valid_topics = ("abcXYZ012._-", "topic.under_score-dash", "A")
+    invalid_topics = (
+        "", "abc\ndef", "abc?def", "abc#def", "abc/def", r"abc\def",
+        "abc def", "abc%def", "abc:def", "ábcd", "abc\x1fdef",
+    )
+    with tempfile.TemporaryDirectory() as td:
+        TOPIC_FILE = os.path.join(td, "topic")
+        for topic in valid_topics:
+            with open(TOPIC_FILE, "w") as fh:
+                fh.write(topic + "\n")
+            if read_topic() != topic:
+                fail("read_topic valid topic")
+        for topic in invalid_topics:
+            with open(TOPIC_FILE, "w") as fh:
+                fh.write(topic)
+            try:
+                read_topic()
+                fail("read_topic accepted invalid topic")
+            except TopicError as exc:
+                if topic and topic in str(exc):
+                    fail("read_topic leaked invalid topic")
+    TOPIC_FILE = orig_topic
 
     if parse_active_at("2026-07-09T21:00:00.123456789Z") is None:
         fail("parse_active_at nanoseconds")
@@ -395,6 +446,75 @@ def selftest():
     if m["sent_total"] != 7 or m["last_success"] != 0 or m["state_errors_total"] != 1:
         fail(f"get_metrics merge -> {m}")
 
+    class FakeResponse:
+        def __init__(self, payload):
+            self.payload = payload
+        def __enter__(self):
+            return self
+        def __exit__(self, *_):
+            return False
+        def read(self):
+            return json.dumps(self.payload).encode()
+
+    orig_urlopen = urllib.request.urlopen
+    try:
+        urllib.request.urlopen = lambda *_args, **_kwargs: FakeResponse(
+            {"status": "success", "data": {"alerts": []}}
+        )
+        if fetch_firing_alerts() != []:
+            fail("fetch_firing_alerts valid empty response")
+        urllib.request.urlopen = lambda *_args, **_kwargs: FakeResponse(
+            {"status": "error", "data": {"alerts": []}}
+        )
+        if fetch_firing_alerts() is not None:
+            fail("fetch_firing_alerts must reject status != success")
+        urllib.request.urlopen = lambda *_args, **_kwargs: FakeResponse(
+            {"status": "success", "data": {"alerts": {}}}
+        )
+        if fetch_firing_alerts() is not None:
+            fail("fetch_firing_alerts must reject malformed alerts")
+
+        def raise_invalid_url(*_args, **_kwargs):
+            raise http.client.InvalidURL(
+                "URL can't contain control characters. '/fixture-hidden-topic\\n'"
+            )
+        urllib.request.urlopen = raise_invalid_url
+        import contextlib
+        import io
+        err = io.StringIO()
+        with contextlib.redirect_stderr(err):
+            delivered = push_ntfy("fixture-hidden-topic", "TEST", "message", "high", False)
+        if delivered:
+            fail("push_ntfy InvalidURL should fail")
+        if "fixture-hidden-topic" in err.getvalue() or "/fixture-hidden-topic" in err.getvalue():
+            fail("push_ntfy InvalidURL leaked topic")
+    finally:
+        urllib.request.urlopen = orig_urlopen
+
+    global METRICS_DIR
+    orig_metrics_dir = METRICS_DIR
+    with tempfile.TemporaryDirectory() as td:
+        METRICS_DIR = td
+        write_metrics({"last_success": 123, "last_failure": 456,
+                       "sent_total": 2, "fail_total": 3,
+                       "state_errors_total": 1},
+                      query_ok=True, firing_count=4, suppressed=5, now=789)
+        rendered = open(os.path.join(td, "unbound-alertnotify.prom")).read()
+        for expect in (
+            "# TYPE unbound_job_last_success_timestamp_seconds gauge",
+            'unbound_job_last_success_timestamp_seconds{task="alertnotify"} 123',
+            "# HELP unbound_ntfy_delivery_failures_total",
+            "# TYPE unbound_ntfy_delivery_failures_total counter",
+            "unbound_ntfy_prometheus_query_success 1",
+        ):
+            if expect not in rendered:
+                fail(f"write_metrics missing {expect!r}")
+        if "# HELP unbound_job_last_success_timestamp_seconds" in rendered:
+            fail("write_metrics must not emit HELP for shared breadcrumb")
+        if "fixture-hidden-topic" in rendered:
+            fail("write_metrics leaked topic material")
+    METRICS_DIR = orig_metrics_dir
+
     if ok:
         print("selftest: OK")
     return ok
@@ -413,16 +533,33 @@ def main():
     if args.selftest:
         sys.exit(0 if selftest() else 1)
     if args.test_send:
-        sys.exit(test_send(read_topic()))
+        try:
+            sys.exit(test_send(read_topic()))
+        except TopicError as exc:
+            print(exc, file=sys.stderr)
+            sys.exit(1)
 
-    topic = read_topic() if not args.dry_run else "(dry-run)"
-    firing = fetch_firing_alerts()
     state, state_had_error = load_state()
     metrics = get_metrics(state, state_had_error)
     if state_had_error:
         print("warning: state file was corrupt/unreadable - starting fresh "
               "(still-firing alerts will re-announce once)", file=sys.stderr)
     now = int(time.time())
+    if args.dry_run:
+        topic = "(dry-run)"
+    else:
+        try:
+            topic = read_topic()
+        except TopicError as exc:
+            print(exc, file=sys.stderr)
+            metrics["fail_total"] += 1
+            metrics["last_failure"] = now
+            state[METRICS_KEY] = metrics
+            save_state(state)
+            write_metrics(metrics, query_ok=False, firing_count=0,
+                          suppressed=0, now=now)
+            sys.exit(1)
+    firing = fetch_firing_alerts()
 
     if firing is None:
         # Prometheus unreachable: every rule-based alert is dark. Track
