@@ -14,14 +14,20 @@ config reference, docs, and validation.
 | `grafana-etc/` | Grafana config, provisioning, dashboard JSON source of truth |
 | `launchd/` | LaunchDaemon snapshots; `homebrew.mxcl.unbound.plist` is reference-only |
 | `scripts/` | Runtime Python textfile exporters and alert notifier |
-| `tools/` | Local-only repository and documentation tooling; never deployed |
+| `tools/` | Local-only repository, documentation, and deployment-verification tooling; never deployed |
 | `warmup/` | Cache warmup scripts and curated domain list |
 | `usr-local-sbin/` | Root-owned helper scripts deployed under `/usr/local/sbin` |
 | `etc-newsyslog.d/` | newsyslog config snapshot |
 | `etc-ssh-sshd_config.d/` | sshd hardening snapshot |
-| `fixtures/` | Local test fixture data |
 
 ## Source to runtime map
+
+[deployment-manifest.json](deployment-manifest.json) is the canonical,
+machine-readable source-to-runtime map. The table below is its human summary;
+when a deployed path is added or changed, update the manifest first. The
+manifest also records local-only docs/reference files, generated textfiles and
+RPZ zones, and the two sensitive runtime-only files that must never be read or
+hashed by repository tooling.
 
 | Repo source | Runtime destination |
 |---|---|
@@ -46,12 +52,35 @@ config reference, docs, and validation.
 | `etc-newsyslog.d/unbound-monitoring.conf` | `/etc/newsyslog.d/unbound-monitoring.conf` |
 | `etc-ssh-sshd_config.d/500-keyonly.conf` | `/etc/ssh/sshd_config.d/500-keyonly.conf` |
 
+## Read-only deployment drift check
+
+Run from the repo root:
+
+```sh
+python3 tools/verify-deployment.py
+```
+
+The verifier reads `deployment-manifest.json`, checks every declared source,
+then makes one read-only SSH connection to
+`localadmin@mini.magpie-bushmaster.ts.net`. It reports destination existence,
+owner/group/mode, and SHA-256 equality where comparison is safe. Runtime-refreshed
+`root.hints`, generated RPZ zones, node_exporter textfiles, and sensitive files
+are existence/metadata-only checks. Sensitive contents, hashes, and sizes are
+never requested or printed.
+
+Exit status is `1` only for confirmed checksum drift or a missing required
+source/destination. Optional missing files do not fail. An SSH/authentication or
+remote-metadata failure is reported loudly as `INCOMPLETE`/`UNKNOWN` but exits
+`0`, because an unreachable target is not confirmed file drift; do not treat an
+incomplete report as a successful manual verification.
+
 ## File classes
 
 - Config: `unbound-etc/unbound.conf`, `prometheus-etc/*`, `grafana-etc/grafana.ini`,
   `grafana-etc/provisioning/**`, `etc-newsyslog.d/*`, `etc-ssh-sshd_config.d/*`.
 - Scripts: `unbound-etc/*.sh`, `scripts/*.py`, `warmup/*.sh`, `usr-local-sbin/*`.
-- Local tooling: `tools/*.py`; these files are not deployed to the mini.
+- Local tooling: `tools/*.py` and `deployment-manifest.json`; these files are not
+  deployed to the mini.
 - Generated output: `DISASTER-RECOVERY.pdf`, generated RPZ blocklists, `.prom` textfiles,
   Python bytecode, Grafana/Prometheus runtime databases.
 - State/logs: `/opt/homebrew/var/**`, `/opt/homebrew/var/log/**`,
@@ -116,7 +145,6 @@ HELP strings can make node_exporter reject samples from the merged family while
 ## Paths that may move later
 
 - Local-only docs and generated PDF output.
-- `fixtures/` to `testdata/`, if exporter selftests are updated.
 - Additional local-only repository tooling under `tools/`.
 - Repo source directories, only after a deploy manifest/tool can map old source names
   to unchanged runtime destinations.
@@ -125,6 +153,7 @@ HELP strings can make node_exporter reject samples from the merged family while
 
 | Component | Local validation |
 |---|---|
+| Deployment manifest | `python3 -m json.tool deployment-manifest.json >/dev/null`; `python3 tools/verify-deployment.py` |
 | Unbound config | `unbound-checkconf unbound-etc/unbound.conf` when available |
 | Shell scripts | `bash -n unbound-etc/*.sh warmup/*.sh usr-local-sbin/*` |
 | Python scripts | `PYTHONPYCACHEPREFIX=/private/tmp/pycache-unbound python3 -m py_compile scripts/*.py tools/*.py` |

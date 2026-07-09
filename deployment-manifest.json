@@ -1,0 +1,483 @@
+{
+  "version": 1,
+  "target": {
+    "ssh": "localadmin@mini.magpie-bushmaster.ts.net"
+  },
+  "entries": [
+    {
+      "category": "docs",
+      "source": "AGENTS.md",
+      "destination": null,
+      "required": true,
+      "compare": "none"
+    },
+    {
+      "category": "docs",
+      "source": "CLAUDE.md",
+      "destination": null,
+      "required": true,
+      "compare": "none"
+    },
+    {
+      "category": "docs",
+      "source": "DASHBOARDS.md",
+      "destination": null,
+      "required": true,
+      "compare": "none"
+    },
+    {
+      "category": "docs",
+      "source": "DISASTER-RECOVERY.md",
+      "destination": null,
+      "required": true,
+      "compare": "none"
+    },
+    {
+      "category": "docs",
+      "source": "REPO_LAYOUT.md",
+      "destination": null,
+      "required": true,
+      "compare": "none"
+    },
+    {
+      "category": "docs",
+      "source": "RUNBOOK.md",
+      "destination": null,
+      "required": true,
+      "compare": "none"
+    },
+
+    {
+      "category": "config",
+      "source": "unbound-etc/unbound.conf",
+      "destination": "/opt/homebrew/etc/unbound/unbound.conf",
+      "required": true,
+      "compare": "sha256"
+    },
+    {
+      "name": "root hints (runtime-refreshed)",
+      "category": "config",
+      "source": "unbound-etc/root.hints",
+      "destination": "/opt/homebrew/etc/unbound/root.hints",
+      "required": true,
+      "compare": "existence"
+    },
+    {
+      "category": "config",
+      "source": "unbound-etc/blocklists/hagezi-allow.rpz",
+      "destination": "/opt/homebrew/etc/unbound/blocklists/hagezi-allow.rpz",
+      "required": true,
+      "compare": "sha256"
+    },
+    {
+      "category": "config",
+      "source": "unbound-etc/blocklist-source",
+      "destination": "/opt/homebrew/etc/unbound/blocklist-source",
+      "required": true,
+      "compare": "sha256"
+    },
+    {
+      "category": "config",
+      "source": "unbound-etc/blocklist-source-secondary",
+      "destination": "/opt/homebrew/etc/unbound/blocklist-source-secondary",
+      "required": true,
+      "compare": "sha256"
+    },
+    {
+      "category": "config",
+      "source": "prometheus-etc/prometheus.yml",
+      "destination": "/opt/homebrew/etc/prometheus.yml",
+      "required": true,
+      "compare": "sha256"
+    },
+    {
+      "category": "config",
+      "source": "prometheus-etc/prometheus.rules.yml",
+      "destination": "/opt/homebrew/etc/prometheus.rules.yml",
+      "required": true,
+      "compare": "sha256"
+    },
+    {
+      "category": "config",
+      "source": "prometheus-etc/prometheus.args",
+      "destination": "/opt/homebrew/etc/prometheus.args",
+      "required": true,
+      "compare": "sha256"
+    },
+    {
+      "category": "config",
+      "source": "prometheus-etc/blackbox.yml",
+      "destination": "/opt/homebrew/etc/blackbox.yml",
+      "required": true,
+      "compare": "sha256"
+    },
+    {
+      "category": "config",
+      "source": "prometheus-etc/node_exporter.args",
+      "destination": "/opt/homebrew/etc/node_exporter.args",
+      "required": true,
+      "compare": "sha256"
+    },
+    {
+      "category": "config",
+      "source": "grafana-etc/grafana.ini",
+      "destination": "/opt/homebrew/etc/grafana/grafana.ini",
+      "required": true,
+      "compare": "sha256"
+    },
+    {
+      "category": "config",
+      "source": "grafana-etc/provisioning/dashboards/unbound.yml",
+      "destination": "/opt/homebrew/etc/grafana/provisioning/dashboards/unbound.yml",
+      "required": true,
+      "compare": "sha256"
+    },
+    {
+      "category": "config",
+      "source": "grafana-etc/provisioning/datasources/prometheus.yml",
+      "destination": "/opt/homebrew/etc/grafana/provisioning/datasources/prometheus.yml",
+      "required": true,
+      "compare": "sha256"
+    },
+    {
+      "category": "config",
+      "source": "warmup/dns-warm-domains.txt",
+      "destination": "/Users/localadmin/warmup/dns-warm-domains.txt",
+      "required": true,
+      "compare": "sha256"
+    },
+    {
+      "category": "config",
+      "source": "etc-newsyslog.d/unbound-monitoring.conf",
+      "destination": "/etc/newsyslog.d/unbound-monitoring.conf",
+      "required": true,
+      "compare": "sha256"
+    },
+    {
+      "category": "config",
+      "source": "etc-ssh-sshd_config.d/500-keyonly.conf",
+      "destination": "/etc/ssh/sshd_config.d/500-keyonly.conf",
+      "required": true,
+      "compare": "sha256"
+    },
+    {
+      "name": "generated primary RPZ zone",
+      "category": "config",
+      "source": "unbound-etc/update-blocklist.sh",
+      "destination": "/opt/homebrew/etc/unbound/blocklists/hagezi-normal.rpz",
+      "required": true,
+      "compare": "existence"
+    },
+    {
+      "name": "generated secondary RPZ zone",
+      "category": "config",
+      "source": "unbound-etc/update-blocklist.sh",
+      "destination": "/opt/homebrew/etc/unbound/blocklists/blocklist-secondary.rpz",
+      "required": true,
+      "compare": "existence"
+    },
+    {
+      "name": "ntfy topic",
+      "category": "config",
+      "source": null,
+      "destination": "/Users/localadmin/monitoring/ntfy.topic",
+      "required": true,
+      "compare": "existence",
+      "sensitive": true
+    },
+    {
+      "name": "private personalized warmup list",
+      "category": "config",
+      "source": null,
+      "destination": "/Users/localadmin/warmup/dns-warm-domains.personal.txt",
+      "required": false,
+      "compare": "existence",
+      "sensitive": true
+    },
+
+    {
+      "category": "script",
+      "source": "unbound-etc/update-blocklist.sh",
+      "destination": "/opt/homebrew/etc/unbound/update-blocklist.sh",
+      "required": true,
+      "compare": "sha256"
+    },
+    {
+      "category": "script",
+      "source": "unbound-etc/blocklist-tui.sh",
+      "destination": "/opt/homebrew/etc/unbound/blocklist-tui.sh",
+      "required": true,
+      "compare": "sha256"
+    },
+    {
+      "category": "script",
+      "source": "scripts/apple_content_cache_exporter.py",
+      "destination": "/Users/localadmin/monitoring/apple_content_cache_exporter.py",
+      "required": true,
+      "compare": "sha256"
+    },
+    {
+      "category": "script",
+      "source": "scripts/unbound_client_rpz_exporter.py",
+      "destination": "/Users/localadmin/monitoring/unbound_client_rpz_exporter.py",
+      "required": true,
+      "compare": "sha256"
+    },
+    {
+      "category": "script",
+      "source": "scripts/prometheus_alert_notifier.py",
+      "destination": "/Users/localadmin/monitoring/prometheus_alert_notifier.py",
+      "required": true,
+      "compare": "sha256"
+    },
+    {
+      "category": "script",
+      "source": "warmup/build-warm-list.sh",
+      "destination": "/Users/localadmin/warmup/build-warm-list.sh",
+      "required": true,
+      "compare": "sha256"
+    },
+    {
+      "category": "script",
+      "source": "warmup/check-blocked.sh",
+      "destination": "/Users/localadmin/warmup/check-blocked.sh",
+      "required": true,
+      "compare": "sha256"
+    },
+    {
+      "category": "script",
+      "source": "warmup/warm-at-boot.sh",
+      "destination": "/Users/localadmin/warmup/warm-at-boot.sh",
+      "required": true,
+      "compare": "sha256"
+    },
+    {
+      "category": "script",
+      "source": "warmup/warm-unbound-cache.sh",
+      "destination": "/Users/localadmin/warmup/warm-unbound-cache.sh",
+      "required": true,
+      "compare": "sha256"
+    },
+    {
+      "category": "script",
+      "source": "usr-local-sbin/screenshare-off",
+      "destination": "/usr/local/sbin/screenshare-off",
+      "required": true,
+      "compare": "sha256"
+    },
+    {
+      "category": "script",
+      "source": "usr-local-sbin/screenshare-on",
+      "destination": "/usr/local/sbin/screenshare-on",
+      "required": true,
+      "compare": "sha256"
+    },
+    {
+      "category": "script",
+      "source": "usr-local-sbin/unbound-refresh-hints",
+      "destination": "/usr/local/sbin/unbound-refresh-hints",
+      "required": true,
+      "compare": "sha256"
+    },
+
+    {
+      "name": "Homebrew-managed Unbound plist reference",
+      "category": "plist",
+      "source": "launchd/homebrew.mxcl.unbound.plist",
+      "destination": null,
+      "required": true,
+      "compare": "none"
+    },
+    {
+      "category": "plist",
+      "source": "launchd/local.unbound.alertnotify.plist",
+      "destination": "/Library/LaunchDaemons/local.unbound.alertnotify.plist",
+      "required": true,
+      "compare": "sha256"
+    },
+    {
+      "category": "plist",
+      "source": "launchd/local.unbound.blackbox.plist",
+      "destination": "/Library/LaunchDaemons/local.unbound.blackbox.plist",
+      "required": true,
+      "compare": "sha256"
+    },
+    {
+      "category": "plist",
+      "source": "launchd/local.unbound.blocklist.plist",
+      "destination": "/Library/LaunchDaemons/local.unbound.blocklist.plist",
+      "required": true,
+      "compare": "sha256"
+    },
+    {
+      "category": "plist",
+      "source": "launchd/local.unbound.clientstats.plist",
+      "destination": "/Library/LaunchDaemons/local.unbound.clientstats.plist",
+      "required": true,
+      "compare": "sha256"
+    },
+    {
+      "category": "plist",
+      "source": "launchd/local.unbound.contentcache.plist",
+      "destination": "/Library/LaunchDaemons/local.unbound.contentcache.plist",
+      "required": true,
+      "compare": "sha256"
+    },
+    {
+      "category": "plist",
+      "source": "launchd/local.unbound.exporter.plist",
+      "destination": "/Library/LaunchDaemons/local.unbound.exporter.plist",
+      "required": true,
+      "compare": "sha256"
+    },
+    {
+      "category": "plist",
+      "source": "launchd/local.unbound.grafana.plist",
+      "destination": "/Library/LaunchDaemons/local.unbound.grafana.plist",
+      "required": true,
+      "compare": "sha256"
+    },
+    {
+      "category": "plist",
+      "source": "launchd/local.unbound.nodeexporter.plist",
+      "destination": "/Library/LaunchDaemons/local.unbound.nodeexporter.plist",
+      "required": true,
+      "compare": "sha256"
+    },
+    {
+      "category": "plist",
+      "source": "launchd/local.unbound.prometheus.plist",
+      "destination": "/Library/LaunchDaemons/local.unbound.prometheus.plist",
+      "required": true,
+      "compare": "sha256"
+    },
+    {
+      "category": "plist",
+      "source": "launchd/local.unbound.roothints.plist",
+      "destination": "/Library/LaunchDaemons/local.unbound.roothints.plist",
+      "required": true,
+      "compare": "sha256"
+    },
+    {
+      "category": "plist",
+      "source": "launchd/local.unbound.warmboot.plist",
+      "destination": "/Library/LaunchDaemons/local.unbound.warmboot.plist",
+      "required": true,
+      "compare": "sha256"
+    },
+    {
+      "category": "plist",
+      "source": "launchd/local.unbound.warmlist.plist",
+      "destination": "/Library/LaunchDaemons/local.unbound.warmlist.plist",
+      "required": true,
+      "compare": "sha256"
+    },
+
+    {
+      "category": "dashboard",
+      "source": "grafana-etc/dashboards/apple-content-cache.json",
+      "destination": "/opt/homebrew/etc/grafana/dashboards/apple-content-cache.json",
+      "required": true,
+      "compare": "sha256"
+    },
+    {
+      "category": "dashboard",
+      "source": "grafana-etc/dashboards/network-tailscale.json",
+      "destination": "/opt/homebrew/etc/grafana/dashboards/network-tailscale.json",
+      "required": true,
+      "compare": "sha256"
+    },
+    {
+      "category": "dashboard",
+      "source": "grafana-etc/dashboards/prometheus-monitoring.json",
+      "destination": "/opt/homebrew/etc/grafana/dashboards/prometheus-monitoring.json",
+      "required": true,
+      "compare": "sha256"
+    },
+    {
+      "category": "dashboard",
+      "source": "grafana-etc/dashboards/services.json",
+      "destination": "/opt/homebrew/etc/grafana/dashboards/services.json",
+      "required": true,
+      "compare": "sha256"
+    },
+    {
+      "category": "dashboard",
+      "source": "grafana-etc/dashboards/storage-backups.json",
+      "destination": "/opt/homebrew/etc/grafana/dashboards/storage-backups.json",
+      "required": true,
+      "compare": "sha256"
+    },
+    {
+      "category": "dashboard",
+      "source": "grafana-etc/dashboards/system-stats.json",
+      "destination": "/opt/homebrew/etc/grafana/dashboards/system-stats.json",
+      "required": true,
+      "compare": "sha256"
+    },
+    {
+      "category": "dashboard",
+      "source": "grafana-etc/dashboards/unbound-dns.json",
+      "destination": "/opt/homebrew/etc/grafana/dashboards/unbound-dns.json",
+      "required": true,
+      "compare": "sha256"
+    },
+
+    {
+      "name": "blocklist job metrics",
+      "category": "textfile",
+      "source": "unbound-etc/update-blocklist.sh",
+      "destination": "/opt/homebrew/var/lib/node_exporter/textfile/unbound-blocklist.prom",
+      "required": true,
+      "compare": "existence"
+    },
+    {
+      "name": "warm-list job metrics",
+      "category": "textfile",
+      "source": "warmup/build-warm-list.sh",
+      "destination": "/opt/homebrew/var/lib/node_exporter/textfile/unbound-warmlist.prom",
+      "required": true,
+      "compare": "existence"
+    },
+    {
+      "name": "warmboot job metrics",
+      "category": "textfile",
+      "source": "warmup/warm-at-boot.sh",
+      "destination": "/opt/homebrew/var/lib/node_exporter/textfile/unbound-warmboot.prom",
+      "required": true,
+      "compare": "existence"
+    },
+    {
+      "name": "root hints job metrics",
+      "category": "textfile",
+      "source": "usr-local-sbin/unbound-refresh-hints",
+      "destination": "/opt/homebrew/var/lib/node_exporter/textfile/unbound-roothints.prom",
+      "required": true,
+      "compare": "existence"
+    },
+    {
+      "name": "alert notifier metrics",
+      "category": "textfile",
+      "source": "scripts/prometheus_alert_notifier.py",
+      "destination": "/opt/homebrew/var/lib/node_exporter/textfile/unbound-alertnotify.prom",
+      "required": true,
+      "compare": "existence"
+    },
+    {
+      "name": "RPZ client metrics",
+      "category": "textfile",
+      "source": "scripts/unbound_client_rpz_exporter.py",
+      "destination": "/opt/homebrew/var/lib/node_exporter/textfile/unbound-clientstats.prom",
+      "required": true,
+      "compare": "existence"
+    },
+    {
+      "name": "Apple Content Cache metrics",
+      "category": "textfile",
+      "source": "scripts/apple_content_cache_exporter.py",
+      "destination": "/opt/homebrew/var/lib/node_exporter/textfile/apple-content-cache.prom",
+      "required": true,
+      "compare": "existence"
+    }
+  ]
+}
