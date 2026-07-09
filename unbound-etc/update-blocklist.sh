@@ -1,22 +1,76 @@
 #!/usr/bin/env bash
 #
-# update-blocklist.sh — download the HaGeZi Multi NORMAL RPZ blocklist,
-# sanity-check it, atomically swap it in, and reload just that zone.
+# update-blocklist.sh — download an RPZ blocklist, sanity-check it, atomically
+# swap it in, and reload just that zone. Source is pluggable (see SOURCE below)
+# so you can try out different lists without touching anything else - the
+# destination file/zone name stay "hagezi-normal.rpz" / "hagezi.rpz" regardless
+# of which source is actually loaded (see unbound.conf's comment on this).
 #
-# Run by:    local.unbound.blocklist LaunchDaemon, daily 03:30, as root.
-# Manual:    sudo /opt/homebrew/etc/unbound/update-blocklist.sh   (safe anytime)
+# Run by:    local.unbound.blocklist LaunchDaemon, daily 03:30, as root, with
+#            NO argument - so every nightly run re-fetches hagezi-normal
+#            (the default) NO MATTER WHAT you last ran by hand. A manual run
+#            with a source argument is a ONE-TIME override: it's live until
+#            03:30 tomorrow, then silently reverts to hagezi-normal. To make
+#            a different source the permanent nightly choice, add it as a
+#            third <string> in local.unbound.blocklist.plist's
+#            ProgramArguments and redeploy - there is no state file.
+# Manual:    sudo /opt/homebrew/etc/unbound/update-blocklist.sh [source]
+#            (safe anytime; omit [source] for hagezi-normal)
+#            Known sources: hagezi-normal (default) hagezi-pro
+#              1hosts-lite 1hosts-xtra oisd-small oisd-big
 # Needs:     root (writes unbound-owned zonefile + talks to the control socket).
 # Writes:    /opt/homebrew/etc/unbound/blocklists/hagezi-normal.rpz (+ .bak of
 #            the previous version), success breadcrumb .prom for node_exporter.
 # Logs:      /opt/homebrew/var/log/unbound-blocklist.log (launchd) or stdout.
-# Exit:      0 = updated + reloaded; 1 = bad download / checkconf failure
-#            (auto-rolled-back) — DNS keeps serving the previous list either way.
+# Exit:      0 = updated + reloaded; 1 = unknown source name, bad download, or
+#            checkconf failure (auto-rolled-back) — DNS keeps serving the
+#            previous list either way.
 # Verify:    dig @127.0.0.1 google-analytics.com  -> NXDOMAIN with 'aa' flag
+#            (present in all six known sources - safe canary regardless of
+#            which one is active)
 #            curl -s localhost:9100/metrics | grep unbound_blocklist_lines
 set -euo pipefail
 
-# HaGeZi "Multi NORMAL" list (upstream file rpz/multi.txt; the Pro tier was rpz/pro.txt)
-SRC="https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/rpz/multi.txt"
+# SOURCE picks which upstream RPZ feed to use; NOT persisted anywhere (no
+# state file) - $1 defaults to hagezi-normal, which is exactly what the
+# LaunchDaemon gets every night since its ProgramArguments never pass one.
+# See the header for how to make a different source the permanent default.
+# Bash 3.2 (macOS system /bin/bash, which is what the LaunchDaemon hardcodes -
+# no associative arrays), so a case statement, not a lookup table. MIN_LINES
+# floors are ~65% of the live count observed 2026-07-09 - loose enough to
+# absorb normal day-to-day list churn, tight enough to catch a truncated
+# download or an HTML error page in place of data.
+SOURCE="${1:-hagezi-normal}"
+case "$SOURCE" in
+    hagezi-normal)
+        SRC="https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/rpz/multi.txt"
+        MIN_LINES=100000   # observed ~316k
+        ;;
+    hagezi-pro)
+        SRC="https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/rpz/pro.txt"
+        MIN_LINES=300000   # observed 463994
+        ;;
+    1hosts-lite)
+        SRC="https://raw.githubusercontent.com/badmojr/1Hosts/master/Lite/rpz.txt"
+        MIN_LINES=130000   # observed 199328
+        ;;
+    1hosts-xtra)
+        SRC="https://raw.githubusercontent.com/badmojr/1Hosts/master/Xtra/rpz.txt"
+        MIN_LINES=900000   # observed 1423228
+        ;;
+    oisd-small)
+        SRC="https://small.oisd.nl/rpz"
+        MIN_LINES=70000    # observed 111024
+        ;;
+    oisd-big)
+        SRC="https://big.oisd.nl/rpz"
+        MIN_LINES=600000   # observed 987218
+        ;;
+    *)
+        echo "unknown source '$SOURCE'; known: hagezi-normal hagezi-pro 1hosts-lite 1hosts-xtra oisd-small oisd-big" >&2
+        exit 1
+        ;;
+esac
 DEST="/opt/homebrew/etc/unbound/blocklists/hagezi-normal.rpz"
 TMP="$(mktemp)"
 NEW="${DEST}.new"   # staged on the same filesystem as DEST so mv(1) is atomic
@@ -27,8 +81,8 @@ trap 'rm -f "$TMP" "$NEW"' EXIT
 
 curl -fsS --max-time 90 "$SRC" -o "$TMP"
 
-if ! grep -q 'CNAME' "$TMP" || [ "$(wc -l < "$TMP")" -lt 100000 ]; then
-    echo "downloaded file looks wrong; aborting" >&2
+if ! grep -q 'CNAME' "$TMP" || [ "$(wc -l < "$TMP")" -lt "$MIN_LINES" ]; then
+    echo "downloaded file looks wrong for source '$SOURCE' (want >= $MIN_LINES lines); aborting" >&2
     exit 1
 fi
 
