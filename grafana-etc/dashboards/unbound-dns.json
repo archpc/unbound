@@ -1473,6 +1473,102 @@
       ],
       "title": "Cache misses (24h)",
       "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 72
+      },
+      "id": 28,
+      "options": {
+        "displayMode": "gradient",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "topk(10, unbound_client_rpz_blocks_5m{client=~\"$client\"})",
+          "refId": "A",
+          "legendFormat": "{{client}}",
+          "instant": true
+        }
+      ],
+      "title": "Top RPZ block offenders (5m window)",
+      "description": "RPZ blocks per LAN client over the last 5 minutes, from unbound's rpz-log lines (rolling gauge, refreshed every 2 min by the clientstats job). Per-client BLOCK activity only - with log-queries/log-replies off, blocks are the only per-client trace unbound leaves, so there is no per-client total-query or NXDOMAIN view. Sums under-run the global RPZ rate because unbound's own prefetch/serve-expired refresh lookups carry no client address (unbound_client_rpz_unattributed_5m counts those).",
+      "type": "bargauge"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 72
+      },
+      "id": 29,
+      "options": {
+        "displayMode": "gradient",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sort(time() - unbound_client_last_rpz_block_seconds{client=~\"$client\"})",
+          "refId": "A",
+          "legendFormat": "{{client}}",
+          "instant": true
+        }
+      ],
+      "title": "Time since last RPZ block, by client",
+      "description": "Age of each client's newest RPZ block (smallest bar = blocked most recently). Blocked-traffic recency only - a client that stops appearing here may simply be hitting no blocked domains, not offline. Clients drop out entirely after 5 minutes with no blocks (rolling window).",
+      "type": "bargauge"
     }
   ],
   "refresh": "30s",
@@ -1484,7 +1580,32 @@
     "homelab"
   ],
   "templating": {
-    "list": []
+    "list": [
+      {
+        "name": "client",
+        "label": "Client",
+        "type": "query",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "query": "label_values(unbound_client_rpz_blocks_5m, client)",
+        "refresh": 2,
+        "multi": true,
+        "includeAll": true,
+        "current": {
+          "selected": true,
+          "text": [
+            "All"
+          ],
+          "value": [
+            "$__all"
+          ]
+        },
+        "options": [],
+        "sort": 3
+      }
+    ]
   },
   "time": {
     "from": "now-6h",
@@ -1494,6 +1615,6 @@
   "timezone": "browser",
   "title": "Unbound DNS",
   "uid": "unbound-dns",
-  "version": 10,
+  "version": 11,
   "weekStart": ""
 }

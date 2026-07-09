@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!-- Per-client RPZ block stats from unbound's rpz-log lines in the
+         unified log (`log show --info` - readable by localadmin, no sudo).
+         System daemon with UserName for the same reason as contentcache:
+         auto-login is OFF, so per-user jobs can't load over SSH. 120s
+         interval against the script's rolling 5m window keeps the gauges
+         fresh without hammering log show (~0.7s/run measured 2026-07-09).
+         Needs sudo to install - see CLAUDE.md. -->
+    <key>Label</key>
+    <string>local.unbound.clientstats</string>
+    <key>UserName</key>
+    <string>localadmin</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/usr/bin/python3</string>
+        <string>/Users/localadmin/monitoring/unbound_client_rpz_exporter.py</string>
+        <string>--output</string>
+        <string>/opt/homebrew/var/lib/node_exporter/textfile/unbound-clientstats.prom</string>
+    </array>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>StartInterval</key>
+    <integer>120</integer>
+    <key>StandardOutPath</key>
+    <string>/opt/homebrew/var/log/unbound-clientstats.log</string>
+    <key>StandardErrorPath</key>
+    <string>/opt/homebrew/var/log/unbound-clientstats.log</string>
+</dict>
+</plist>
