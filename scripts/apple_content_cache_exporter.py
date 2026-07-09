@@ -218,14 +218,15 @@ def build_metrics(top, cache_details, now=None):
     # (see module docstring). If that field is ever absent, fall back to
     # gauge-style naming rather than assert a counter semantic we can't back up.
     since_raw = top.get("TotalBytesAreSince")
-    is_counter = since_raw is not None
+    since_epoch = parse_timestamp_to_epoch(since_raw) if since_raw is not None else None
+    is_counter = since_epoch is not None
     suffix = "_total" if is_counter else ""
     # Only warn on the UNEXPECTED path (gauge fallback). The counter case is
     # this exporter's documented normal behavior - warning about it on every
     # scheduled run just fills the launchd log with identical noise
     # (~288 lines/day at a 300s interval).
     if not is_counter:
-        warnings.append("ReturnedToClients/StoredFromOrigin: TotalBytesAreSince absent -> "
+        warnings.append("ReturnedToClients/StoredFromOrigin: TotalBytesAreSince missing or invalid -> "
                         "could not confirm counter semantics; using gauge naming (no _total, "
                         "and Grafana increase() panels will be wrong until this is resolved)")
 
@@ -239,11 +240,10 @@ def build_metrics(top, cache_details, now=None):
          "Bytes fetched from the internet origin and stored in the cache" + (" (cumulative since apple_content_cache_totals_since_seconds)." if is_counter else "."))
 
     if since_raw is not None:
-        epoch = parse_timestamp_to_epoch(since_raw)
-        if epoch is not None:
+        if since_epoch is not None:
             m = Metric("apple_content_cache_totals_since_seconds", "gauge",
                         "Unix timestamp when the TotalBytes* counters were last reset (service restart).")
-            m.add(epoch)
+            m.add(since_epoch)
             metrics.append(m)
         else:
             warnings.append(f"TotalBytesAreSince={since_raw!r} could not be parsed as a timestamp")

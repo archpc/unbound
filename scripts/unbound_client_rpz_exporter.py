@@ -97,7 +97,13 @@ def parse_ndjson(lines):
         except ValueError:
             parse_errors += 1
             continue
+        if not isinstance(event, dict):
+            parse_errors += 1
+            continue
         msg = event.get("eventMessage", "")
+        if not isinstance(msg, str):
+            parse_errors += 1
+            continue
         if "rpz: applied" not in msg:
             continue  # log show header/summary objects, not an error
         m = _RPZ_RE.search(msg)

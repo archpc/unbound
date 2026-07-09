@@ -58,6 +58,7 @@ Priorities: severity=critical -> "urgent", severity=warning or unset ->
 import argparse
 import http.client
 import json
+import math
 import os
 import re
 import sys
@@ -126,7 +127,7 @@ def fetch_firing_alerts():
     try:
         with urllib.request.urlopen(PROMETHEUS_ALERTS_URL, timeout=TIMEOUT) as resp:
             payload = json.load(resp)
-    except (urllib.error.URLError, OSError, json.JSONDecodeError) as exc:
+    except (urllib.error.URLError, OSError, json.JSONDecodeError, UnicodeDecodeError) as exc:
         print(f"cannot query Prometheus alerts API: {exc}", file=sys.stderr)
         return None
     # Shape-validate before trusting: valid JSON that isn't the expected
@@ -163,7 +164,7 @@ def load_state():
             state = json.load(fh)
     except FileNotFoundError:
         return {}, False  # first run - expected, not an error
-    except (OSError, json.JSONDecodeError):
+    except (OSError, json.JSONDecodeError, UnicodeDecodeError):
         return {}, True
     if not isinstance(state, dict):
         return {}, True
@@ -195,9 +196,13 @@ def push_ntfy(topic, title, message, priority, dry_run):
         print(f"ntfy push failed for {title!r}: invalid topic/URL configuration "
               f"({redact_topic(topic)})", file=sys.stderr)
         return False
+    except urllib.error.HTTPError as exc:
+        print(f"ntfy push failed for {title!r}: HTTP {exc.code}", file=sys.stderr)
+        return False
     except (urllib.error.URLError, OSError) as exc:
-        # NB: exc messages from urllib carry no URL, so no topic leak here.
-        print(f"ntfy push failed for {title!r}: {exc}", file=sys.stderr)
+        # Never print the exception text: urllib/OSError messages are not
+        # guaranteed to omit the request URL, which contains the secret topic.
+        print(f"ntfy push failed for {title!r}: {type(exc).__name__}", file=sys.stderr)
         return False
 
 
@@ -271,8 +276,11 @@ def get_metrics(state, state_had_error):
     metrics = default_metrics()
     if isinstance(m, dict):
         for key in metrics:
-            if isinstance(m.get(key), (int, float)):
-                metrics[key] = m[key]
+            value = m.get(key)
+            valid_int = isinstance(value, int) and not isinstance(value, bool) and value >= 0
+            valid_float = isinstance(value, float) and math.isfinite(value) and value >= 0
+            if valid_int or valid_float:
+                metrics[key] = value
     if state_had_error:
         metrics["state_errors_total"] += 1
     return metrics
@@ -350,8 +358,11 @@ def test_send(topic):
         print(f"test-send failed: invalid topic/URL configuration "
               f"({redact_topic(topic)})", file=sys.stderr)
         return 1
+    except urllib.error.HTTPError as exc:
+        print(f"test-send failed: HTTP {exc.code}", file=sys.stderr)
+        return 1
     except (urllib.error.URLError, OSError) as exc:
-        print(f"test-send failed: {exc}", file=sys.stderr)
+        print(f"test-send failed: {type(exc).__name__}", file=sys.stderr)
         return 1
 
 
@@ -569,7 +580,11 @@ def main():
         entry = state.get(UNREACHABLE_KEY) or {"failures": 0, "notified": False}
         if not isinstance(entry, dict):
             entry = {"failures": 0, "notified": False}
-        entry["failures"] = entry.get("failures", 0) + 1
+        prior_failures = entry.get("failures", 0)
+        if (not isinstance(prior_failures, int) or isinstance(prior_failures, bool)
+                or prior_failures < 0):
+            prior_failures = 0
+        entry["failures"] = prior_failures + 1
         if entry["failures"] >= UNREACHABLE_THRESHOLD and not entry.get("notified"):
             if push_ntfy(topic, "FIRING: PrometheusUnreachable",
                          f"alert polling has failed {entry['failures']} consecutive times "
