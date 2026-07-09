@@ -88,6 +88,25 @@ groups:
         annotations:
           summary: "unbound_client_rpz_exporter.py breadcrumb stale >15m - job dead or its samples rejected by node_exporter"
 
+      # Stale-rules can't fire on a metric that isn't there at all (header
+      # note above): this covers the never-seeded / file-deleted / sample-
+      # rejected-at-merge cases for the newest job. for: 15m rides out
+      # node_exporter restarts.
+      - alert: ClientStatsBreadcrumbAbsent
+        expr: absent(unbound_job_last_success_timestamp_seconds{task="clientstats"})
+        for: 15m
+        annotations:
+          summary: "clientstats breadcrumb metric absent - job never seeded, .prom file gone, or sample rejected in the textfile merge"
+
+      # >= 2 failed pushes in 30m = the phone channel itself is broken, not a
+      # blip. Inherently dashboard-only (a broken channel can't push its own
+      # failure) - same circular gap as AlertNotifierStale. Counter persists
+      # in the notifier's state file; increase() tolerates a reset.
+      - alert: NtfyDeliveryFailures
+        expr: increase(unbound_ntfy_delivery_failures_total[30m]) >= 2
+        annotations:
+          summary: "2+ failed ntfy pushes in 30m - phone alert channel broken (visible on dashboard only, by nature)"
+
   - name: host
     rules:
       # The TSDB, logs, and Time Machine target all live on this box - catch

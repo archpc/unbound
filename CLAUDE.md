@@ -177,9 +177,13 @@ audit, a list of inconsistencies):
     (two extra daemons for grouping/silencing features this small local rule set doesn't need).
     The topic name lives ONLY in `~localadmin/monitoring/ntfy.topic` (mode 600) — it is the only auth ntfy has, treat
     it like a password, never commit it. Subscribe the phone app to that topic. State in
-    `~/monitoring/state/notified-alerts.json` (reboot wipes it → still-firing alerts re-announce
-    once, intentionally). Known gap: a dead notifier can't push its own death —
-    `AlertNotifierStale` shows on the dashboard/alerts page only.
+    `~/monitoring/state/notified-alerts.json` (alert fingerprints + persisted `unbound_ntfy_*_total`
+    counters; if it's ever lost, still-firing alerts re-announce once, intentionally). The script
+    also writes `unbound_ntfy_*` health metrics (last attempt/failure timestamps, query success,
+    sent/failure/state-error counters) into its textfile every run, and has `--test-send` (one
+    real push to the real topic, topic redacted in output), `--dry-run`, and `--selftest` modes.
+    Known gap: a dead notifier can't push its own death — `AlertNotifierStale` and
+    `NtfyDeliveryFailures` show on the dashboard/alerts page only.
   - `local.unbound.contentcache.plist` — runs
     [scripts/apple_content_cache_exporter.py](scripts/apple_content_cache_exporter.py) every
     5 minutes, parsing `AssetCacheManagerUtil status` (no privilege needed for the read) into a
