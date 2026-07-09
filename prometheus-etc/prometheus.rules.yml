@@ -76,6 +76,18 @@ groups:
         annotations:
           summary: "prometheus_alert_notifier.py hasn't succeeded in >10m - phone pushes are dead"
 
+      # Runs every 120s; 900s = seven missed runs. Guards a failure class
+      # proven silent on 2026-07-09: node_exporter rejected the clientstats
+      # breadcrumb sample over a HELP-string conflict while
+      # node_textfile_scrape_error stayed 0 - TextfileScrapeError sees only
+      # unparseable FILES, not samples dropped during the family merge. The
+      # breadcrumb going stale is the one signal that catches a dead job, a
+      # broken log-show parse, AND a rejected-sample regression alike.
+      - alert: ClientStatsStale
+        expr: time() - unbound_job_last_success_timestamp_seconds{task="clientstats"} > 900
+        annotations:
+          summary: "unbound_client_rpz_exporter.py breadcrumb stale >15m - job dead or its samples rejected by node_exporter"
+
   - name: host
     rules:
       # The TSDB, logs, and Time Machine target all live on this box - catch
