@@ -32,7 +32,9 @@ standing in front of its replacement — this is a rebuild. Continue to §1.**
 
 ## 1. Overview
 
-This Mac mini is the **only DNS resolver for the home LAN** (`192.168.0.0/24`). It:
+This Mac mini is the **primary DNS resolver for the home LAN** (`192.168.0.0/24`) —
+clients carry `9.9.9.9` as DHCP fallback (set on the router; verify there), so a mini
+outage degrades the LAN (no ad-blocking, no `.lan` names) rather than killing it. It:
 
 - Recursively resolves DNS for every device on the network, with **DNSSEC validation**.
 - Blocks ads/trackers via an **RPZ blocklist** (HaGeZi "Multi NORMAL"), refreshed nightly.
@@ -41,8 +43,9 @@ This Mac mini is the **only DNS resolver for the home LAN** (`192.168.0.0/24`). 
 - Runs a full **Prometheus + Grafana monitoring stack** watching all of the above, with
   phone push alerts via ntfy.
 
-If this box is down, **the entire house loses name resolution** — that's why this
-document exists, and why every step below errs toward "validate before you trust it."
+If this box is down, **the house degrades to the unfiltered fallback resolver** — ads
+return, `.lan` names break, and DNS runs without your policy — that's why this document
+exists, and why every step below errs toward "validate before you trust it."
 
 For day-to-day operation (not rebuild), see [RUNBOOK.md](RUNBOOK.md). For the deep
 technical reference behind every file, see [CLAUDE.md](CLAUDE.md).
@@ -54,7 +57,7 @@ technical reference behind every file, see [CLAUDE.md](CLAUDE.md).
 ```
                          Home LAN  192.168.0.0/24
                                 │
-                                │  DHCP hands out DNS = 192.168.0.100
+                                │  DHCP hands out DNS = 192.168.0.100, fallback 9.9.9.9
                                 ▼
 ┌────────────────────────────────────────────────────────────────────┐
 │  Mac mini "mini"  —  192.168.0.100  (also on Tailscale: mini.tail3fd0f4.ts.net)
@@ -276,6 +279,14 @@ sudo /opt/homebrew/etc/unbound/update-blocklist.sh
 This downloads HaGeZi Multi NORMAL, sanity-checks it (**must** be >100k lines and
 contain `CNAME` entries), writes `hagezi-normal.rpz`, and rolls back automatically if
 validation fails. Run this **before** `unbound-checkconf` on a fresh box (see §8).
+
+> **⚠️ On a fresh box this exits 1 — that's expected, keep going.** With unbound not
+> yet running, the script's final `unbound-control` reload step fails (no control
+> socket) *after* the zonefile has already been downloaded, validated, and staged.
+> Tell the two cases apart by the error text: `connect ... failed` / socket errors =
+> expected here, zonefile is in place, continue to §8's checkconf. `downloaded file
+> looks wrong` or `checkconf failed; rolling back` = a real failure, stop and fix.
+> The §Validate line below (`wc -l`) is the ground truth either way.
 
 Validate:
 ```sh
@@ -530,7 +541,7 @@ If this rebuild happened on a **replacement** box (new hardware, same IP plan), 
 temporarily pointed clients elsewhere during the outage:
 
 - [ ] Confirm the new box has IP **192.168.0.100** (static reservation or manual assignment — match whatever the router's DHCP already advertises as DNS).
-- [ ] If you temporarily changed router DHCP to point at a fallback resolver during the outage, **change it back** to `192.168.0.100` now — not before validation.
+- [ ] Router DHCP should advertise DNS as `192.168.0.100` **primary** with `9.9.9.9` fallback — that fallback is standing config, not an outage hack; don't remove it. If you pointed *primary* elsewhere during the outage, restore it now — not before validation.
 - [ ] Flush client DNS caches if a device seems to still be using a stale resolver (`sudo dscacheutil -flushcache` on Macs; most other devices just need a network toggle).
 - [ ] Watch Grafana's "Unbound DNS" dashboard for 10–15 minutes as real household traffic starts hitting the box — confirm cache hit rate climbs and no SERVFAIL spike appears.
 
@@ -557,7 +568,8 @@ temporarily pointed clients elsewhere during the outage:
 ## 20. Do-not-do list
 
 - **Don't restart or reload unbound on an unvalidated config.** `unbound-checkconf`
-  first, every time, no exceptions — it's the LAN's only resolver.
+  first, every time, no exceptions — it's the LAN's primary resolver; breaking it
+  degrades every client to the unfiltered fallback.
 - **Don't run `update-blocklist.sh` after `unbound-checkconf` on a fresh box** — the
   ordering in §8/§9 is deliberate; checkconf needs the RPZ zonefile to already exist.
 - **Don't `brew services start unbound` without sudo.** Non-sudo creates a second,

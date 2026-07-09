@@ -10,6 +10,14 @@ plus loopback, with DNSSEC validation, ad/tracker blocking via RPZ, and a home `
 an application codebase — there is no build, lint, or test suite. Changes here take effect by editing
 config/scripts in place and reloading the live `unbound` process.
 
+**Resolver topology:** clients get `192.168.0.100` as primary DNS with `9.9.9.9` (Quad9) as
+fallback (confirmed 2026-07-09 from the mini's own `scutil --dns`; the DHCP setting itself
+lives on the router — verify there). The fallback keeps internet name resolution alive during
+a mini outage, but it bypasses RPZ ad-blocking and `.lan` names — and clients with loose
+resolver-selection (Windows notably) may drift to `9.9.9.9` and stick even while unbound is
+healthy, silently unblocked. Dashboards can't see that: the RPZ canary proves unbound blocks,
+not that every client still asks unbound.
+
 For a human, task-oriented operator guide (how to log in, health-check, unblock a site,
 recover from an outage), see [RUNBOOK.md](RUNBOOK.md). This file is the deep technical
 reference behind it.
@@ -39,6 +47,12 @@ audit, a list of inconsistencies):
    spacing) — never to re-confirm something text extraction already answered.
 8. **Stop after one verification pass** and show `git status` + `git diff --stat` (not
    full diffs unless asked) — then wait, don't keep re-checking.
+9. **SSH success does not prove launchd success.** macOS TCC evaluates the responsible
+   process: a command that works in an interactive SSH session can be denied (Full Disk
+   Access etc.) when spawned by a LaunchDaemon — this exact trap killed the Time Machine
+   exporter (2026-07-08: `tmutil listbackups` fine over SSH, rc=80 under launchd). For any
+   job touching TCC-gated resources, the only real verification is `launchctl kickstart`
+   plus checking the daemon's actual output/metric/log.
 
 ## Layout
 
@@ -113,8 +127,10 @@ audit, a list of inconsistencies):
     listening on `127.0.0.1:9115`, logging to `/opt/homebrew/var/log/unbound-blackbox.log`.
     Sends real DNS queries every 30s per `prometheus-etc/blackbox.yml` (deployed at
     `/opt/homebrew/etc/blackbox.yml`): `dns_upstream` asks 1.1.1.1/8.8.8.8 directly (raw
-    upstream path — the 2026-07-01 failure mode, seen from outside), `dns_resolver` resolves
-    through unbound like a LAN client, and `dns_rpz_canary` *succeeds only* while
+    upstream path — the 2026-07-01 failure mode, seen from outside), `dns_resolver` checks
+    unbound is *answering* (NOT that recursion works: it repeats one hot name every 30s and
+    serve-expired serves it from cache up to a day with recursion dead — recursion health is
+    `dns_upstream` + the requestlist-jam alert), and `dns_rpz_canary` *succeeds only* while
     `google-analytics.com` returns NXDOMAIN — i.e. it alarms when ad-blocking silently stops.
   - `local.unbound.prometheus.plist` / `local.unbound.nodeexporter.plist` /
     `local.unbound.grafana.plist` — Prometheus, node_exporter, and Grafana as **system daemons
@@ -152,6 +168,10 @@ audit, a list of inconsistencies):
     bootstrap the daemon, and a one-time `sudo chmod g+w` on the textfile directory (it ships
     root:admin 755 — localadmin is in `admin` but the dir wasn't group-writable). See the
     script's module docstring for the exact commands if rebuilding from scratch.
+    **Accepted trust boundary:** that `g+w` means *any* admin-group process can write metric
+    files the alert rules treat as ground truth (a malformed one trips `TextfileScrapeError`;
+    a well-formed lie trips nothing). Fine for a single-operator box; noted so it's a
+    decision, not an accident.
     `TotalBytesReturnedToClients`/`TotalBytesStoredFromOrigin` are exported as counters
     (`_total`) because the tool itself reports a `TotalBytesAreSince` reset-epoch timestamp —
     that's the evidence, not a guess — and `apple_content_cache_totals_since_seconds` is exported
@@ -179,7 +199,12 @@ audit, a list of inconsistencies):
     2026-07-01 upstream-path incident hours earlier.
   - `node_exporter.args` → `/opt/homebrew/etc/node_exporter.args` — host metrics (CPU, memory,
     disk fill, network) on `127.0.0.1:9100`, run via the `local.unbound.nodeexporter`
-    LaunchDaemon. Same wrapper pattern as `prometheus.args`: **flags only, no comments**.
+    LaunchDaemon. Same wrapper pattern as `prometheus.args`: **flags only, no comments** — so
+    the rationale for `--no-collector.thermal` lives here instead: the thermal collector fails
+    on every scrape on this hardware (`no CPU power status has been recorded`, a known
+    node_exporter/Apple Silicon limitation), which logged one ERROR line per 15s forever into
+    the unrotated daemon log (~1 MB/day of pure noise, observed 2026-07-09) and buried any
+    real error. No thermal metrics are lost — none were ever successfully collected.
   - **macOS application firewall gotcha** (found 2026-07-04): the mini's firewall is enabled and
     silently drops inbound SYNs to unapproved binaries — no GUI prompt on a headless box, so the
     symptom is a *hanging* connection to a port `lsof` swears is listening. Prometheus needed
@@ -260,8 +285,8 @@ sudo DNS_SERVER=192.168.0.100 warmup/warm-unbound-cache.sh  # query via the LAN 
   to `hagezi-allow.rpz` (see its `CNAME rpz-passthru.` pattern), bump the SOA serial in its header, then
   reload — don't edit `hagezi-normal.rpz` directly, it gets clobbered daily.
 - After any `unbound.conf` edit: run `unbound-checkconf` first, then `sudo unbound-control reload`. Never
-  reload/restart on an unvalidated config on a box that's the LAN's only DNS resolver — a bad config
-  breaks name resolution for every device on `192.168.0.0/24`.
+  reload/restart on an unvalidated config on the LAN's primary DNS resolver — a bad config degrades every
+  device on `192.168.0.0/24` to the unfiltered `9.9.9.9` fallback (no RPZ blocking, no `.lan` names).
 - On a fresh deploy (or any config change that renames the blocklist zonefile): run
   `sudo update-blocklist.sh` **before** `unbound-checkconf` — checkconf verifies the RPZ zonefile can be
   opened and fails if the generated file doesn't exist yet.
@@ -421,6 +446,7 @@ which is how a remote VNC login works anyway. To audit the live surface:
   login-scoped copy fighting the system daemon. They are launchd-managed now.
 - **Never plain `brew services` (without sudo) for unbound** — same duplicate problem, inverted.
 - **Never edit `hagezi-normal.rpz`** — nightly clobber. Allowlist goes in `hagezi-allow.rpz`.
-- **Never reload unbound on an unvalidated config** — it's the only resolver the LAN has.
+- **Never reload unbound on an unvalidated config** — it's the LAN's primary resolver; breaking
+  it degrades every client to the unfiltered `9.9.9.9` fallback.
 - **Never run `tailscale funnel`** — everything here is LAN/tailnet-only by design.
 - **Never Finder-drag into this repo** — it has deleted tracked files twice. rsync/scp only.

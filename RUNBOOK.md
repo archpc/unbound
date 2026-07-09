@@ -15,7 +15,9 @@ copy-paste — nothing else. For the deep "why it's built this way" detail, see
   that answers are genuine (DNSSEC).
 - **Its other jobs:** caches Apple software downloads for the LAN, and runs a
   monitoring stack (Grafana dashboards + phone alerts) that watches all of the above.
-- **If DNS breaks, the whole house loses the internet** (names stop resolving). That's
+- **If DNS breaks, the house degrades, not dies**: clients fall back to the secondary DNS
+  (`9.9.9.9` — set on the router, verify there). Internet names still resolve, but **ads come
+  back and `.lan` names stop working** until the mini is fixed. That's
   why this box matters and why there are so many guardrails.
 
 | I want to… | Go to |
@@ -271,7 +273,8 @@ by **full path** under sudo — `sudo /usr/local/sbin/screenshare-on` — becaus
 ## 8. Never do these (they have bitten before)
 
 - **Never reload/restart unbound on a config you haven't validated** with
-  `unbound-checkconf` — it's the only DNS resolver the whole house has.
+  `unbound-checkconf` — it's the house's primary DNS; break it and every device
+  degrades to the unfiltered `9.9.9.9` fallback (ads return, `.lan` names break).
 - **Never edit `hagezi-normal.rpz`** (the blocklist) — it's overwritten nightly. Put
   exceptions in `hagezi-allow.rpz`.
 - **Never run `brew services start` on prometheus/grafana/node_exporter** — they're
