@@ -162,7 +162,8 @@
             "uid": "prometheus"
           },
           "expr": "unbound_blocklist_lines",
-          "refId": "A"
+          "refId": "A",
+          "legendFormat": "{{slot}}"
         }
       ],
       "title": "Blocklist size (red < 100k)",
@@ -509,6 +510,6 @@
   "timezone": "browser",
   "title": "Services",
   "uid": "services",
-  "version": 2,
+  "version": 3,
   "weekStart": ""
 }

@@ -272,13 +272,21 @@ sudo ~/unbound-repo/warmup/warm-unbound-cache.sh
 
 ## 9. Blocklist/RPZ restore
 
+The blocklist runs as **two independent RPZ slots** — `primary` (zone `hagezi.rpz`,
+file `hagezi-normal.rpz`) and `secondary` (zone `secondary.rpz`, file
+`blocklist-secondary.rpz`) — each with its own one-line source file
+(`blocklist-source` / `blocklist-source-secondary`). A no-arg run refreshes **both**:
+
 ```sh
 sudo /opt/homebrew/etc/unbound/update-blocklist.sh
 ```
 
-This downloads HaGeZi Multi NORMAL, sanity-checks it (**must** be >100k lines and
-contain `CNAME` entries), writes `hagezi-normal.rpz`, and rolls back automatically if
-validation fails. Run this **before** `unbound-checkconf` on a fresh box (see §8).
+This reads each slot's source file (defaults: primary `1hosts-lite`, secondary
+`oisd-big`), downloads each, sanity-checks it (**must** contain `CNAME` entries and
+clear that source's line floor), writes both zonefiles, and rolls back any slot that
+fails. Run this **before** `unbound-checkconf` on a fresh box (see §8) — **both**
+zonefiles must exist for checkconf to pass, and this creates both. (An "off" secondary
+still gets a valid empty zonefile, so checkconf passes either way.)
 
 > **⚠️ On a fresh box this exits 1 — that's expected, keep going.** With unbound not
 > yet running, the script's final `unbound-control` reload step fails (no control
@@ -288,9 +296,10 @@ validation fails. Run this **before** `unbound-checkconf` on a fresh box (see §
 > looks wrong` or `checkconf failed; rolling back` = a real failure, stop and fix.
 > The §Validate line below (`wc -l`) is the ground truth either way.
 
-Validate:
+Validate (both zonefiles present and populated):
 ```sh
-wc -l /opt/homebrew/etc/unbound/blocklists/hagezi-normal.rpz    # expect > 100000
+wc -l /opt/homebrew/etc/unbound/blocklists/hagezi-normal.rpz        # primary
+wc -l /opt/homebrew/etc/unbound/blocklists/blocklist-secondary.rpz  # secondary
 ```
 
 ---

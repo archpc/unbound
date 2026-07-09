@@ -75,9 +75,16 @@ audit, a list of inconsistencies):
   "is RPZ working" canary.)
 - [unbound-etc/blocklists/hagezi-allow.rpz](unbound-etc/blocklists/hagezi-allow.rpz) — personal allowlist
   (RPZ passthru overrides). This is the file to edit when the blocklist wrongly blocks something.
-- [unbound-etc/update-blocklist.sh](unbound-etc/update-blocklist.sh) — downloads the latest HaGeZi
-  Multi NORMAL list, validates it, and reloads the `hagezi.rpz` zone in place. Driven nightly by the
-  `local.unbound.blocklist` launchd job (see below); also safe to run manually with `sudo`.
+- [unbound-etc/update-blocklist.sh](unbound-etc/update-blocklist.sh) — downloads, validates, and
+  atomically swaps in the RPZ blocklist(s), reloading just the affected zone(s). **Pluggable
+  two-slot design:** `primary` (zone `hagezi.rpz`) + `secondary` (zone `secondary.rpz`) each load
+  an independently-chosen source (HaGeZi/1Hosts/OISD tiers) side by side — a domain blocked by
+  either is blocked. Each slot's permanent source lives in a one-line file
+  ([blocklist-source](unbound-etc/blocklist-source) = primary, default `1hosts-lite`;
+  [blocklist-source-secondary](unbound-etc/blocklist-source-secondary) = secondary, default
+  `oisd-big`); `sudo update-blocklist.sh <source> [slot]` is a one-time override, `off secondary`
+  disables the second slot. Driven nightly (no-arg → refreshes both slots from their files) by the
+  `local.unbound.blocklist` launchd job; the script header is the full reference.
 - [warmup/warm-unbound-cache.sh](warmup/warm-unbound-cache.sh) and
   [warmup/dns-warm-domains.txt](warmup/dns-warm-domains.txt) — pre-populates the resolver cache with the
   top ~300 domains (Tranco list) and reports the resulting cache-hit-rate delta.
@@ -280,10 +287,13 @@ sudo DNS_SERVER=192.168.0.100 warmup/warm-unbound-cache.sh  # query via the LAN 
   add both the forward (`local-data`) and reverse (`local-data-ptr`) entries when adding a host.
 - Tailscale (`*.tail3fd0f4.ts.net`, `100.64.0.0/10` PTR) is deliberately **not** handled here — MagicDNS
   resolves those at the OS level. Do not add forwarding for Tailscale zones to this config.
-- Two `rpz:` zones are loaded in order: `hagezi.allow` (personal passthru allowlist, evaluated first) then
-  `hagezi.rpz` (the blocklist, forced to `nxdomain` on match). To un-block a domain, add a passthru entry
-  to `hagezi-allow.rpz` (see its `CNAME rpz-passthru.` pattern), bump the SOA serial in its header, then
-  reload — don't edit `hagezi-normal.rpz` directly, it gets clobbered daily.
+- Three `rpz:` zones are loaded in order: `hagezi.allow` (personal passthru allowlist, evaluated
+  **first** so it overrides both blocklists) then `hagezi.rpz` (primary blocklist) then
+  `secondary.rpz` (secondary blocklist) — the last two both force `nxdomain` on match, so a domain
+  in either is blocked. To un-block a domain, add a passthru entry to `hagezi-allow.rpz` (see its
+  `CNAME rpz-passthru.` pattern), bump the SOA serial in its header, then reload — that one
+  allowlist covers both blocklists. Don't edit `hagezi-normal.rpz` or `blocklist-secondary.rpz`
+  directly, they get clobbered on every update.
 - After any `unbound.conf` edit: run `unbound-checkconf` first, then `sudo unbound-control reload`. Never
   reload/restart on an unvalidated config on the LAN's primary DNS resolver — a bad config degrades every
   device on `192.168.0.0/24` to the unfiltered `9.9.9.9` fallback (no RPZ blocking, no `.lan` names).
