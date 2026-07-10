@@ -120,7 +120,7 @@ textfile timestamps and corresponding alerts.
    dig @127.0.0.1 example.com A | grep -E 'status:|flags:'
    ```
 
-The generated primary and secondary blocklist files MUST NOT be hand-edited.
+The generated blocklist file MUST NOT be hand-edited.
 
 ## Add an explicit local block
 
@@ -148,29 +148,23 @@ Do not put the rule in a generated RPZ file.
 | Execution location | Mini |
 | Privilege | `sudo` REQUIRED |
 | State | State-changing; downloads, atomically replaces zones, and reloads affected RPZ zones |
-| Success | Exit 0; each attempted slot reports updated or off; canary remains authoritative NXDOMAIN |
-| Failure | Exit 1; the failed slot retains or rolls back to its prior zone; the success breadcrumb is not advanced |
+| Success | Exit 0; source and line count are reported; canary remains authoritative NXDOMAIN |
+| Failure | Exit 1; the updater retains or rolls back to the prior zone and does not advance the success breadcrumb |
 
-Refresh both slots from their tracked selector files:
+Refresh from the tracked selector file:
 
 ```sh
 sudo /opt/homebrew/etc/unbound/update-blocklist.sh
 ```
 
-Apply a one-time source to one slot:
+Apply a one-time source override:
 
 ```sh
-sudo /opt/homebrew/etc/unbound/update-blocklist.sh <source> <primary|secondary>
-```
-
-Disable only the secondary slot:
-
-```sh
-sudo /opt/homebrew/etc/unbound/update-blocklist.sh off secondary
+sudo /opt/homebrew/etc/unbound/update-blocklist.sh <source>
 ```
 
 The explicit source argument is temporary. To change nightly behavior, edit and deploy
-the matching tracked selector file. Supported sources and validation floors are in
+`unbound-etc/blocklist-source`. Supported sources and validation floors are in
 [REFERENCE.md](REFERENCE.md#blocklist-sources).
 
 The interactive wrapper MAY be used instead:

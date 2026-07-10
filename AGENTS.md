@@ -36,7 +36,7 @@ make a document true.
 - Unbound MUST pass `unbound-checkconf` before a reload or restart.
 - Prometheus configuration and rules MUST pass target-host `promtool` before reload.
 - LaunchDaemon plists MUST pass `plutil -lint` before replacement/bootstrap.
-- Generated RPZ blocklists MUST NOT be hand-edited.
+- The generated RPZ blocklist MUST NOT be hand-edited.
 - Unbound MUST be managed through root `brew services`. Prometheus, Grafana, and
   node_exporter MUST NOT be started through `brew services`.
 - Tailscale/MagicDNS zones MUST NOT be added to Unbound.

@@ -113,13 +113,6 @@
     },
     {
       "category": "config",
-      "source": "unbound-etc/blocklist-source-secondary",
-      "destination": "/opt/homebrew/etc/unbound/blocklist-source-secondary",
-      "required": true,
-      "compare": "sha256"
-    },
-    {
-      "category": "config",
       "source": "prometheus-etc/prometheus.yml",
       "destination": "/opt/homebrew/etc/prometheus.yml",
       "required": true,
@@ -196,18 +189,10 @@
       "compare": "sha256"
     },
     {
-      "name": "generated primary RPZ zone",
+      "name": "generated RPZ zone",
       "category": "config",
       "source": "unbound-etc/update-blocklist.sh",
       "destination": "/opt/homebrew/etc/unbound/blocklists/hagezi-normal.rpz",
-      "required": true,
-      "compare": "existence"
-    },
-    {
-      "name": "generated secondary RPZ zone",
-      "category": "config",
-      "source": "unbound-etc/update-blocklist.sh",
-      "destination": "/opt/homebrew/etc/unbound/blocklists/blocklist-secondary.rpz",
       "required": true,
       "compare": "existence"
     },

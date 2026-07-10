@@ -7,7 +7,7 @@ live host until that file is deployed and the owning service is reloaded.
 
 The target host is `mini.lan` at `192.168.0.100`. Unbound serves the LAN on port 53,
 validates DNSSEC, provides the static `.lan` zone, and applies an RPZ allowlist followed
-by two independently managed blocklist slots. Prometheus, Grafana, exporters, scheduled
+by one generated blocking RPZ. Prometheus, Grafana, exporters, scheduled
 jobs, and an ntfy notifier observe the resolver and the host.
 
 ## Documentation map

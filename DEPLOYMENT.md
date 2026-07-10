@@ -41,7 +41,7 @@ used for repository synchronization.
 |---|---|---|---|
 | Unbound config | `unbound-checkconf unbound-etc/unbound.conf` when local Unbound is available | `/opt/homebrew/sbin/unbound-checkconf <staged-file>` or validate after a controlled staged-path substitution | `sudo unbound-control reload` |
 | RPZ allowlist | Zone syntax through `unbound-checkconf` with the full config | `/opt/homebrew/sbin/unbound-checkconf` | `sudo unbound-control auth_zone_reload hagezi.allow` |
-| Blocklist selector | One line; value supported by `update-blocklist.sh` | Run updater for the intended slot | Updater reloads the zone |
+| Blocklist selector | One line; value supported by `update-blocklist.sh` | Run updater with the selected source | Updater reloads `hagezi.rpz` |
 | Prometheus config | YAML parse; `promtool check config` when available | `/opt/homebrew/opt/prometheus/bin/promtool check config <file>` | `pkill -HUP -x prometheus` |
 | Prometheus rules | YAML parse; `promtool check rules` when available | `/opt/homebrew/opt/prometheus/bin/promtool check rules <file>` | `pkill -HUP -x prometheus` |
 | Blackbox config | YAML parse; `promtool check config` through full Prometheus config where applicable | Start or query blackbox after replacement | Restart blackbox exporter |
@@ -90,8 +90,8 @@ the result text or unknown count, not exit status alone.
 | Success | `unbound-checkconf` passes; reload succeeds; DNSSEC, RPZ, and `.lan` canaries pass |
 | Failure | Validator error, control error, timeout, wrong canary result, or more than one process on port 53 |
 
-The generated primary and secondary zonefiles MUST already exist before config
-validation when the config references them.
+The generated blocklist zonefile MUST already exist before config validation when the
+config references it.
 
 ```sh
 # Workstation

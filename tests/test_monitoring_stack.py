@@ -399,21 +399,33 @@ class ShellAndRulesContractTests(unittest.TestCase):
         warmboot = (ROOT / "warmup/warm-at-boot.sh").read_text()
         warmlist = (ROOT / "warmup/build-warm-list.sh").read_text()
         roothints = (ROOT / "usr-local-sbin/unbound-refresh-hints").read_text()
-        self.assertIn('if [ "$all_ok" -eq 1 ]; then exit 0; else exit 1; fi', blocklist)
+        self.assertIn("set -euo pipefail", blocklist)
         self.assertIn('exit "$status"', warmboot)
         self.assertIn("exit 1", warmlist)
         self.assertIn("set -euo pipefail", roothints)
 
-    def test_blocklist_failure_preserves_breadcrumb_and_off_is_atomic(self):
+    def test_blocklist_failure_preserves_breadcrumb_and_success_is_atomic(self):
         with tempfile.TemporaryDirectory() as raw_td:
             td = Path(raw_td)
             etc = td / "etc"
             blocklists = etc / "blocklists"
             metrics = td / "textfile"
+            bin_dir = td / "bin"
             blocklists.mkdir(parents=True)
             metrics.mkdir()
+            bin_dir.mkdir()
             (blocklists / "hagezi-normal.rpz").write_text("a.example. CNAME .\n")
-            (blocklists / "blocklist-secondary.rpz").write_text("b.example. CNAME .\n")
+            fixture = td / "downloaded.rpz"
+            fixture.write_text("$TTL 300\nb.example. CNAME .\n")
+            self._write_executable(bin_dir / "chown", "#!/bin/bash\nexit 0\n")
+            self._write_executable(bin_dir / "curl", """#!/bin/bash
+out=''
+while [ "$#" -gt 0 ]; do
+  if [ "$1" = '-o' ]; then shift; out="$1"; fi
+  shift
+done
+cp "$FIXTURE_RPZ" "$out"
+""")
             prom = metrics / "unbound-blocklist.prom"
             prom.write_text(
                 "# TYPE unbound_job_last_success_timestamp_seconds gauge\n"
@@ -428,19 +440,21 @@ class ShellAndRulesContractTests(unittest.TestCase):
                     ('CHECK="/opt/homebrew/sbin/unbound-checkconf"', 'CHECK="/usr/bin/true"'),
                     ('METRICS_DIR="/opt/homebrew/var/lib/node_exporter/textfile"',
                      f'METRICS_DIR="{metrics}"'),
+                    ('MIN_LINES=100000 ;;', 'MIN_LINES=1 ;;'),
                 ],
             )
+            env = {"PATH": f"{bin_dir}:/usr/bin:/bin", "FIXTURE_RPZ": str(fixture)}
 
-            failed = self._run_script(script, "unknown-source", "primary")
+            failed = self._run_script(script, "unknown-source", env=env)
             self.assertEqual(failed.returncode, 1)
             self.assertIn('task="blocklist"} 77', prom.read_text())
             self.assertFalse(any(metrics.glob("*.prom.*")))
 
-            succeeded = self._run_script(script, "off", "secondary")
+            succeeded = self._run_script(script, "hagezi-normal", env=env)
             self.assertEqual(succeeded.returncode, 0, succeeded.stderr)
             rendered = prom.read_text()
-            self.assertIn('unbound_blocklist_lines{slot="primary"}', rendered)
-            self.assertNotIn('unbound_blocklist_lines{slot="secondary"}', rendered)
+            self.assertIn("unbound_blocklist_lines 2", rendered)
+            self.assertNotIn("slot=", rendered)
             self.assertNotIn('task="blocklist"} 77', rendered)
             self.assertFalse(any(metrics.glob("*.prom.*")))
 

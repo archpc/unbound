@@ -24,7 +24,7 @@ blocklist update is not by itself a disaster-recovery event.
 - The repository is the source for intended configuration and scripts.
 - Runtime-generated files MUST NOT be copied into Git as a substitute for source.
 - Secrets and private household data MUST remain outside the repository.
-- Both RPZ zonefiles MUST exist before `unbound-checkconf` validates the tracked config.
+- The generated RPZ zonefile MUST exist before `unbound-checkconf` validates the tracked config.
 - Unbound MUST be managed with root `brew services`.
 - Prometheus, Grafana, and node_exporter MUST run as system LaunchDaemons and MUST NOT be
   started with `brew services`.
@@ -165,7 +165,6 @@ sudo install -o unbound -g unbound -m 0644 unbound-etc/blocklists/hagezi-allow.r
 sudo install -o root -g wheel -m 0755 unbound-etc/update-blocklist.sh /opt/homebrew/etc/unbound/update-blocklist.sh
 sudo install -o root -g wheel -m 0755 unbound-etc/blocklist-tui.sh /opt/homebrew/etc/unbound/blocklist-tui.sh
 sudo install -o root -g wheel -m 0644 unbound-etc/blocklist-source /opt/homebrew/etc/unbound/blocklist-source
-sudo install -o root -g wheel -m 0644 unbound-etc/blocklist-source-secondary /opt/homebrew/etc/unbound/blocklist-source-secondary
 ```
 
 Run the updater before config validation:
@@ -174,14 +173,13 @@ Run the updater before config validation:
 sudo /opt/homebrew/etc/unbound/update-blocklist.sh
 ```
 
-Before Unbound starts, the updater may install valid zones and then return failure only
+Before Unbound starts, the updater may install a valid zone and then return failure only
 because the control socket does not exist. The operator MUST distinguish that expected
-reload failure from download or validation failure and MUST verify both zonefiles before
+reload failure from download or validation failure and MUST verify the zonefile before
 continuing.
 
 ```sh
 test -s /opt/homebrew/etc/unbound/blocklists/hagezi-normal.rpz
-test -s /opt/homebrew/etc/unbound/blocklists/blocklist-secondary.rpz
 /opt/homebrew/opt/unbound/sbin/unbound-checkconf /opt/homebrew/etc/unbound/unbound.conf
 sudo brew services start unbound
 ```
@@ -336,7 +334,7 @@ If acceptance fails, do not leave a partially working resolver as primary DNS.
 - For one bad tracked change, deploy the last-known-good version of that file, run its
   validator, and reload only its owner.
 - Generated blocklist updates normally retain a backup and roll back validation
-  failures per slot.
+  failures.
 - Dashboard rollback is a validated JSON redeployment, not a UI edit.
 - A failed sshd change MUST be corrected from the still-open original session or local
   console.

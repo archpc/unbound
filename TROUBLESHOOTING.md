@@ -101,7 +101,7 @@ anchor is missing, or Unbound logs validator errors across unrelated zones.
 | Symptom | One external domain returns NXDOMAIN |
 | Signal | NXDOMAIN with the `aa` flag indicates local RPZ synthesis |
 | Noise | NXDOMAIN without `aa` is the ordinary authoritative result |
-| Likely causes | Primary or secondary list match; explicit local block |
+| Likely causes | Generated RPZ match; explicit local block |
 | Execution | Diagnose on mini; edit in repository first |
 | Privilege/state | Diagnosis read-only; allowlist deployment changes policy |
 
@@ -135,16 +135,15 @@ Verification:
 
 ```sh
 dig @127.0.0.1 google-analytics.com A | grep -E 'status:|flags:'
-wc -l /opt/homebrew/etc/unbound/blocklists/hagezi-normal.rpz \
-  /opt/homebrew/etc/unbound/blocklists/blocklist-secondary.rpz
+wc -l /opt/homebrew/etc/unbound/blocklists/hagezi-normal.rpz
 tail -50 /opt/homebrew/var/log/unbound-blocklist.log
 ```
 
-Expected result: authoritative NXDOMAIN; enabled lists contain `CNAME` records and meet
-their source floors. A disabled secondary is a valid three-record zone.
+Expected result: authoritative NXDOMAIN; the blocklist contains `CNAME` records and
+meets its selected source floor.
 
 Smallest safe fix: run the updater only if the log or zone evidence shows stale or bad
-generated data. The updater validates and rolls back per slot. Do not hand-edit a
+generated data. The updater validates and rolls back on failure. Do not hand-edit the
 generated zone.
 
 Escalation criteria: `unbound-checkconf` fails, both current and backup zonefiles are

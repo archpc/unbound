@@ -46,7 +46,7 @@ entry because it is local code, not a Markdown reference artifact.
 | `unbound-etc/blocklists/hagezi-allow.rpz` | `/opt/homebrew/etc/unbound/blocklists/hagezi-allow.rpz` |
 | `unbound-etc/update-blocklist.sh` | `/opt/homebrew/etc/unbound/update-blocklist.sh` |
 | `unbound-etc/blocklist-tui.sh` | `/opt/homebrew/etc/unbound/blocklist-tui.sh` |
-| `unbound-etc/blocklist-source*` | `/opt/homebrew/etc/unbound/blocklist-source*` |
+| `unbound-etc/blocklist-source` | `/opt/homebrew/etc/unbound/blocklist-source` |
 | `prometheus-etc/prometheus.yml` | `/opt/homebrew/etc/prometheus.yml` |
 | `prometheus-etc/prometheus.rules.yml` | `/opt/homebrew/etc/prometheus.rules.yml` |
 | `prometheus-etc/prometheus.args` | `/opt/homebrew/etc/prometheus.args` |

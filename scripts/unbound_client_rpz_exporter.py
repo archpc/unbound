@@ -191,7 +191,7 @@ def write_atomic(path, lines):
 
 _FIXTURE = r"""
 {"timestamp":"2026-07-09 16:43:37.172390-0400","eventMessage":"[21671:2] info: rpz: applied [hagezi-normal] google-analytics.com. rpz-nxdomain 192.168.0.100@50062 google-analytics.com. A IN"}
-{"timestamp":"2026-07-09 16:43:40.100000-0400","eventMessage":"[21671:1] info: rpz: applied [secondary] *.conviva.com. rpz-nxdomain 192.168.0.86@56509 x.cws.conviva.com. A IN"}
+{"timestamp":"2026-07-09 16:43:40.100000-0400","eventMessage":"[21671:1] info: rpz: applied [hagezi-normal] *.conviva.com. rpz-nxdomain 192.168.0.86@56509 x.cws.conviva.com. A IN"}
 {"timestamp":"2026-07-09 16:43:41.000000-0400","eventMessage":"[21671:2] info: rpz: applied [hagezi-normal] google-analytics.com. rpz-nxdomain 192.168.0.100@50063 google-analytics.com. AAAA IN"}
 {"timestamp":"2026-07-09 16:44:04.101460-0400","eventMessage":"[21671:1] info: rpz: applied [hagezi-normal] b.gslb.aaplimg.com. rpz-nxdomain  b.gslb.aaplimg.com. A IN"}
 {"timestamp":"2026-07-09 16:44:05.000000-0400","eventMessage":"[21671:1] info: rpz: applied [hagezi-normal] evil.example.com. rpz-nxdomain 10.9.9.9@1234 evil.example.com. A IN"}

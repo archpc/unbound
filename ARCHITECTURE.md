@@ -47,9 +47,8 @@ flowchart TD
     acl -->|"Loopback or 192.168.0.0/24"| local{"Static .lan name?"}
     local -->|"Yes"| localanswer["Static local answer or NXDOMAIN"]
     local -->|"No"| allow["RPZ hagezi.allow<br/>passthru first"]
-    allow --> primary["RPZ hagezi.rpz<br/>primary slot"]
-    primary --> secondary["RPZ secondary.rpz<br/>secondary slot"]
-    secondary --> blocked{"Matched a blocking rule?"}
+    allow --> block["RPZ hagezi.rpz<br/>generated blocklist"]
+    block --> blocked{"Matched a blocking rule?"}
     blocked -->|"Yes"| nxdomain["Authoritative NXDOMAIN"]
     blocked -->|"No"| cache{"Cached?"}
     cache -->|"Fresh or serve-expired"| cached["Cached answer"]
@@ -69,13 +68,11 @@ logging remains enabled.
 
 | Order | Zone | Runtime file | Effect |
 |---:|---|---|---|
-| 1 | `hagezi.allow` | `/opt/homebrew/etc/unbound/blocklists/hagezi-allow.rpz` | `rpz-passthru` exceptions override both blocklists |
-| 2 | `hagezi.rpz` | `/opt/homebrew/etc/unbound/blocklists/hagezi-normal.rpz` | Primary generated list, forced NXDOMAIN |
-| 3 | `secondary.rpz` | `/opt/homebrew/etc/unbound/blocklists/blocklist-secondary.rpz` | Secondary generated list, forced NXDOMAIN; MAY be an empty valid zone when disabled |
+| 1 | `hagezi.allow` | `/opt/homebrew/etc/unbound/blocklists/hagezi-allow.rpz` | `rpz-passthru` exceptions override the blocklist |
+| 2 | `hagezi.rpz` | `/opt/homebrew/etc/unbound/blocklists/hagezi-normal.rpz` | Generated list, forced NXDOMAIN |
 
-The tracked source selectors are `1hosts-lite` for the primary slot and `oisd-big` for
-the secondary slot. The script-level fallback, used only when a selector file is empty
-or absent, is `hagezi-normal` for primary and `off` for secondary.
+The tracked selector is `1hosts-lite`. If the selector file is empty or absent, the
+updater falls back to `hagezi-normal`.
 
 ## Monitoring pipeline
 
@@ -180,7 +177,7 @@ fabricated valid values.
 |---|---|---|---|
 | Unbound process/config | LAN DNS policy unavailable; clients may use external fallback | Resolver probe, `UnboundDown`, process state | Validate before reload; KeepAlive; warm cache after restart |
 | WAN or UDP/53 path | Cache misses stall or fail while cached answers may remain fast | Upstream probes, degraded/down alerts, request-list depth | Do not edit Unbound; troubleshoot router/modem/ISP |
-| RPZ data/update | Blocking may stop, overblock, or use stale data | Canary, size and freshness alerts | Atomic swap, per-slot rollback, allowlist first |
+| RPZ data/update | Blocking may stop, overblock, or use stale data | Canary, size and freshness alerts | Atomic swap, rollback, allowlist first |
 | Mac mini host/power | DNS and monitoring fail together | External client test; DHCP fallback if configured | Router fallback and full rebuild documentation |
 | Prometheus | Dashboards and rule evaluation stop | Direct notifier unreachable path | Notifier sends a direct outage notification after repeated failures |
 | Grafana | Visualization unavailable; collection continues | `GrafanaDown` | Prometheus UI and APIs remain available |

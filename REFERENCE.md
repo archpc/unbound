@@ -50,7 +50,6 @@ and reverse records MUST be changed together.
 |---:|---|---|---|
 | 1 | `hagezi.allow` | `/opt/homebrew/etc/unbound/blocklists/hagezi-allow.rpz` | `rpz-passthru` exceptions |
 | 2 | `hagezi.rpz` | `/opt/homebrew/etc/unbound/blocklists/hagezi-normal.rpz` | Forced NXDOMAIN |
-| 3 | `secondary.rpz` | `/opt/homebrew/etc/unbound/blocklists/blocklist-secondary.rpz` | Forced NXDOMAIN or empty valid zone |
 
 | Canary | Expected result | Meaning |
 |---|---|---|
@@ -76,9 +75,8 @@ and reverse records MUST be changed together.
 
 ## Blocklist sources
 
-The selector files currently contain `1hosts-lite` for primary and `oisd-big` for
-secondary. An explicit command-line source is a one-time override and does not rewrite a
-selector file.
+The selector file currently contains `1hosts-lite`. An explicit command-line source is
+a one-time override and does not rewrite the selector file.
 
 | Source | Download endpoint | Minimum accepted lines | Approximate sample size in script comments |
 |---|---|---:|---:|
@@ -88,9 +86,7 @@ selector file.
 | `1hosts-xtra` | 1Hosts Xtra RPZ on GitHub | 900,000 | 1,423k |
 | `oisd-small` | `small.oisd.nl/rpz` | 70,000 | 111k |
 | `oisd-big` | `big.oisd.nl/rpz` | 600,000 | 987k |
-| `off` | No download | Not applicable | Secondary only; writes a three-record empty zone |
-
-The primary slot MUST NOT be disabled. Downloads MUST contain `CNAME` records and meet
+Downloads MUST contain `CNAME` records and meet
 the source-specific floor before replacement.
 
 ## Services and scheduled jobs
@@ -179,7 +175,7 @@ Prometheus because the delivery path is the failed component.
 | Producer | Metric family | Semantics |
 |---|---|---|
 | All scheduled jobs except content cache | `unbound_job_last_success_timestamp_seconds{task=...}` | Unix timestamp of last successful complete run |
-| Blocklist updater | `unbound_blocklist_lines{slot=...}` | Current lines for enabled slots |
+| Blocklist updater | `unbound_blocklist_lines` | Current generated blocklist line count |
 | Warm-list builder | `unbound_warmlist_domains{kind=...}` | Personal and curated domain counts |
 | Root-hints updater | `unbound_roothints_records` | Count of root-server records |
 | Clientstats | `unbound_client_rpz_blocks_5m{client=...}` | Rolling five-minute RPZ blocks per permitted client |
