@@ -216,6 +216,16 @@ groups:
         annotations:
           summary: "1.1.1.1 AND 8.8.8.8 unreachable on :53 - upstream path dead (2026-07-01 signature)"
 
+      # Detect sustained partial loss without paging on one public resolver's
+      # isolated outage. max() selects the healthier target; if even that
+      # target is below 95% over 10m, both observed upstream paths are degraded.
+      - alert: UpstreamDNSPathDegraded
+        expr: max(avg_over_time(probe_success{job="blackbox_upstream"}[10m])) < 0.95
+        for: 5m
+        annotations:
+          summary: "both upstream DNS probe paths are below 95% success over 10m"
+          description: "Intermittent WAN or UDP/53 loss can make uncached DNS queries stall while cached answers remain fast."
+
       # Daemon-liveness from a client's vantage point - NOT recursion health.
       # The probe re-queries the same name every 30s, and prefetch +
       # serve-expired (ttl 86400, client-timeout 0) mean unbound answers it

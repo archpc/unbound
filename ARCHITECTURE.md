@@ -1,0 +1,205 @@
+# Architecture
+
+## Scope
+
+The system is a recursive DNS resolver and monitoring stack on one Mac mini. The host
+has two roles:
+
+1. serve DNS policy for `192.168.0.0/24`; and
+2. observe its own DNS, host, automation, and Apple Content Cache state.
+
+The single-host design keeps dependencies small, but it also makes host power, macOS,
+the Ethernet path, and the WAN shared failure domains. Router DHCP configuration is an
+external dependency. The repository does not configure the router.
+
+## System context
+
+```mermaid
+flowchart LR
+    clients["LAN clients<br/>192.168.0.0/24"]
+    router["Router and DHCP<br/>external configuration"]
+    mini["Mac mini<br/>mini.lan / 192.168.0.100"]
+    roots["DNS root and authoritative servers"]
+    public["Public DNS probes<br/>1.1.1.1 and 8.8.8.8"]
+    ntfy["ntfy.sh"]
+    phone["Operator phone"]
+    apple["Apple Content Cache service"]
+
+    router -->|"DNS address supplied by DHCP"| clients
+    clients -->|"UDP/TCP 53"| mini
+    mini -->|"iterative DNS over IPv4"| roots
+    mini -->|"blackbox UDP/53 probes"| public
+    apple -->|"status command"| mini
+    mini -->|"HTTPS notifications"| ntfy
+    ntfy --> phone
+```
+
+The documented DHCP fallback `9.9.9.9` is not enforced by this repository. Operators
+SHOULD verify the router before relying on it. A fallback keeps public DNS available
+during a mini outage but bypasses RPZ policy and `.lan` data.
+
+## DNS request flow
+
+```mermaid
+flowchart TD
+    q["Client query"] --> acl{"Source allowed?"}
+    acl -->|"No"| refuse["REFUSED"]
+    acl -->|"Loopback or 192.168.0.0/24"| local{"Static .lan name?"}
+    local -->|"Yes"| localanswer["Static local answer or NXDOMAIN"]
+    local -->|"No"| allow["RPZ hagezi.allow<br/>passthru first"]
+    allow --> primary["RPZ hagezi.rpz<br/>primary slot"]
+    primary --> secondary["RPZ secondary.rpz<br/>secondary slot"]
+    secondary --> blocked{"Matched a blocking rule?"}
+    blocked -->|"Yes"| nxdomain["Authoritative NXDOMAIN"]
+    blocked -->|"No"| cache{"Cached?"}
+    cache -->|"Fresh or serve-expired"| cached["Cached answer"]
+    cache -->|"Miss"| recurse["Iterator + DNSSEC validator"]
+    recurse --> roots["Root, TLD, and authoritative servers"]
+    roots --> validated{"DNSSEC valid?"}
+    validated -->|"Yes or insecure delegation"| answer["Answer and cache"]
+    validated -->|"Bogus"| servfail["SERVFAIL"]
+```
+
+Unbound binds `127.0.0.1:53` and `192.168.0.100:53` for UDP and TCP. It uses IPv4
+transport only. The `respip validator iterator` module order applies response policy,
+DNSSEC validation, and recursion. Query and reply logging are disabled; RPZ action
+logging remains enabled.
+
+### Policy order
+
+| Order | Zone | Runtime file | Effect |
+|---:|---|---|---|
+| 1 | `hagezi.allow` | `/opt/homebrew/etc/unbound/blocklists/hagezi-allow.rpz` | `rpz-passthru` exceptions override both blocklists |
+| 2 | `hagezi.rpz` | `/opt/homebrew/etc/unbound/blocklists/hagezi-normal.rpz` | Primary generated list, forced NXDOMAIN |
+| 3 | `secondary.rpz` | `/opt/homebrew/etc/unbound/blocklists/blocklist-secondary.rpz` | Secondary generated list, forced NXDOMAIN; MAY be an empty valid zone when disabled |
+
+The tracked source selectors are `1hosts-lite` for the primary slot and `oisd-big` for
+the secondary slot. The script-level fallback, used only when a selector file is empty
+or absent, is `hagezi-normal` for primary and `off` for secondary.
+
+## Monitoring pipeline
+
+```mermaid
+flowchart LR
+    unbound["Unbound"] -->|"root-owned control socket"| uexp["unbound_exporter<br/>127.0.0.1:9167"]
+    host["macOS host"] --> node["node_exporter<br/>127.0.0.1:9100"]
+    jobs["Scheduled and periodic jobs"] -->|"atomic .prom files"| textfiles["node_exporter textfile directory"]
+    textfiles --> node
+    blackbox["blackbox_exporter<br/>127.0.0.1:9115"] -->|"real DNS probes"| dns["Unbound and public resolvers"]
+    grafana["Grafana<br/>192.168.0.100:3000"]
+    prom["Prometheus<br/>127.0.0.1 and 192.168.0.100:9090"]
+
+    uexp --> prom
+    node --> prom
+    blackbox --> prom
+    prom -->|"self scrape"| prom
+    grafana -->|"/metrics"| prom
+    prom --> grafana
+```
+
+Prometheus scrapes eight target instances across seven jobs: Unbound, Prometheus,
+node_exporter, Grafana, two upstream blackbox targets, one resolver probe, and one RPZ
+canary. The two upstream targets share one Prometheus job.
+
+### Active probes
+
+| Job | Module | Target | What it proves | What it does not prove |
+|---|---|---|---|---|
+| `blackbox_upstream` | `dns_upstream` | `1.1.1.1`, `8.8.8.8` | UDP/53 can reach public resolvers | Unbound recursion itself is healthy |
+| `blackbox_resolver` | `dns_resolver` | `192.168.0.100` | Unbound answers a hot query | Fresh recursion works; cache and serve-expired can mask failure |
+| `blackbox_rpz_canary` | `dns_rpz_canary` | `192.168.0.100` | `google-analytics.com` is blocked as NXDOMAIN | Every client is using the mini |
+
+## Alert pipeline
+
+```mermaid
+sequenceDiagram
+    participant E as Exporters and probes
+    participant P as Prometheus
+    participant N as alert notifier
+    participant T as ntfy.sh
+    participant O as Operator
+
+    E->>P: metrics every 15s or 30s
+    P->>P: evaluate rules every 15s
+    N->>P: poll /api/v1/alerts every 120s
+    alt new firing alert
+        N->>T: push high or urgent notification
+        T->>O: phone notification
+    else already announced
+        N->>N: suppress duplicate by fingerprint
+    else resolved alert
+        N->>T: push default-priority resolution
+    end
+```
+
+There is no Alertmanager. `prometheus_alert_notifier.py` polls only firing alerts,
+deduplicates them in `~/monitoring/state/notified-alerts.json`, and pushes to the secret
+topic stored in `~/monitoring/ntfy.topic`. A missing severity and `warning` both map to
+high priority; `critical` maps to urgent. Resolutions use default priority.
+
+The notifier can report Prometheus becoming unreachable directly after three failed
+polls. It cannot report its own complete death. `AlertNotifierStale` and
+`NtfyDeliveryFailures` therefore remain dashboard-visible tripwires with a circular
+notification limitation.
+
+## Ownership and privilege boundaries
+
+| Component | launchd identity | Effective runtime privilege | Reason |
+|---|---|---|---|
+| `homebrew.mxcl.unbound` | root service definition | Unbound drops to user `unbound` | Port 53, config ownership, control socket |
+| `local.unbound.exporter` | root | root | Reads the root-owned Unbound control socket |
+| `local.unbound.blocklist` | root | root | Replaces Unbound-owned zones and reloads RPZ zones |
+| `local.unbound.roothints` | root | root | Replaces root hints under `/opt/homebrew/etc/unbound` |
+| `local.unbound.warmboot` / `warmlist` | root | root | Uses the control socket; warmboot queries locally |
+| Prometheus, Grafana, node_exporter, blackbox | `localadmin` | unprivileged admin account | No control-socket access required; starts at boot without GUI login |
+| Content-cache, clientstats, alert notifier | `localadmin` | unprivileged admin account | Read-only source APIs plus textfile writes or outbound HTTPS |
+
+The textfile directory is group-writable so `localadmin` jobs can publish metrics. This
+is an accepted trust boundary: any process in the `admin` group can write a well-formed
+metric that alert rules trust. `node_textfile_scrape_error` detects malformed files, not
+fabricated valid values.
+
+## Network and security boundaries
+
+- DNS is exposed only on loopback and Ethernet LAN addresses.
+- Prometheus is exposed on loopback and the Ethernet LAN address.
+- Grafana is exposed only on the Ethernet LAN address.
+- Exporters are loopback-only.
+- SSH is configured for public-key authentication only.
+- Screen Sharing is disabled by default and enabled only through the root-owned helper.
+- Tailscale/MagicDNS is an operating-system function; Unbound MUST NOT forward the
+  tailnet zone or claim the `100.64.0.0/10` reverse space.
+- The ntfy topic is the channel credential. Repository tools MUST NOT read, hash, or
+  print it; the deployment verifier checks only existence and metadata.
+- The macOS application firewall associates allows with resolved Cellar binary paths.
+  Prometheus and Grafana SHOULD be re-authorized after Homebrew upgrades.
+
+## Failure domains
+
+| Domain | Effect | Detection | Containment |
+|---|---|---|---|
+| Unbound process/config | LAN DNS policy unavailable; clients may use external fallback | Resolver probe, `UnboundDown`, process state | Validate before reload; KeepAlive; warm cache after restart |
+| WAN or UDP/53 path | Cache misses stall or fail while cached answers may remain fast | Upstream probes, degraded/down alerts, request-list depth | Do not edit Unbound; troubleshoot router/modem/ISP |
+| RPZ data/update | Blocking may stop, overblock, or use stale data | Canary, size and freshness alerts | Atomic swap, per-slot rollback, allowlist first |
+| Mac mini host/power | DNS and monitoring fail together | External client test; DHCP fallback if configured | Router fallback and full rebuild documentation |
+| Prometheus | Dashboards and rule evaluation stop | Direct notifier unreachable path | Notifier sends a direct outage notification after repeated failures |
+| Grafana | Visualization unavailable; collection continues | `GrafanaDown` | Prometheus UI and APIs remain available |
+| node_exporter textfiles | Job metrics missing or malformed | mtime/breadcrumb alerts, `TextfileScrapeError` | Atomic producers; missing-series alerts |
+| ntfy or notifier | Phone delivery stops | notifier metrics and dashboard-only alerts | Local Prometheus alerts remain queryable |
+| Router DHCP/client selection | Clients bypass policy or lose `.lan` | Client-side resolver inspection only | Verify router and clients; dashboards cannot prove client selection |
+
+## Data lifecycle
+
+| Data | Persistence | Repository status |
+|---|---|---|
+| Intended configuration and scripts | Git history | Tracked |
+| Generated RPZ blocklists | Refreshed daily | Not tracked |
+| Personal warm list | Regenerated from cache; privacy-sensitive | Not tracked |
+| Prometheus TSDB | 90-day runtime retention | Not tracked |
+| Grafana users/sessions/database | Runtime state | Not tracked |
+| Notifier fingerprints and counters | Runtime state | Not tracked |
+| ntfy topic | Persistent secret, mode 600 | MUST NOT be tracked |
+| Root trust anchor | Managed by Unbound | Not tracked |
+
+See [REFERENCE.md](REFERENCE.md) for exact paths and [DISASTER-RECOVERY.md](DISASTER-RECOVERY.md)
+for recovery consequences.

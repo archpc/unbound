@@ -1,40 +1,52 @@
-# Repo Layout
+# Repository layout
 
-This repo is the restore source for a live Mac mini Unbound, Prometheus, Grafana,
-and launchd monitoring stack. Repo paths may move later, but runtime paths should
-stay stable unless a migration explicitly updates the matching launchd plist,
-config reference, docs, and validation.
+This repository stores intended configuration, runtime scripts, service definitions,
+dashboard sources, tests, and documentation. Runtime paths are stable interfaces even
+when repository organization changes.
 
-## Current directories
+## Directory responsibilities
 
-| Path | Role |
+| Path | Responsibility | Deployed? |
+|---|---|---|
+| `unbound-etc/` | Unbound config, tracked allowlist, generated-list selectors and updater | Selected files |
+| `prometheus-etc/` | Prometheus config/rules, blackbox modules, exporter arguments | Yes |
+| `grafana-etc/` | Grafana config, provisioning, dashboard JSON | Yes |
+| `launchd/` | System LaunchDaemon snapshots and Homebrew Unbound plist reference | All `local.unbound.*`; Unbound plist is reference-only |
+| `scripts/` | Runtime Python collectors and ntfy notifier | Yes |
+| `warmup/` | Cache warming, personalized-list generation, curated domains | Yes |
+| `usr-local-sbin/` | Root-owned helper scripts | Yes |
+| `etc-newsyslog.d/` | Scheduled-job log rotation | Yes |
+| `etc-ssh-sshd_config.d/` | Key-only SSH fragment | Yes |
+| `tools/` | Local-only drift and documentation tools | No |
+| `tests/` | Local-only contract tests | No |
+
+## Machine-readable mapping
+
+[deployment-manifest.json](deployment-manifest.json) is the canonical source-to-runtime
+map used by `tools/verify-deployment.py`. It records these policies:
+
+| Policy | Meaning |
 |---|---|
-| `unbound-etc/` | Unbound config snapshot, RPZ allowlist, blocklist source files, blocklist tooling |
-| `prometheus-etc/` | Prometheus config, alert rules, blackbox modules, node_exporter args |
-| `grafana-etc/` | Grafana config, provisioning, dashboard JSON source of truth |
-| `launchd/` | LaunchDaemon snapshots; `homebrew.mxcl.unbound.plist` is reference-only |
-| `scripts/` | Runtime Python textfile exporters and alert notifier |
-| `tools/` | Local-only repository, documentation, and deployment-verification tooling; never deployed |
-| `warmup/` | Cache warmup scripts and curated domain list |
-| `usr-local-sbin/` | Root-owned helper scripts deployed under `/usr/local/sbin` |
-| `etc-newsyslog.d/` | newsyslog config snapshot |
-| `etc-ssh-sshd_config.d/` | sshd hardening snapshot |
+| `sha256` | Local and remote regular-file contents MUST match |
+| `existence` | Destination existence and metadata are checked; contents are not hashed |
+| `none` | Local-only source; no runtime destination |
+| `sensitive: true` | Runtime-only content is never read or hashed |
 
-## Source to runtime map
+The manifest's `docs` entries are the canonical local-only documentation inventory and
+MUST match [README.md](README.md#documentation-map). `tools/check-docs.py` validates
+that contract. Documentation-support tooling is intentionally not a `docs` manifest
+entry because it is local code, not a Markdown reference artifact.
 
-[deployment-manifest.json](deployment-manifest.json) is the canonical,
-machine-readable source-to-runtime map. The table below is its human summary;
-when a deployed path is added or changed, update the manifest first. The
-manifest also records local-only docs/reference files, generated textfiles and
-RPZ zones, and the two sensitive runtime-only files that must never be read or
-hashed by repository tooling.
+## Source-to-runtime summary
 
-| Repo source | Runtime destination |
+| Repository source | Runtime destination |
 |---|---|
 | `unbound-etc/unbound.conf` | `/opt/homebrew/etc/unbound/unbound.conf` |
 | `unbound-etc/root.hints` | `/opt/homebrew/etc/unbound/root.hints` |
 | `unbound-etc/blocklists/hagezi-allow.rpz` | `/opt/homebrew/etc/unbound/blocklists/hagezi-allow.rpz` |
-| `unbound-etc/update-blocklist.sh`, `blocklist-tui.sh`, source files | `/opt/homebrew/etc/unbound/` |
+| `unbound-etc/update-blocklist.sh` | `/opt/homebrew/etc/unbound/update-blocklist.sh` |
+| `unbound-etc/blocklist-tui.sh` | `/opt/homebrew/etc/unbound/blocklist-tui.sh` |
+| `unbound-etc/blocklist-source*` | `/opt/homebrew/etc/unbound/blocklist-source*` |
 | `prometheus-etc/prometheus.yml` | `/opt/homebrew/etc/prometheus.yml` |
 | `prometheus-etc/prometheus.rules.yml` | `/opt/homebrew/etc/prometheus.rules.yml` |
 | `prometheus-etc/prometheus.args` | `/opt/homebrew/etc/prometheus.args` |
@@ -44,122 +56,73 @@ hashed by repository tooling.
 | `grafana-etc/provisioning/**` | `/opt/homebrew/etc/grafana/provisioning/**` |
 | `grafana-etc/dashboards/*.json` | `/opt/homebrew/etc/grafana/dashboards/*.json` |
 | `launchd/local.unbound.*.plist` | `/Library/LaunchDaemons/local.unbound.*.plist` |
-| `scripts/apple_content_cache_exporter.py` | `/Users/localadmin/monitoring/apple_content_cache_exporter.py` |
-| `scripts/unbound_client_rpz_exporter.py` | `/Users/localadmin/monitoring/unbound_client_rpz_exporter.py` |
-| `scripts/prometheus_alert_notifier.py` | `/Users/localadmin/monitoring/prometheus_alert_notifier.py` |
+| `scripts/*.py` | `/Users/localadmin/monitoring/` using manifest filenames |
 | `warmup/*` | `/Users/localadmin/warmup/` |
 | `usr-local-sbin/*` | `/usr/local/sbin/` |
 | `etc-newsyslog.d/unbound-monitoring.conf` | `/etc/newsyslog.d/unbound-monitoring.conf` |
 | `etc-ssh-sshd_config.d/500-keyonly.conf` | `/etc/ssh/sshd_config.d/500-keyonly.conf` |
 
-## Read-only deployment drift check
-
-Run from the repo root:
-
-```sh
-python3 tools/verify-deployment.py
-```
-
-The verifier reads `deployment-manifest.json`, checks every declared source,
-then makes one read-only SSH connection to
-`localadmin@mini.magpie-bushmaster.ts.net`. It reports destination existence,
-owner/group/mode, and SHA-256 equality where comparison is safe. Runtime-refreshed
-`root.hints`, generated RPZ zones, node_exporter textfiles, and sensitive files
-are existence/metadata-only checks. Sensitive contents, hashes, and sizes are
-never requested or printed.
-
-Exit status is `1` only for confirmed checksum drift or a missing required
-source/destination. Optional missing files do not fail. An SSH/authentication or
-remote-metadata failure is reported loudly as `INCOMPLETE`/`UNKNOWN` but exits
-`0`, because an unreachable target is not confirmed file drift; do not treat an
-incomplete report as a successful manual verification.
+Use the manifest, not wildcard assumptions, for an exact deployment. It also records
+generated RPZ zones, textfiles, and sensitive runtime-only files.
 
 ## File classes
 
-- Config: `unbound-etc/unbound.conf`, `prometheus-etc/*`, `grafana-etc/grafana.ini`,
-  `grafana-etc/provisioning/**`, `etc-newsyslog.d/*`, `etc-ssh-sshd_config.d/*`.
-- Scripts: `unbound-etc/*.sh`, `scripts/*.py`, `warmup/*.sh`, `usr-local-sbin/*`.
-- Local tooling: `tools/*.py` and `deployment-manifest.json`; these files are not
-  deployed to the mini.
-- Generated output: `DISASTER-RECOVERY.pdf`, generated RPZ blocklists, `.prom` textfiles,
-  Python bytecode, Grafana/Prometheus runtime databases.
-- State/logs: `/opt/homebrew/var/**`, `/opt/homebrew/var/log/**`,
-  `/Users/localadmin/monitoring/state/**`, `~/monitoring/ntfy.topic`,
-  `/opt/homebrew/var/lib/node_exporter/textfile/*.prom`.
+| Class | Examples | Change consequence |
+|---|---|---|
+| Intended config | `unbound.conf`, Prometheus YAML, Grafana INI | Requires validation and component activation |
+| Runtime script | collectors, updater, warmers | Requires syntax/self-test and next run or kickstart |
+| Service definition | `launchd/*.plist` | Requires plist validation and controlled bootstrap |
+| Dashboard source | `grafana-etc/dashboards/*.json` | Provider loads after validated copy |
+| Local tooling | `tools/*.py`, tests | Never deployed |
+| Generated runtime | RPZ zones, `.prom` files, TSDB, Grafana DB | MUST NOT be treated as tracked source |
+| Sensitive runtime | ntfy topic, personal warm list | MUST NOT be read by repository tools or committed |
 
-## launchd labels and script paths
+## Stable interfaces
 
-| Label | Program path |
-|---|---|
-| `homebrew.mxcl.unbound` | `/opt/homebrew/opt/unbound/sbin/unbound -c /opt/homebrew/etc/unbound/unbound.conf` |
-| `local.unbound.alertnotify` | `/Users/localadmin/monitoring/prometheus_alert_notifier.py` |
-| `local.unbound.blackbox` | `/usr/local/sbin/blackbox_exporter` |
-| `local.unbound.blocklist` | `/opt/homebrew/etc/unbound/update-blocklist.sh` |
-| `local.unbound.clientstats` | `/Users/localadmin/monitoring/unbound_client_rpz_exporter.py` |
-| `local.unbound.contentcache` | `/Users/localadmin/monitoring/apple_content_cache_exporter.py` |
-| `local.unbound.exporter` | `/usr/local/sbin/unbound_exporter` |
-| `local.unbound.grafana` | `/opt/homebrew/opt/grafana/bin/grafana` |
-| `local.unbound.nodeexporter` | `/opt/homebrew/opt/node_exporter/bin/node_exporter_brew_services` |
-| `local.unbound.prometheus` | `/opt/homebrew/opt/prometheus/bin/prometheus_brew_services` |
-| `local.unbound.roothints` | `/usr/local/sbin/unbound-refresh-hints` |
-| `local.unbound.warmboot` | `/Users/localadmin/warmup/warm-at-boot.sh` |
-| `local.unbound.warmlist` | `/Users/localadmin/warmup/build-warm-list.sh` |
+The following names SHOULD NOT change without an explicit migration:
 
-## node_exporter textfiles
+- runtime paths in `deployment-manifest.json`;
+- launchd labels;
+- Prometheus job names;
+- Grafana dashboard and datasource UIDs;
+- metric and textfile names;
+- RPZ zone names;
+- the Unbound control-socket path.
 
-All textfile outputs land in `/opt/homebrew/var/lib/node_exporter/textfile`.
+A migration MUST update every reference, consumer, test, document, and manifest entry in
+one reviewed change. Repository directories MAY move only when runtime destinations stay
+stable or the migration explicitly covers them.
+
+## Shared textfile contract
+
+Producers write atomically under `/opt/homebrew/var/lib/node_exporter/textfile`:
 
 | File | Producer |
 |---|---|
-| `unbound-blocklist.prom` | `update-blocklist.sh` |
-| `unbound-warmlist.prom` | `build-warm-list.sh` |
-| `unbound-warmboot.prom` | `warm-at-boot.sh` |
-| `unbound-roothints.prom` | `unbound-refresh-hints` |
-| `unbound-alertnotify.prom` | `prometheus_alert_notifier.py` |
-| `unbound-clientstats.prom` | `unbound_client_rpz_exporter.py` |
-| `apple-content-cache.prom` | `apple_content_cache_exporter.py` |
+| `unbound-blocklist.prom` | Blocklist updater |
+| `unbound-warmlist.prom` | Personalized warm-list builder |
+| `unbound-warmboot.prom` | Boot warmer |
+| `unbound-roothints.prom` | Root-hints updater |
+| `unbound-alertnotify.prom` | Alert notifier |
+| `unbound-clientstats.prom` | Client RPZ collector |
+| `apple-content-cache.prom` | Apple Content Cache collector |
 
-## Breadcrumb convention
+All breadcrumb producers share
+`unbound_job_last_success_timestamp_seconds{task="<name>"}`. They MUST emit a single
+`TYPE` declaration and MUST NOT emit conflicting per-file `HELP` text for that shared
+family. A well-formed but false metric remains inside the accepted `admin` group trust
+boundary; `node_textfile_scrape_error` detects syntax errors, not lies.
 
-Scheduled jobs share:
+## Local-only validation
 
-```text
-unbound_job_last_success_timestamp_seconds{task="<name>"}
+Run the relevant commands from the repository root:
+
+```sh
+python3 tools/check-docs.py
+python3 -m json.tool deployment-manifest.json >/dev/null
+PYTHONPYCACHEPREFIX=/private/tmp/pycache-unbound python3 -m unittest \
+  tests.test_monitoring_stack tests.test_deployment_verifier
 ```
 
-Emit only `# TYPE unbound_job_last_success_timestamp_seconds gauge` for this shared
-family. Do not add per-file `# HELP` text for the shared breadcrumb; conflicting
-HELP strings can make node_exporter reject samples from the merged family while
-`node_textfile_scrape_error` remains clean.
-
-## Paths that should not move
-
-- Runtime config: `/opt/homebrew/etc/unbound`, `/opt/homebrew/etc/prometheus.yml`,
-  `/opt/homebrew/etc/prometheus.rules.yml`, `/opt/homebrew/etc/blackbox.yml`,
-  `/opt/homebrew/etc/node_exporter.args`, `/opt/homebrew/etc/grafana`.
-- Runtime scripts: `/Users/localadmin/monitoring`, `/Users/localadmin/warmup`,
-  `/usr/local/sbin`.
-- launchd labels, Prometheus job names, Grafana dashboard UIDs, metric names, and
-  node_exporter textfile names.
-
-## Paths that may move later
-
-- Local-only docs and generated PDF output.
-- Additional local-only repository tooling under `tools/`.
-- Repo source directories, only after a deploy manifest/tool can map old source names
-  to unchanged runtime destinations.
-
-## Validation commands
-
-| Component | Local validation |
-|---|---|
-| Deployment manifest | `python3 -m json.tool deployment-manifest.json >/dev/null`; `python3 tools/verify-deployment.py` |
-| Unbound config | `unbound-checkconf unbound-etc/unbound.conf` when available |
-| Shell scripts | `bash -n unbound-etc/*.sh warmup/*.sh usr-local-sbin/*` |
-| Python scripts | `PYTHONPYCACHEPREFIX=/private/tmp/pycache-unbound python3 -m py_compile scripts/*.py tools/*.py` |
-| Python selftests | `python3 scripts/apple_content_cache_exporter.py --test`; `python3 scripts/unbound_client_rpz_exporter.py --test`; `python3 scripts/prometheus_alert_notifier.py --selftest` |
-| launchd plists | `plutil -lint launchd/*.plist` |
-| Prometheus | `promtool check config prometheus-etc/prometheus.yml`; `promtool check rules prometheus-etc/prometheus.rules.yml` |
-| Grafana dashboards | `python3 -m json.tool grafana-etc/dashboards/<name>.json >/dev/null` |
-| SSH config | `sshd -t -f /path/to/test/sshd_config` on the mini before relying on it |
-| Runtime textfiles | `curl -s http://127.0.0.1:9100/metrics | grep '^node_textfile_scrape_error 0$'` |
+Component validators and deployment activation are specified in
+[DEPLOYMENT.md](DEPLOYMENT.md#validation-matrix).

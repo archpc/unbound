@@ -158,24 +158,8 @@
       },
       "fieldConfig": {
         "defaults": {
-          "unit": "none",
-          "mappings": [
-            {
-              "options": {
-                "0": {
-                  "color": "red",
-                  "index": 1,
-                  "text": "DEAD (Jul-1 mode)"
-                },
-                "1": {
-                  "color": "green",
-                  "index": 0,
-                  "text": "REACHABLE"
-                }
-              },
-              "type": "value"
-            }
-          ],
+          "unit": "percentunit",
+          "mappings": [],
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -184,8 +168,12 @@
                 "value": null
               },
               {
+                "color": "orange",
+                "value": 0.95
+              },
+              {
                 "color": "green",
-                "value": 1
+                "value": 0.99
               }
             ]
           }
@@ -216,11 +204,13 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "max(probe_success{job=\"blackbox_upstream\"})",
+          "expr": "avg_over_time(probe_success{job=\"blackbox_upstream\"}[10m])",
+          "legendFormat": "{{instance}}",
           "refId": "A"
         }
       ],
-      "title": "Upstream path (:53)",
+      "title": "Upstream success (10m)",
+      "description": "Recent DNS-probe success for each public target. Below 95% on both paths for 5m fires UpstreamDNSPathDegraded; complete failure for 5m still fires UpstreamDNSPathDown.",
       "type": "stat"
     },
     {

@@ -602,6 +602,20 @@ fi
             rules,
         )
 
+    def test_upstream_degradation_is_visible_and_alerted(self):
+        rules = (ROOT / "prometheus-etc/prometheus.rules.yml").read_text()
+        dashboard = (ROOT / "grafana-etc/dashboards/unbound-dns.json").read_text()
+        expression = (
+            'max(avg_over_time(probe_success{job="blackbox_upstream"}[10m])) < 0.95'
+        )
+        self.assertIn("UpstreamDNSPathDegraded", rules)
+        self.assertIn(expression, rules)
+        self.assertIn("Upstream success (10m)", dashboard)
+        self.assertIn(
+            'avg_over_time(probe_success{job=\\"blackbox_upstream\\"}[10m])',
+            dashboard,
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

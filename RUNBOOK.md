@@ -1,293 +1,323 @@
-# Mini DNS Server — Operator Runbook
+# Operator runbook
 
-**Plain-language, top-to-bottom guide to the Mac mini that runs your home DNS.**
-If you only read one file, read this one. It assumes you can open Terminal and
-copy-paste — nothing else. For the deep "why it's built this way" detail, see
-[CLAUDE.md](CLAUDE.md); this file is "how do I actually do the thing."
+This runbook covers routine operation of the existing mini. Use
+[TROUBLESHOOTING.md](TROUBLESHOOTING.md) for failures, [DEPLOYMENT.md](DEPLOYMENT.md)
+for repository-to-host changes, and [DISASTER-RECOVERY.md](DISASTER-RECOVERY.md) for a
+replacement or erased host.
 
----
+All capitalized requirement words use the RFC 8174 meanings described in
+[README.md](README.md#safety-contract).
 
-## 0. The 20-second orientation
+## Access
 
-- **What it is:** a Mac mini named `mini` at **192.168.0.100** on your home network.
-- **Its main job:** it's the DNS resolver for every device in the house — it turns
-  names like `google.com` into IP addresses, blocks ads/trackers, and validates
-  that answers are genuine (DNSSEC).
-- **Its other jobs:** caches Apple software downloads for the LAN, and runs a
-  monitoring stack (Grafana dashboards + phone alerts) that watches all of the above.
-- **If DNS breaks, the house degrades, not dies**: clients fall back to the secondary DNS
-  (`9.9.9.9` — set on the router, verify there). Internet names still resolve, but **ads come
-  back and `.lan` names stop working** until the mini is fixed. That's
-  why this box matters and why there are so many guardrails.
+### SSH
 
-| I want to… | Go to |
+| Field | Value |
 |---|---|
-| Log into the box | [§1](#1-how-to-get-in) |
-| Check everything is healthy | [§2](#2-is-it-healthy-the-60-second-check) |
-| Fix a wrongly-blocked website | [§4.1](#41-a-website-is-wrongly-blocked-unblock-it) |
-| The internet is down | [§5.1](#51-the-internet-is-down-for-the-whole-house) |
-| A phone alert fired | [§5.4](#54-i-got-a-phone-alert-ntfy) |
-| See the dashboards | [§1](#1-how-to-get-in) |
+| Execution location | Operator workstation |
+| Privilege | Existing SSH key for `localadmin` |
+| State | Read-only connection establishment |
+| Success | A shell opens as `localadmin` |
+| Failure | Authentication failure, timeout, or unreachable host |
 
----
-
-## 1. How to get in
-
-### SSH (the main way — a terminal on the box)
-From your Mac (**Honk**, which holds the login key):
 ```sh
-ssh localadmin@mini.tail3fd0f4.ts.net      # works from anywhere on your tailnet
-ssh localadmin@192.168.0.100               # works on the home Wi-Fi/ethernet
+ssh localadmin@192.168.0.100
 ```
-- Login is **key-only** — no password is asked, and no password will work. The key
-  lives on Honk. If you're on a different computer, it won't let you in (by design).
-- You land in a normal shell as user `localadmin`.
 
-### Dashboards (the pretty way — read-only health)
-On the home network, open in a browser:
-- **Grafana (the dashboards):** http://192.168.0.100:3000
-- **Prometheus (raw metrics/alerts):** http://192.168.0.100:9090/alerts
+The deployment verifier uses the target recorded in `deployment-manifest.json` and MAY
+be used when LAN addressing is unavailable. SSH passwords and keyboard-interactive
+authentication are disabled by the tracked sshd fragment.
 
-**On a fresh rebuild only**, first Grafana login is `admin` / `admin` and it forces a
-password change immediately. On the live box, use the password you already set — it's
-not stored here (see [DISASTER-RECOVERY.md](DISASTER-RECOVERY.md) §4 for why).
+### Web interfaces
 
-### Screen Sharing (rare — a full desktop)
-Kept **off** for security. Turn it on only when you need a desktop, then off again:
-```sh
-sudo /usr/local/sbin/screenshare-on        # opens it, prints "listening on :5900"
-# ...connect with Screen Sharing.app to 192.168.0.100, do your thing...
-sudo /usr/local/sbin/screenshare-off       # closes it again
-```
-(Full path is required — see [§7](#7-security-what-is-locked-down).)
-
----
-
-## 2. Is it healthy? The 60-second check
-
-### Fastest possible check (from ANY device on the home network)
-```sh
-dig @192.168.0.100 cloudflare.com +short
-```
-**Good:** it prints one or more IP addresses. That means DNS is alive and answering.
-**Bad:** it hangs or says "no servers could be reached" → jump to [§5.1](#51-the-internet-is-down-for-the-whole-house).
-
-### Fuller check (SSH in first, then paste these)
-```sh
-# 1. Is the resolver answering, blocking, and validating? (the three canaries)
-dig @127.0.0.1 cloudflare.com          | grep -E 'status:|flags:'   # NOERROR, has 'ad' = DNSSEC ok
-dig @127.0.0.1 google-analytics.com    | grep -E 'status:|flags:'   # NXDOMAIN + 'aa' = ad-blocking on
-dig @127.0.0.1 dnssec-failed.org       | grep status:               # SERVFAIL = validation working
-
-# 2. Are all the monitoring pieces up? (expect 8)
-curl -s 'http://127.0.0.1:9090/api/v1/targets' | grep -o '"health":"up"' | wc -l
-
-# 3. Any alerts firing right now? (expect nothing / empty list)
-curl -s 'http://127.0.0.1:9090/api/v1/alerts'
-
-# 4. Any broken metric files? (expect 0)
-curl -s http://127.0.0.1:9100/metrics | grep node_textfile_scrape_error
-```
-If all four look as annotated, the box is healthy. If #2 is under 8 or #3 shows a
-firing alert, see [§5](#5-when-something-is-wrong).
-
-> **Memorize one fact:** `google-analytics.com` must come back **NXDOMAIN**. That's the
-> "is ad-blocking working" canary. If it resolves to a real IP, blocking has broken.
-
----
-
-## 3. What's running (in plain language)
-
-The box runs a chain of small services. You rarely touch them individually, but here's
-what each does and how to restart it if a dashboard says it's down.
-
-| Service | What it does | Restart command (on the box) |
+| Interface | URL | Reachability |
 |---|---|---|
-| **unbound** | The DNS resolver itself. The important one. | `sudo brew services restart unbound` *(drops the cache — see §4.4)* |
-| **prometheus** | Collects and stores all the metrics | `sudo launchctl kickstart -k system/local.unbound.prometheus` |
-| **grafana** | Draws the dashboards | `sudo launchctl kickstart -k system/local.unbound.grafana` |
-| **node_exporter** | Reports CPU/memory/disk/network | `sudo launchctl kickstart -k system/local.unbound.nodeexporter` |
-| **unbound_exporter** | Reports unbound's internal stats | `sudo launchctl kickstart -k system/local.unbound.exporter` |
-| **blackbox_exporter** | Actively test-queries DNS from outside | `sudo launchctl kickstart -k system/local.unbound.blackbox` |
-| **alertnotify** | Pushes alerts to your phone (ntfy) | `sudo launchctl kickstart system/local.unbound.alertnotify` |
+| Grafana | `http://192.168.0.100:3000` | LAN only |
+| Prometheus alerts | `http://192.168.0.100:9090/alerts` | LAN only |
 
-Scheduled background jobs (they run themselves; you don't start them):
-- **blocklist** — downloads the fresh ad-blocklist nightly (03:30).
-- **warmlist / warmboot** — keep the DNS cache warm after reboots.
-- **roothints** — refreshes the DNS root-server list monthly.
-- **contentcache** — reports Apple content-cache stats every 5 min.
+Grafana does not bind loopback. A failed `curl http://127.0.0.1:3000` on the mini is
+expected.
 
-To see if a specific job is alive: `launchctl print system/local.unbound.<name> | grep -E 'state|last exit'`
-(no sudo needed to read).
+## Health check
 
----
+| Field | Value |
+|---|---|
+| Execution location | Mini over SSH; the first query MAY also be run from any LAN client using `192.168.0.100` |
+| Privilege | `localadmin`; no `sudo` |
+| State | Read-only; DNS probes generate normal queries |
+| Success | Results match the table below |
+| Failure | Timeout, unexpected rcode/flags, firing alerts, fewer than eight healthy targets, or textfile scrape error |
 
-## 4. Everyday tasks
-
-### 4.1. A website is wrongly blocked — unblock it
-First, **confirm it's actually the blocklist** (not just a dead site). On the box:
 ```sh
-dig @127.0.0.1 thesite.com | grep -E 'status:|flags:'
-```
-- `NXDOMAIN` **with `aa` in the flags** = the blocklist is blocking it → continue below.
-- `NXDOMAIN` **without `aa`** = the site genuinely doesn't exist. Not our doing. Stop.
-
-To unblock, edit the **allowlist** (never the blocklist — it's overwritten nightly):
-```sh
-sudo nano /opt/homebrew/etc/unbound/blocklists/hagezi-allow.rpz
-```
-Copy the existing `rpz-passthru` pattern for both the bare name and the wildcard, and
-**bump the SOA serial number** at the top of the file (increase it by 1). Save, then:
-```sh
-sudo unbound-control auth_zone_reload hagezi.allow      # reload just the allowlist
-dig @127.0.0.1 thesite.com | grep status:               # now NOERROR = unblocked
-```
-Finally, copy the edited file back into this repo on Honk and commit it (so it survives
-a rebuild). See [CLAUDE.md](CLAUDE.md) "Adding / removing / testing block+allow rules".
-
-### 4.2. Block a site the list misses
-Add one line to unbound's config (the blocklist file gets clobbered nightly, so don't
-edit that):
-```sh
-sudo nano /opt/homebrew/etc/unbound/unbound.conf      # add: local-zone: "badsite.com." always_nxdomain
-unbound-checkconf                                      # MUST say "no errors" before reloading
-sudo unbound-control reload
+dig @127.0.0.1 +time=2 +tries=1 cloudflare.com A | grep -E 'status:|flags:'
+dig @127.0.0.1 +time=2 +tries=1 google-analytics.com A | grep -E 'status:|flags:'
+dig @127.0.0.1 +time=2 +tries=1 dnssec-failed.org A | grep 'status:'
+dig @127.0.0.1 +time=2 +tries=1 mini.lan A +short
+curl -s http://127.0.0.1:9090/api/v1/targets | grep -o '"health":"up"' | wc -l
+curl -s http://127.0.0.1:9090/api/v1/alerts
+curl -s http://127.0.0.1:9100/metrics | grep '^node_textfile_scrape_error'
 ```
 
-### 4.3. Update the ad-blocklist manually (it also runs nightly)
-```sh
-sudo bash /opt/homebrew/etc/unbound/update-blocklist.sh
-```
-It downloads the list, sanity-checks it (>100k lines, has CNAME entries), swaps it in,
-and automatically rolls back if the new file is bad. Safe to run anytime.
+| Check | Expected result |
+|---|---|
+| `cloudflare.com` | `NOERROR` and `ad` flag |
+| `google-analytics.com` | `NXDOMAIN` and `aa` flag |
+| `dnssec-failed.org` | `SERVFAIL` |
+| `mini.lan` | `192.168.0.100` |
+| Healthy target count | `8` |
+| Alerts API | Empty `alerts` array |
+| Textfile collector | `node_textfile_scrape_error 0` |
 
-### 4.4. Warm the cache (after a restart)
-Restarting unbound empties its cache, so the first lookups are slow. Refill it:
+An alert during an intentional maintenance window is not automatically a defect. The
+operator SHOULD confirm that it matches the change and resolves afterward.
+
+## Read service and job state
+
+| Field | Value |
+|---|---|
+| Execution location | Mini |
+| Privilege | `localadmin`; no `sudo` |
+| State | Read-only |
+| Success | `state = running` for daemons; periodic jobs normally show `not running` with last exit code 0 |
+| Failure | Repeated run count growth, nonzero last exit after the job had time to complete, or missing label |
+
+```sh
+launchctl print system/homebrew.mxcl.unbound | grep -E 'state|runs|last exit'
+launchctl print system/local.unbound.prometheus | grep -E 'state|runs|last exit'
+launchctl print system/local.unbound.<name> | grep -E 'state|runs|last exit'
+```
+
+Periodic jobs are not expected to remain running. Their freshness is represented by
+textfile timestamps and corresponding alerts.
+
+## Allow a domain blocked by RPZ
+
+| Field | Value |
+|---|---|
+| Execution location | Diagnose on the mini; edit and validate in the repository; deploy to the mini |
+| Privilege | `localadmin` for diagnosis; `sudo` for live replacement and control socket |
+| State | State-changing; modifies policy and reloads one RPZ zone |
+| Success | The domain no longer returns authoritative RPZ NXDOMAIN |
+| Failure | Reload error, unchanged authoritative NXDOMAIN, syntax error, or failure to preserve the SOA serial change |
+
+1. Confirm the response is an RPZ block:
+
+   ```sh
+   dig @127.0.0.1 example.com A | grep -E 'status:|flags:'
+   ```
+
+   `NXDOMAIN` with `aa` is a synthesized authoritative block. `NXDOMAIN` without `aa`
+   is ordinary DNS and MUST NOT be treated as an RPZ false positive.
+
+2. Edit `unbound-etc/blocklists/hagezi-allow.rpz` in the repository. Add both the bare
+   and wildcard `CNAME rpz-passthru.` records and increment the SOA serial.
+
+3. Follow [DEPLOYMENT.md](DEPLOYMENT.md#deploy-the-rpz-allowlist). Reload only the
+   allowlist and verify:
+
+   ```sh
+   sudo unbound-control auth_zone_reload hagezi.allow
+   dig @127.0.0.1 example.com A | grep -E 'status:|flags:'
+   ```
+
+The generated primary and secondary blocklist files MUST NOT be hand-edited.
+
+## Add an explicit local block
+
+| Field | Value |
+|---|---|
+| Execution location | Repository checkout first; mini only for deployment and reload |
+| Privilege | None for repository edit; `sudo` for live file replacement and reload |
+| State | State-changing |
+| Success | Config validates and the domain returns authoritative NXDOMAIN |
+| Failure | `unbound-checkconf` error or unexpected result after reload |
+
+Add the following under `server:` in `unbound-etc/unbound.conf`:
+
+```text
+local-zone: "example.com." always_nxdomain
+```
+
+Follow the Unbound procedure in [DEPLOYMENT.md](DEPLOYMENT.md#deploy-unbound-configuration).
+Do not put the rule in a generated RPZ file.
+
+## Refresh blocklists
+
+| Field | Value |
+|---|---|
+| Execution location | Mini |
+| Privilege | `sudo` REQUIRED |
+| State | State-changing; downloads, atomically replaces zones, and reloads affected RPZ zones |
+| Success | Exit 0; each attempted slot reports updated or off; canary remains authoritative NXDOMAIN |
+| Failure | Exit 1; the failed slot retains or rolls back to its prior zone; the success breadcrumb is not advanced |
+
+Refresh both slots from their tracked selector files:
+
+```sh
+sudo /opt/homebrew/etc/unbound/update-blocklist.sh
+```
+
+Apply a one-time source to one slot:
+
+```sh
+sudo /opt/homebrew/etc/unbound/update-blocklist.sh <source> <primary|secondary>
+```
+
+Disable only the secondary slot:
+
+```sh
+sudo /opt/homebrew/etc/unbound/update-blocklist.sh off secondary
+```
+
+The explicit source argument is temporary. To change nightly behavior, edit and deploy
+the matching tracked selector file. Supported sources and validation floors are in
+[REFERENCE.md](REFERENCE.md#blocklist-sources).
+
+The interactive wrapper MAY be used instead:
+
+```sh
+sudo /opt/homebrew/etc/unbound/blocklist-tui.sh
+```
+
+## Warm the DNS cache
+
+| Field | Value |
+|---|---|
+| Execution location | Mini |
+| Privilege | `sudo` REQUIRED for control-socket statistics |
+| State | State-changing only through normal DNS queries and cache population |
+| Success | Script exits 0 and reports before/after cache statistics |
+| Failure | Missing domain file, resolver probe failure, or control-socket error |
+
 ```sh
 sudo /Users/localadmin/warmup/warm-unbound-cache.sh
 ```
 
-### 4.5. Screen Sharing on/off
-See [§1](#1-how-to-get-in). On by demand, off when done.
+Use this after an Unbound restart. It is not a substitute for diagnosing slow or failed
+recursion.
 
----
+## Build the personalized warm list
 
-## 5. When something is wrong
-
-### 5.1. The internet is down for the whole house
-Work down this list **in order** — each step rules out one layer. All commands run on
-the box (SSH in; if you can't even SSH, the box may be off/rebooting — check power).
+| Field | Value |
+|---|---|
+| Execution location | Mini |
+| Privilege | `sudo` REQUIRED |
+| State | State-changing; writes a privacy-sensitive local file and breadcrumb metric |
+| Success | Reports counts for personal and curated domains |
+| Failure | Control-socket error, empty usable cache, or unwritable destination |
 
 ```sh
-# STEP 1 — is unbound answering at all?
-dig @127.0.0.1 +time=2 +tries=1 cloudflare.com | grep status:
-#   NOERROR -> DNS is FINE; the problem is the client or the router's DHCP. Stop here.
-#   times out -> go to STEP 2.
-#   SERVFAIL -> go to STEP 3.
-
-# STEP 2 — is the unbound process even running?
-ps aux | grep '[u]nbound'
-#   nothing -> restart it:  sudo brew services restart unbound
-#              then warm it: sudo /Users/localadmin/warmup/warm-unbound-cache.sh
-#              (warm-at-boot.sh is the launchd boot-time wrapper — it waits out the
-#              opendirectoryd race on every boot. You just restarted it yourself, so
-#              go straight to warm-unbound-cache.sh, not the boot wrapper.)
-
-# STEP 3 — is the upstream internet path dead, or is it just DNSSEC?
-dig @1.1.1.1 +time=2 +tries=1 cloudflare.com | grep status:
-#   ALSO fails -> it's your internet/router/ISP, NOT this box. Do NOT edit unbound.
-#                 Reboot the modem/router. (This was the real cause on 2026-07-01.)
-#   works, but unbound SERVFAILs one site -> that one site's DNSSEC is genuinely broken.
+sudo /Users/localadmin/warmup/build-warm-list.sh
 ```
 
-> **Known non-issue:** right after a reboot, `unbound` (and grafana/prometheus) show
-> "last exit code = 1" for a few seconds — a harmless boot-timing race that self-heals
-> in ~10s. Don't chase it. Only worry if it keeps happening.
+The output contains household behavior data. It MUST NOT be copied into the repository
+or shared as diagnostic output.
 
-### 5.2. A single website won't load
+## Restart or reload a service
+
+Restarts are state-changing and can interrupt service. A restart MUST NOT be the first
+diagnostic step. Prefer a component-specific reload when supported.
+
+| Component | Location | Privilege | Command | Effect | Success | Failure |
+|---|---|---|---|---|---|---|
+| Unbound config | Mini | `sudo` | `sudo unbound-control reload` | Re-reads config and zones without a process restart | Control command succeeds and canaries pass | Control error or changed canary result |
+| Unbound process | Mini | `sudo` | `sudo brew services restart unbound` | Process restart; drops cache | One process listens on port 53; canaries pass after warmup | No listener, duplicate process, or failed canary |
+| Prometheus config/rules | Mini | `localadmin` | `pkill -HUP -x prometheus` | In-process reload; keeps TSDB hot | `prometheus_config_last_reload_successful == 1` | Reload metric is 0 or rule/target disappears |
+| Prometheus process | Mini | `sudo` | `sudo launchctl kickstart -k system/local.unbound.prometheus` | Process restart | `/-/ready` succeeds | Readiness fails or process loops |
+| Grafana | Mini | `sudo` | `sudo launchctl kickstart -k system/local.unbound.grafana` | Process restart | LAN `/api/health` reports database `ok` | Health fails, bind error, or process loops |
+| node_exporter | Mini | `sudo` | `sudo launchctl kickstart -k system/local.unbound.nodeexporter` | Process restart | Target returns up | Target stays down or textfile scrape breaks |
+| Unbound exporter | Mini | `sudo` | `sudo launchctl kickstart -k system/local.unbound.exporter` | Process restart | `unbound_up` is available | Socket permission or scrape failure |
+| Blackbox exporter | Mini | `sudo` | `sudo launchctl kickstart -k system/local.unbound.blackbox` | Process restart | Three blackbox jobs recover | Exporter or probe jobs stay down |
+| Periodic job | Mini | `sudo` | `sudo launchctl kickstart system/local.unbound.<name>` | Runs one job now | Last exit is 0 and output/breadcrumb updates | Nonzero exit, stale output, or log error |
+
+Prometheus, Grafana, and node_exporter MUST NOT be started through `brew services`.
+Unbound MUST NOT be started through non-root `brew services`.
+
+## Screen Sharing
+
+### Enable
+
+| Field | Value |
+|---|---|
+| Execution location | Mini over SSH |
+| Privilege | `sudo` REQUIRED |
+| State | State-changing; enables and bootstraps Screen Sharing |
+| Success | Helper reports port 5900 listening |
+| Failure | Helper exits nonzero or port 5900 remains closed |
+
 ```sh
-dig @127.0.0.1 thesite.com | grep -E 'status:|flags:'
+sudo /usr/local/sbin/screenshare-on
 ```
-- `NXDOMAIN` + `aa` = blocklist is blocking it → unblock per [§4.1](#41-a-website-is-wrongly-blocked-unblock-it).
-- `NXDOMAIN` without `aa` = the site really doesn't exist.
-- `NOERROR` but still won't load = **not a DNS problem** — it's the site or your browser.
 
-### 5.3. The dashboard (Grafana) won't open
-- Confirm you're on the home network — Grafana is **only** reachable at
-  http://192.168.0.100:3000 on the LAN (not over the internet/tailnet, by design).
-- SSH in and restart it: `sudo launchctl kickstart -k system/local.unbound.grafana`
-- If it broke right after a `brew upgrade`, the firewall allow was lost — see
-  [CLAUDE.md](CLAUDE.md) "macOS application firewall gotcha".
+### Disable
 
-### 5.4. I got a phone alert (ntfy)
-The alert title tells you which tripwire fired. Common ones and what they mean:
-- **UpstreamDNSPathDown** — the internet path to public DNS is dead. Check modem/router.
-- **RPZCanaryNotBlocking** — ad-blocking silently stopped. Re-run the blocklist update ([§4.3](#43-update-the-ad-blocklist-manually-it-also-runs-nightly)).
-- **UnboundDown / UnboundExporterDown** — the resolver or its stats reporter is down. [§5.1](#51-the-internet-is-down-for-the-whole-house) step 2.
-- **DiskAlmostFull / RootDiskFreePredicted…** — the box is running low on disk. Investigate what's filling it.
-- **…Stale** (BlocklistUpdateStale, WarmbootDidNotRun, AlertNotifierStale, etc.) — a
-  background job hasn't run when it should have. Check its log under
-  `/opt/homebrew/var/log/`.
+| Field | Value |
+|---|---|
+| Execution location | Mini over SSH |
+| Privilege | `sudo` REQUIRED |
+| State | State-changing; disables and boots out Screen Sharing |
+| Success | Helper reports port 5900 closed |
+| Failure | Port remains listening; investigate before ending the session |
 
-A **resolved** alert also pushes to your phone (lower priority), so you'll know when it clears.
-
----
-
-## 6. Backups
-
-The **repo on Honk is the backup** — every config and script on the box is committed
-there. To restore the box, you re-deploy from the repo.
-
-Make a point-in-time tarball of the live config (run on the box) before big changes:
 ```sh
-tar czf ~/mini-backup-$(date +%Y%m%d-%H%M%S).tar.gz \
-  /opt/homebrew/etc/unbound /opt/homebrew/etc/{prometheus,blackbox}* \
-  /opt/homebrew/etc/grafana /Library/LaunchDaemons/local.unbound.*.plist \
-  /etc/ssh/sshd_config.d/500-keyonly.conf 2>/dev/null
+sudo /usr/local/sbin/screenshare-off
 ```
-To undo a bad change: on Honk, `git log` → `git revert <the-bad-commit>` → re-deploy that
-one file to the box → validate → restart just that service.
 
----
+Screen Sharing SHOULD be disabled immediately after use.
 
-## 7. Security — what is locked down
+## Back up runtime-only state
 
-This box is **LAN + your private tailnet only**. Nothing here is meant to face the
-public internet. Current posture (as of 2026-07-07):
+Repository content is recovered from Git. The following runtime-only items MAY be
+backed up from an operator workstation when the mini is healthy.
 
-- **SSH is key-only.** Passwords are refused; the only key is on Honk. (Set in
-  `/etc/ssh/sshd_config.d/500-keyonly.conf`.)
-- **The macOS firewall is on.**
-- **Unused services are off:** file sharing (SMB), Screen Sharing, and the local
-  Kerberos service were all shut off. Screen Sharing is on-demand only ([§1](#1-how-to-get-in)).
-- **DNS, Prometheus, and Grafana bind only to loopback + the LAN IP** — never the
-  tailnet or Wi-Fi interfaces.
-- To audit what's listening at any time: `sudo lsof -nP -iTCP -sTCP:LISTEN`.
+| Item | Sensitivity | Need |
+|---|---|---|
+| ntfy topic | Secret | Required to preserve the existing phone channel |
+| Personal warm list | Private household profile | Optional |
+| Prometheus TSDB | Operational history | Optional |
+| Grafana database | Contains credentials/sessions; not required for dashboards | Optional and sensitive |
 
-**Gotcha:** commands in `/usr/local/sbin` (like the screenshare helpers) must be called
-by **full path** under sudo — `sudo /usr/local/sbin/screenshare-on` — because sudo's
-`secure_path` doesn't include that directory.
+Backup commands that read secrets SHOULD write directly to a protected local directory
+and MUST NOT print contents. See [DISASTER-RECOVERY.md](DISASTER-RECOVERY.md#preserve-runtime-only-state).
 
----
+## Homebrew maintenance
 
-## 8. Never do these (they have bitten before)
+| Field | Value |
+|---|---|
+| Execution location | Mini |
+| Privilege | Homebrew as `localadmin`; `sudo` only for system LaunchDaemon restart and firewall changes |
+| State | State-changing |
+| Success | Updated component validates, runs from the new Cellar path, and remains reachable |
+| Failure | Bind error, firewall timeout, validation error, duplicate service, or old process path |
 
-- **Never reload/restart unbound on a config you haven't validated** with
-  `unbound-checkconf` — it's the house's primary DNS; break it and every device
-  degrades to the unfiltered `9.9.9.9` fallback (ads return, `.lan` names break).
-- **Never edit `hagezi-normal.rpz`** (the blocklist) — it's overwritten nightly. Put
-  exceptions in `hagezi-allow.rpz`.
-- **Never run `brew services start` on prometheus/grafana/node_exporter** — they're
-  managed by launchd; starting them that way creates a fighting duplicate.
-- **Never drag files into the repo with Finder** — use `scp`/`rsync`. Finder has
-  deleted tracked files here before.
-- **Never run `tailscale funnel`** — nothing here should be exposed to the internet.
+After upgrading Prometheus or Grafana:
 
----
+1. validate the current configuration;
+2. restart the owning system LaunchDaemon onto the new binary;
+3. add and unblock the resolved new Cellar binary with
+   `/usr/libexec/ApplicationFirewall/socketfilterfw`;
+4. verify LAN reachability and target health.
 
-## 9. Going deeper
+node_exporter also requires a LaunchDaemon restart after upgrade, but it is loopback-only
+and does not need a firewall allow. Unbound upgrades MUST preserve the root-managed
+`brew services` model and SHOULD be followed by config validation, restart, canary tests,
+and cache warmup.
 
-[CLAUDE.md](CLAUDE.md) has the full technical reference: every file's purpose, the
-monitoring internals, all the launchd jobs, the alert-rule reasoning, and the historical
-"why" behind each decision. This runbook is deliberately the shallow, do-the-task layer
-on top of it.
+## Logs
+
+| Component | Log or query |
+|---|---|
+| Unbound | `log show --predicate 'process == "unbound"' --last 1h` |
+| Prometheus | `/opt/homebrew/var/log/prometheus.log` |
+| Grafana | `/opt/homebrew/var/log/grafana/grafana.log`; early launch output in `/opt/homebrew/var/log/unbound-grafana-launchd.log` |
+| node_exporter | `/opt/homebrew/var/log/node_exporter.log` |
+| Unbound exporter | `/opt/homebrew/var/log/unbound-exporter.log` |
+| Blackbox exporter | `/opt/homebrew/var/log/unbound-blackbox.log` |
+| Alert notifier | `/opt/homebrew/var/log/unbound-alertnotify.log` |
+| Client RPZ collector | `/opt/homebrew/var/log/unbound-clientstats.log` |
+| Content cache collector | `/opt/homebrew/var/log/apple-content-cache-exporter.log` |
+| Blocklist / warmlist / warmboot | `/opt/homebrew/var/log/unbound-{blocklist,warmlist,warmboot}.log` |
+| Root hints | `/var/log/unbound-refresh-hints.log` |
+
+Reading logs is read-only and normally needs no `sudo`; unified log visibility MAY vary
+by account. Scheduled-job logs are size-rotated by the tracked newsyslog configuration.

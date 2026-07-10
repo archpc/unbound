@@ -13,6 +13,19 @@ from unittest import mock
 
 
 ROOT = Path(__file__).resolve().parents[1]
+CANONICAL_DOCS = (
+    "README.md",
+    "ARCHITECTURE.md",
+    "RUNBOOK.md",
+    "DEPLOYMENT.md",
+    "TROUBLESHOOTING.md",
+    "REFERENCE.md",
+    "DISASTER-RECOVERY.md",
+    "REPO_LAYOUT.md",
+    "DASHBOARDS.md",
+    "AGENTS.md",
+    "CLAUDE.md",
+)
 SPEC = importlib.util.spec_from_file_location(
     "deployment_verifier", ROOT / "tools" / "verify-deployment.py"
 )
@@ -63,6 +76,13 @@ class DeploymentVerifierTests(unittest.TestCase):
             set(verifier.CATEGORY_ORDER),
         )
         self.assertEqual(sum(entry["sensitive"] for entry in manifest["entries"]), 2)
+        docs = [entry for entry in manifest["entries"] if entry["category"] == "docs"]
+        self.assertEqual(tuple(entry["source"] for entry in docs), CANONICAL_DOCS)
+        for entry in docs:
+            with self.subTest(document=entry["source"]):
+                self.assertIsNone(entry["destination"])
+                self.assertTrue(entry["required"])
+                self.assertEqual(entry["compare"], "none")
         for entry in manifest["entries"]:
             if entry["source_path"] is not None:
                 self.assertTrue(entry["source_path"].is_file(), entry["source"])

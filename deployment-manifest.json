@@ -6,21 +6,42 @@
   "entries": [
     {
       "category": "docs",
-      "source": "AGENTS.md",
+      "source": "README.md",
       "destination": null,
       "required": true,
       "compare": "none"
     },
     {
       "category": "docs",
-      "source": "CLAUDE.md",
+      "source": "ARCHITECTURE.md",
       "destination": null,
       "required": true,
       "compare": "none"
     },
     {
       "category": "docs",
-      "source": "DASHBOARDS.md",
+      "source": "RUNBOOK.md",
+      "destination": null,
+      "required": true,
+      "compare": "none"
+    },
+    {
+      "category": "docs",
+      "source": "DEPLOYMENT.md",
+      "destination": null,
+      "required": true,
+      "compare": "none"
+    },
+    {
+      "category": "docs",
+      "source": "TROUBLESHOOTING.md",
+      "destination": null,
+      "required": true,
+      "compare": "none"
+    },
+    {
+      "category": "docs",
+      "source": "REFERENCE.md",
       "destination": null,
       "required": true,
       "compare": "none"
@@ -41,7 +62,21 @@
     },
     {
       "category": "docs",
-      "source": "RUNBOOK.md",
+      "source": "DASHBOARDS.md",
+      "destination": null,
+      "required": true,
+      "compare": "none"
+    },
+    {
+      "category": "docs",
+      "source": "AGENTS.md",
+      "destination": null,
+      "required": true,
+      "compare": "none"
+    },
+    {
+      "category": "docs",
+      "source": "CLAUDE.md",
       "destination": null,
       "required": true,
       "compare": "none"
