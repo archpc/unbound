@@ -18,7 +18,7 @@
     <key>ProgramArguments</key>
     <array>
         <string>/usr/bin/python3</string>
-        <string>/Users/localadmin/monitoring/prometheus_alert_notifier.py</string>
+        <string>/usr/local/libexec/unbound-stack/monitoring/prometheus_alert_notifier.py</string>
     </array>
     <key>RunAtLoad</key>
     <true/>

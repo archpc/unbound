@@ -63,7 +63,18 @@ resolve_source "$SOURCE"
 TMP="$(mktemp)"
 NEW="${DEST}.new"
 BAK="${DEST}.bak"
-trap 'rm -f "$TMP" "$NEW"' EXIT
+BAK_NEW="${BAK}.new"
+METRICS_TMP="${PROM}.$$"
+trap 'rm -f "$TMP" "$NEW" "$BAK_NEW" "$METRICS_TMP"' EXIT
+
+rollback_zone() {
+    if [ ! -f "$BAK" ]; then
+        echo "no last-known-good blocklist is available for rollback" >&2
+        return 1
+    fi
+    cp -p "$BAK" "$NEW"
+    mv "$NEW" "$DEST"
+}
 
 curl -fsS --max-time 90 "$SRC" -o "$TMP"
 
@@ -73,7 +84,8 @@ if ! grep -q 'CNAME' "$TMP" || [ "$(wc -l < "$TMP")" -lt "$MIN_LINES" ]; then
 fi
 
 if [ -f "$DEST" ]; then
-    cp -p "$DEST" "$BAK"
+    cp -p "$DEST" "$BAK_NEW"
+    mv "$BAK_NEW" "$BAK"
 fi
 cp "$TMP" "$NEW"
 chown unbound:unbound "$NEW"
@@ -82,24 +94,29 @@ mv "$NEW" "$DEST"
 
 if ! "$CHECK" >/dev/null 2>&1; then
     echo "checkconf failed; rolling back" >&2
-    if [ -f "$BAK" ]; then
-        mv "$BAK" "$DEST"
-    else
-        echo "no backup present; $DEST left as downloaded" >&2
-    fi
+    rollback_zone || true
     exit 1
 fi
 
-"$CTRL" auth_zone_reload hagezi.rpz || "$CTRL" reload
+if ! "$CTRL" auth_zone_reload hagezi.rpz && ! "$CTRL" reload; then
+    echo "RPZ reload failed; restoring the last-known-good zone" >&2
+    if rollback_zone; then
+        "$CHECK" >/dev/null 2>&1 || {
+            echo "rollback restored a zone that no longer passes checkconf" >&2
+            exit 1
+        }
+        "$CTRL" auth_zone_reload hagezi.rpz || "$CTRL" reload || true
+    fi
+    exit 1
+fi
 echo "updated from $SOURCE: $(wc -l < "$DEST" | tr -d ' ') lines"
 
 mkdir -p "$METRICS_DIR" 2>/dev/null || true
 if [ -w "$METRICS_DIR" ]; then
-    tmp="$PROM.$$"
     {
         echo '# TYPE unbound_job_last_success_timestamp_seconds gauge'
         printf 'unbound_job_last_success_timestamp_seconds{task="blocklist"} %s\n' "$(date +%s)"
         echo '# TYPE unbound_blocklist_lines gauge'
         printf 'unbound_blocklist_lines %s\n' "$(wc -l < "$DEST" | tr -d ' ')"
-    } > "$tmp" && mv "$tmp" "$PROM"
+    } > "$METRICS_TMP" && mv "$METRICS_TMP" "$PROM"
 fi

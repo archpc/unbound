@@ -40,17 +40,12 @@ LABEL_RE = re.compile(
 )
 
 REPO_PATH_PREFIXES = (
-    "unbound-etc/",
-    "prometheus-etc/",
-    "grafana-etc/",
+    "config/",
     "launchd/",
     "scripts/",
     "tools/",
     "tests/",
-    "warmup/",
-    "usr-local-sbin/",
-    "etc-newsyslog.d/",
-    "etc-ssh-sshd_config.d/",
+    "docs/",
 )
 
 REQUIRED_CUSTOM_METRICS = {
@@ -206,7 +201,7 @@ def check_shell_examples(docs: dict[Path, str], errors: list[str]) -> None:
 def check_implementation_inventory(docs: dict[Path, str], errors: list[str]) -> None:
     reference = docs.get(ROOT / "REFERENCE.md", "")
 
-    rules = (ROOT / "prometheus-etc/prometheus.rules.yml").read_text(encoding="utf-8")
+    rules = (ROOT / "config/prometheus/prometheus.rules.yml").read_text(encoding="utf-8")
     for name in sorted(set(ALERT_RE.findall(rules))):
         if f"`{name}`" not in reference:
             errors.append(f"REFERENCE.md: missing alert: {name}")
@@ -218,12 +213,12 @@ def check_implementation_inventory(docs: dict[Path, str], errors: list[str]) -> 
         if f"`{name}`" not in reference:
             errors.append(f"REFERENCE.md: missing launchd label: {name}")
 
-    prom = (ROOT / "prometheus-etc/prometheus.yml").read_text(encoding="utf-8")
+    prom = (ROOT / "config/prometheus/prometheus.yml").read_text(encoding="utf-8")
     for name in sorted(set(JOB_RE.findall(prom))):
         if f"`{name}`" not in reference:
             errors.append(f"REFERENCE.md: missing Prometheus job: {name}")
 
-    for path in sorted((ROOT / "grafana-etc/dashboards").glob("*.json")):
+    for path in sorted((ROOT / "config/grafana/dashboards").glob("*.json")):
         dashboard = json.loads(path.read_text(encoding="utf-8"))
         uid = dashboard.get("uid")
         if not uid or f"`{uid}`" not in reference:

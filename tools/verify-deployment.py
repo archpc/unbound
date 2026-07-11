@@ -11,6 +11,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import re
 import subprocess
 import sys
 
@@ -68,6 +69,19 @@ def load_manifest(path, repo_root=REPO_ROOT):
     if not isinstance(raw_entries, list) or not raw_entries:
         raise ManifestError("manifest entries must be a non-empty list")
 
+    metadata_defaults = manifest.get("metadata_defaults", {})
+    if not isinstance(metadata_defaults, dict):
+        raise ManifestError("manifest metadata_defaults must be an object")
+    for category, expected in metadata_defaults.items():
+        if category not in CATEGORIES or not isinstance(expected, dict):
+            raise ManifestError("invalid metadata default for {!r}".format(category))
+        if set(expected) - {"owner", "group", "mode"}:
+            raise ManifestError("unknown metadata field for {!r}".format(category))
+        if "mode" in expected and not re.fullmatch(r"0[0-7]{3}", expected["mode"]):
+            raise ManifestError("metadata mode for {!r} must be four octal digits".format(category))
+        if any(not isinstance(value, str) or not value for value in expected.values()):
+            raise ManifestError("metadata values for {!r} must be non-empty strings".format(category))
+
     entries = []
     destinations = set()
     for index, raw in enumerate(raw_entries):
@@ -115,6 +129,14 @@ def load_manifest(path, repo_root=REPO_ROOT):
         if sensitive and compare != "existence":
             raise ManifestError("{} sensitive entries must use existence comparison".format(label))
 
+        metadata = raw.get("metadata", {})
+        if not isinstance(metadata, dict) or set(metadata) - {"owner", "group", "mode"}:
+            raise ManifestError("{} has invalid metadata declaration".format(label))
+        if "mode" in metadata and not re.fullmatch(r"0[0-7]{3}", metadata["mode"]):
+            raise ManifestError("{} metadata mode must be four octal digits".format(label))
+        if any(not isinstance(value, str) or not value for value in metadata.values()):
+            raise ManifestError("{} metadata values must be non-empty strings".format(label))
+
         entry = dict(raw)
         entry.update({
             "index": index,
@@ -122,6 +144,10 @@ def load_manifest(path, repo_root=REPO_ROOT):
             "required": required,
             "sensitive": sensitive,
             "source_path": source_path,
+            "expected_metadata": dict(
+                metadata_defaults.get(category, {}),
+                **metadata,
+            ),
         })
         entries.append(entry)
 
@@ -315,6 +341,23 @@ def render_report(manifest, manifest_path, repo_root, remote_facts=None, remote_
                 continue
 
             suffix = metadata_suffix(fact)
+            expected = entry["expected_metadata"]
+            mismatches = []
+            for key in ("owner", "group", "mode"):
+                if key in expected and fact.get(key) != expected[key]:
+                    mismatches.append(
+                        "{} expected={} actual={}".format(
+                            key, expected[key], fact.get(key, "unavailable")
+                        )
+                    )
+            if mismatches:
+                counts["drift"] += 1
+                lines.append(
+                    "DRIFT    {} | {}; {}".format(
+                        mapping, "; ".join(mismatches), suffix
+                    )
+                )
+                continue
             if entry["sensitive"]:
                 counts["ok"] += 1
                 lines.append("OK       {} | {}; content redacted; checksum skipped".format(mapping, suffix))

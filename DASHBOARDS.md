@@ -1,7 +1,7 @@
 # Grafana dashboard contribution rules
 
 The seven file-provisioned dashboards are operational interfaces. Their JSON under
-`grafana-etc/dashboards/` is authoritative. Capitalized requirement words use the RFC
+`config/grafana/dashboards/` is authoritative. Capitalized requirement words use the RFC
 8174 meanings defined in [README.md](README.md#safety-contract).
 
 ## Source and deployment

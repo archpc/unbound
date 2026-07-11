@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# check-blocked.sh — verify that none of the domains in a warmup list are
+# check-warm-list.sh — verify that none of the domains in a warmup list are
 # blocked by the live RPZ. Asks the resolver itself, so the personal allowlist
 # (hagezi.allow passthru), the blocklist, and wildcard rules are all applied
 # exactly — this is ground truth, unlike grepping the zone file.
@@ -12,18 +12,17 @@
 # non-existent domain returns NXDOMAIN without aa and is not flagged.
 #
 # Usage:
-#   ./check-blocked.sh [domain-file]           # report blocked domains
-#   ./check-blocked.sh --prune [domain-file]   # ...and rewrite the file without them
-#   Default file: dns-warm-domains.personal.txt next to this script.
+#   ./check-warm-list.sh [domain-file]           # report blocked domains
+#   ./check-warm-list.sh --prune [domain-file]   # ...and rewrite without them
+#   Default file: /Users/localadmin/warmup/dns-warm-domains.personal.txt.
 #   DNS_SERVER env overrides the resolver (default 127.0.0.1).
 
-set -u
+set -euo pipefail
 
 prune=0
 if [ "${1:-}" = "--prune" ]; then prune=1; shift; fi
 
-script_dir="$(cd "$(dirname "$0")" && pwd)"
-FILE="${1:-$script_dir/dns-warm-domains.personal.txt}"
+FILE="${1:-/Users/localadmin/warmup/dns-warm-domains.personal.txt}"
 server="${DNS_SERVER:-127.0.0.1}"
 
 [ -r "$FILE" ] || { echo "domain file not found: $FILE" >&2; exit 1; }
@@ -46,7 +45,13 @@ b=$(wc -l < "$blocked" | tr -d ' ')
 echo "checked $n domains: $b blocked by RPZ" >&2
 
 if [ "$b" -gt 0 ] && [ "$prune" -eq 1 ]; then
-  tmp="$(mktemp)"
-  grep -Fxvf "$blocked" "$FILE" > "$tmp" && mv "$tmp" "$FILE"
+  tmp="${FILE}.tmp.$$"
+  trap 'rm -f "$blocked" "$tmp"' EXIT
+  grep -Fxvf "$blocked" "$FILE" > "$tmp"
+  owner="$(/usr/bin/stat -f '%u:%g' "$FILE")"
+  mode="$(/usr/bin/stat -f '%Lp' "$FILE")"
+  /usr/sbin/chown "$owner" "$tmp"
+  /bin/chmod "$mode" "$tmp"
+  mv "$tmp" "$FILE"
   echo "pruned $b blocked domain(s) from $FILE" >&2
 fi

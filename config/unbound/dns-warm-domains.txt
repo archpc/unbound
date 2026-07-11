@@ -4,7 +4,7 @@
 # adtech/tracker/analytics domains, entries blocked by our own RPZ,
 # wrong-ecosystem noise, and dead services; plus targeted Apple/dev/AI/
 # infra additions. One domain per line; blank lines and #-comments are
-# ignored by warm-unbound-cache.sh.
+# ignored by warm-cache.zsh.
 
 # --- Apple / software updates ---
 apple.com

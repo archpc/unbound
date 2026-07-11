@@ -11,16 +11,16 @@ scratchpad/
 
 # safety net: TLS control material is retired (certless unix socket since
 # b7c3dc7), but if keys/certs ever reappear, keep them out of history
-unbound-etc/*.key
-unbound-etc/*.pem
+config/unbound/*.key
+config/unbound/*.pem
 
 # machine-generated blocklist (~13 MB, clobbered daily by update-blocklist.sh);
 # the hand-curated hagezi-allow.rpz stays tracked
-unbound-etc/blocklists/hagezi-normal.rpz
+config/unbound/blocklists/hagezi-normal.rpz
 
 # personalized warmup lists derived from the live cache/query logs — these are
 # a household behaviour profile, never commit them (build-warm-list.sh output)
-warmup/dns-warm-domains.personal.txt
+**/dns-warm-domains.personal.txt
 
 # one-off backup/debug archives dropped into the repo dir — never commit
 *.tar.gz

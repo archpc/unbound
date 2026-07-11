@@ -7,7 +7,7 @@
     <key>ProgramArguments</key>
     <array>
         <string>/bin/bash</string>
-        <string>/Users/localadmin/warmup/warm-at-boot.sh</string>
+        <string>/usr/local/libexec/unbound-stack/dns/warm-at-boot.sh</string>
     </array>
     <key>EnvironmentVariables</key>
     <dict>

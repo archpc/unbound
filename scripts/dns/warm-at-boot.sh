@@ -10,7 +10,7 @@
 # Uses the personal (cache-mined + populars) list when one exists, falling
 # back to the curated default shipped next to the scripts.
 
-set -u
+set -euo pipefail
 export PATH="/opt/homebrew/sbin:/opt/homebrew/bin:$PATH"
 script_dir="$(cd "$(dirname "$0")" && pwd)"
 
@@ -23,12 +23,12 @@ if ! unbound-control status >/dev/null 2>&1; then
   exit 1
 fi
 
-LIST="$script_dir/dns-warm-domains.personal.txt"
-[ -r "$LIST" ] || LIST="$script_dir/dns-warm-domains.txt"
+LIST="/Users/localadmin/warmup/dns-warm-domains.personal.txt"
+[ -r "$LIST" ] || LIST="/usr/local/share/unbound-stack/dns-warm-domains.txt"
 
 echo "boot warmup starting $(date '+%Y-%m-%d %H:%M:%S') with $LIST"
-"$script_dir/warm-unbound-cache.sh" "$LIST"
-status=$?
+status=0
+"$script_dir/warm-cache.zsh" "$LIST" || status=$?
 
 # Success breadcrumb for the monitoring stack (see update-blocklist.sh for
 # the pattern). The matching alert compares this against node_boot_time_
@@ -37,11 +37,12 @@ if [ "$status" -eq 0 ]; then
     METRICS_DIR="/opt/homebrew/var/lib/node_exporter/textfile"
     mkdir -p "$METRICS_DIR" 2>/dev/null || true
     if [ -w "$METRICS_DIR" ]; then
+        tmp="$METRICS_DIR/unbound-warmboot.prom.$$"
+        trap 'rm -f "$tmp"' EXIT
         {
             echo '# TYPE unbound_job_last_success_timestamp_seconds gauge'
             printf 'unbound_job_last_success_timestamp_seconds{task="warmboot"} %s\n' "$(date +%s)"
-        } > "$METRICS_DIR/unbound-warmboot.prom.$$" \
-          && mv "$METRICS_DIR/unbound-warmboot.prom.$$" "$METRICS_DIR/unbound-warmboot.prom"
+        } > "$tmp" && mv "$tmp" "$METRICS_DIR/unbound-warmboot.prom"
     fi
 fi
 exit "$status"

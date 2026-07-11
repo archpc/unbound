@@ -16,7 +16,7 @@
     <key>ProgramArguments</key>
     <array>
         <string>/usr/bin/python3</string>
-        <string>/Users/localadmin/monitoring/unbound_client_rpz_exporter.py</string>
+        <string>/usr/local/libexec/unbound-stack/monitoring/unbound_client_rpz_exporter.py</string>
         <string>--output</string>
         <string>/opt/homebrew/var/lib/node_exporter/textfile/unbound-clientstats.prom</string>
     </array>

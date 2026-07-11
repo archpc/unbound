@@ -1,34 +1,32 @@
 #!/bin/zsh
 #
-# warm-unbound-cache.sh — pre-populate ("warm") a local Unbound resolver's
+# warm-cache.zsh — pre-populate ("warm") a local Unbound resolver's
 # cache by querying a list of domains, then report the cache hit-rate
 # delta the warmup produced.
 #
 # Usage:
-#   sudo ./warm-unbound-cache.sh [domain-file]
+#   sudo ./warm-cache.zsh [domain-file]
 #
 #   sudo is required: unbound-control connects to the root-owned control
 #   socket (/opt/homebrew/var/run/unbound-control.sock). Without it the
 #   script dies at the first stats snapshot, before sending any queries.
 #
 #   domain-file   One domain per line. Blank lines and lines starting with
-#                 '#' are ignored. Defaults to dns-warm-domains.txt next to
-#                 this script, falling back to $HOME/dns-warm-domains.txt.
+#                 '#' are ignored. Defaults to the private generated list,
+#                 then the root-owned curated list.
 #
 # Env vars:
 #   DNS_SERVER    Resolver to query. Defaults to 127.0.0.1.
 
 DNS_SERVER="${DNS_SERVER:-127.0.0.1}"
 
-# Prefer the domain list shipped alongside this script; keep the old $HOME
-# location as a fallback so existing setups don't break.
 script_dir="${0:A:h}"
 if [[ -n "${1:-}" ]]; then
   DOMAIN_FILE="$1"
-elif [[ -f "$script_dir/dns-warm-domains.txt" ]]; then
-  DOMAIN_FILE="$script_dir/dns-warm-domains.txt"
+elif [[ -f /Users/localadmin/warmup/dns-warm-domains.personal.txt ]]; then
+  DOMAIN_FILE=/Users/localadmin/warmup/dns-warm-domains.personal.txt
 else
-  DOMAIN_FILE="$HOME/dns-warm-domains.txt"
+  DOMAIN_FILE=/usr/local/share/unbound-stack/dns-warm-domains.txt
 fi
 
 # Per-query timeout/retry for dig. Without this, an unreachable resolver

@@ -3,6 +3,11 @@
   "target": {
     "ssh": "localadmin@mini.magpie-bushmaster.ts.net"
   },
+  "metadata_defaults": {
+    "script": {"owner": "root", "group": "wheel", "mode": "0755"},
+    "plist": {"owner": "root", "group": "wheel", "mode": "0644"},
+    "dashboard": {"owner": "localadmin", "group": "admin", "mode": "0644"}
+  },
   "entries": [
     {
       "category": "docs",
@@ -84,117 +89,133 @@
 
     {
       "category": "config",
-      "source": "unbound-etc/unbound.conf",
+      "source": "config/unbound/unbound.conf",
       "destination": "/opt/homebrew/etc/unbound/unbound.conf",
       "required": true,
-      "compare": "sha256"
+      "compare": "sha256",
+      "metadata": {"owner": "localadmin", "group": "admin", "mode": "0644"}
     },
     {
       "name": "root hints (runtime-refreshed)",
       "category": "config",
-      "source": "unbound-etc/root.hints",
+      "source": "config/unbound/root.hints",
       "destination": "/opt/homebrew/etc/unbound/root.hints",
       "required": true,
-      "compare": "existence"
+      "compare": "existence",
+      "metadata": {"owner": "unbound", "group": "unbound", "mode": "0644"}
     },
     {
       "category": "config",
-      "source": "unbound-etc/blocklists/hagezi-allow.rpz",
+      "source": "config/unbound/blocklists/hagezi-allow.rpz",
       "destination": "/opt/homebrew/etc/unbound/blocklists/hagezi-allow.rpz",
       "required": true,
-      "compare": "sha256"
+      "compare": "sha256",
+      "metadata": {"owner": "root", "group": "admin", "mode": "0644"}
     },
     {
       "category": "config",
-      "source": "unbound-etc/blocklist-source",
+      "source": "config/unbound/blocklist-source",
       "destination": "/opt/homebrew/etc/unbound/blocklist-source",
       "required": true,
-      "compare": "sha256"
+      "compare": "sha256",
+      "metadata": {"owner": "root", "group": "wheel", "mode": "0644"}
     },
     {
       "category": "config",
-      "source": "prometheus-etc/prometheus.yml",
+      "source": "config/prometheus/prometheus.yml",
       "destination": "/opt/homebrew/etc/prometheus.yml",
       "required": true,
-      "compare": "sha256"
+      "compare": "sha256",
+      "metadata": {"owner": "localadmin", "group": "admin", "mode": "0644"}
     },
     {
       "category": "config",
-      "source": "prometheus-etc/prometheus.rules.yml",
+      "source": "config/prometheus/prometheus.rules.yml",
       "destination": "/opt/homebrew/etc/prometheus.rules.yml",
       "required": true,
-      "compare": "sha256"
+      "compare": "sha256",
+      "metadata": {"owner": "localadmin", "group": "admin", "mode": "0644"}
     },
     {
       "category": "config",
-      "source": "prometheus-etc/prometheus.args",
+      "source": "config/prometheus/prometheus.args",
       "destination": "/opt/homebrew/etc/prometheus.args",
       "required": true,
-      "compare": "sha256"
+      "compare": "sha256",
+      "metadata": {"owner": "localadmin", "group": "admin", "mode": "0644"}
     },
     {
       "category": "config",
-      "source": "prometheus-etc/blackbox.yml",
+      "source": "config/prometheus/blackbox.yml",
       "destination": "/opt/homebrew/etc/blackbox.yml",
       "required": true,
-      "compare": "sha256"
+      "compare": "sha256",
+      "metadata": {"owner": "localadmin", "group": "admin", "mode": "0644"}
     },
     {
       "category": "config",
-      "source": "prometheus-etc/node_exporter.args",
+      "source": "config/prometheus/node_exporter.args",
       "destination": "/opt/homebrew/etc/node_exporter.args",
       "required": true,
-      "compare": "sha256"
+      "compare": "sha256",
+      "metadata": {"owner": "localadmin", "group": "admin", "mode": "0644"}
     },
     {
       "category": "config",
-      "source": "grafana-etc/grafana.ini",
+      "source": "config/grafana/grafana.ini",
       "destination": "/opt/homebrew/etc/grafana/grafana.ini",
       "required": true,
-      "compare": "sha256"
+      "compare": "sha256",
+      "metadata": {"owner": "localadmin", "group": "admin", "mode": "0644"}
     },
     {
       "category": "config",
-      "source": "grafana-etc/provisioning/dashboards/unbound.yml",
+      "source": "config/grafana/provisioning/dashboards/unbound.yml",
       "destination": "/opt/homebrew/etc/grafana/provisioning/dashboards/unbound.yml",
       "required": true,
-      "compare": "sha256"
+      "compare": "sha256",
+      "metadata": {"owner": "localadmin", "group": "admin", "mode": "0644"}
     },
     {
       "category": "config",
-      "source": "grafana-etc/provisioning/datasources/prometheus.yml",
+      "source": "config/grafana/provisioning/datasources/prometheus.yml",
       "destination": "/opt/homebrew/etc/grafana/provisioning/datasources/prometheus.yml",
       "required": true,
-      "compare": "sha256"
+      "compare": "sha256",
+      "metadata": {"owner": "localadmin", "group": "admin", "mode": "0644"}
     },
     {
       "category": "config",
-      "source": "warmup/dns-warm-domains.txt",
-      "destination": "/Users/localadmin/warmup/dns-warm-domains.txt",
+      "source": "config/unbound/dns-warm-domains.txt",
+      "destination": "/usr/local/share/unbound-stack/dns-warm-domains.txt",
       "required": true,
-      "compare": "sha256"
+      "compare": "sha256",
+      "metadata": {"owner": "root", "group": "wheel", "mode": "0644"}
     },
     {
       "category": "config",
-      "source": "etc-newsyslog.d/unbound-monitoring.conf",
+      "source": "config/newsyslog/unbound-monitoring.conf",
       "destination": "/etc/newsyslog.d/unbound-monitoring.conf",
       "required": true,
-      "compare": "sha256"
+      "compare": "sha256",
+      "metadata": {"owner": "root", "group": "wheel", "mode": "0644"}
     },
     {
       "category": "config",
-      "source": "etc-ssh-sshd_config.d/500-keyonly.conf",
+      "source": "config/ssh/500-keyonly.conf",
       "destination": "/etc/ssh/sshd_config.d/500-keyonly.conf",
       "required": true,
-      "compare": "sha256"
+      "compare": "sha256",
+      "metadata": {"owner": "root", "group": "wheel", "mode": "0644"}
     },
     {
       "name": "generated RPZ zone",
       "category": "config",
-      "source": "unbound-etc/update-blocklist.sh",
+      "source": "scripts/dns/update-blocklist.sh",
       "destination": "/opt/homebrew/etc/unbound/blocklists/hagezi-normal.rpz",
       "required": true,
-      "compare": "existence"
+      "compare": "existence",
+      "metadata": {"owner": "unbound", "group": "unbound", "mode": "0644"}
     },
     {
       "name": "ntfy topic",
@@ -203,7 +224,8 @@
       "destination": "/Users/localadmin/monitoring/ntfy.topic",
       "required": true,
       "compare": "existence",
-      "sensitive": true
+      "sensitive": true,
+      "metadata": {"owner": "localadmin", "group": "staff", "mode": "0600"}
     },
     {
       "name": "private personalized warmup list",
@@ -212,90 +234,84 @@
       "destination": "/Users/localadmin/warmup/dns-warm-domains.personal.txt",
       "required": false,
       "compare": "existence",
-      "sensitive": true
+      "sensitive": true,
+      "metadata": {"owner": "localadmin", "group": "staff", "mode": "0600"}
     },
 
     {
       "category": "script",
-      "source": "unbound-etc/update-blocklist.sh",
-      "destination": "/opt/homebrew/etc/unbound/update-blocklist.sh",
+      "source": "scripts/dns/update-blocklist.sh",
+      "destination": "/usr/local/libexec/unbound-stack/dns/update-blocklist.sh",
       "required": true,
       "compare": "sha256"
     },
     {
       "category": "script",
-      "source": "unbound-etc/blocklist-tui.sh",
-      "destination": "/opt/homebrew/etc/unbound/blocklist-tui.sh",
+      "source": "scripts/dns/manage-blocklist.sh",
+      "destination": "/usr/local/libexec/unbound-stack/dns/manage-blocklist.sh",
       "required": true,
       "compare": "sha256"
     },
     {
       "category": "script",
-      "source": "scripts/apple_content_cache_exporter.py",
-      "destination": "/Users/localadmin/monitoring/apple_content_cache_exporter.py",
+      "source": "scripts/monitoring/apple_content_cache_exporter.py",
+      "destination": "/usr/local/libexec/unbound-stack/monitoring/apple_content_cache_exporter.py",
       "required": true,
       "compare": "sha256"
     },
     {
       "category": "script",
-      "source": "scripts/unbound_client_rpz_exporter.py",
-      "destination": "/Users/localadmin/monitoring/unbound_client_rpz_exporter.py",
+      "source": "scripts/monitoring/unbound_client_rpz_exporter.py",
+      "destination": "/usr/local/libexec/unbound-stack/monitoring/unbound_client_rpz_exporter.py",
       "required": true,
       "compare": "sha256"
     },
     {
       "category": "script",
-      "source": "scripts/prometheus_alert_notifier.py",
-      "destination": "/Users/localadmin/monitoring/prometheus_alert_notifier.py",
+      "source": "scripts/monitoring/prometheus_alert_notifier.py",
+      "destination": "/usr/local/libexec/unbound-stack/monitoring/prometheus_alert_notifier.py",
       "required": true,
       "compare": "sha256"
     },
     {
       "category": "script",
-      "source": "warmup/build-warm-list.sh",
-      "destination": "/Users/localadmin/warmup/build-warm-list.sh",
+      "source": "scripts/dns/build-warm-list.sh",
+      "destination": "/usr/local/libexec/unbound-stack/dns/build-warm-list.sh",
       "required": true,
       "compare": "sha256"
     },
     {
       "category": "script",
-      "source": "warmup/check-blocked.sh",
-      "destination": "/Users/localadmin/warmup/check-blocked.sh",
+      "source": "scripts/dns/check-warm-list.sh",
+      "destination": "/usr/local/libexec/unbound-stack/dns/check-warm-list.sh",
       "required": true,
       "compare": "sha256"
     },
     {
       "category": "script",
-      "source": "warmup/warm-at-boot.sh",
-      "destination": "/Users/localadmin/warmup/warm-at-boot.sh",
+      "source": "scripts/dns/warm-at-boot.sh",
+      "destination": "/usr/local/libexec/unbound-stack/dns/warm-at-boot.sh",
       "required": true,
       "compare": "sha256"
     },
     {
       "category": "script",
-      "source": "warmup/warm-unbound-cache.sh",
-      "destination": "/Users/localadmin/warmup/warm-unbound-cache.sh",
+      "source": "scripts/dns/warm-cache.zsh",
+      "destination": "/usr/local/libexec/unbound-stack/dns/warm-cache.zsh",
       "required": true,
       "compare": "sha256"
     },
     {
       "category": "script",
-      "source": "usr-local-sbin/screenshare-off",
-      "destination": "/usr/local/sbin/screenshare-off",
+      "source": "scripts/maintenance/screenshare.sh",
+      "destination": "/usr/local/sbin/screenshare",
       "required": true,
       "compare": "sha256"
     },
     {
       "category": "script",
-      "source": "usr-local-sbin/screenshare-on",
-      "destination": "/usr/local/sbin/screenshare-on",
-      "required": true,
-      "compare": "sha256"
-    },
-    {
-      "category": "script",
-      "source": "usr-local-sbin/unbound-refresh-hints",
-      "destination": "/usr/local/sbin/unbound-refresh-hints",
+      "source": "scripts/dns/refresh-root-hints.sh",
+      "destination": "/usr/local/libexec/unbound-stack/dns/refresh-root-hints.sh",
       "required": true,
       "compare": "sha256"
     },
@@ -395,49 +411,49 @@
 
     {
       "category": "dashboard",
-      "source": "grafana-etc/dashboards/apple-content-cache.json",
+      "source": "config/grafana/dashboards/apple-content-cache.json",
       "destination": "/opt/homebrew/etc/grafana/dashboards/apple-content-cache.json",
       "required": true,
       "compare": "sha256"
     },
     {
       "category": "dashboard",
-      "source": "grafana-etc/dashboards/network-tailscale.json",
+      "source": "config/grafana/dashboards/network-tailscale.json",
       "destination": "/opt/homebrew/etc/grafana/dashboards/network-tailscale.json",
       "required": true,
       "compare": "sha256"
     },
     {
       "category": "dashboard",
-      "source": "grafana-etc/dashboards/prometheus-monitoring.json",
+      "source": "config/grafana/dashboards/prometheus-monitoring.json",
       "destination": "/opt/homebrew/etc/grafana/dashboards/prometheus-monitoring.json",
       "required": true,
       "compare": "sha256"
     },
     {
       "category": "dashboard",
-      "source": "grafana-etc/dashboards/services.json",
+      "source": "config/grafana/dashboards/services.json",
       "destination": "/opt/homebrew/etc/grafana/dashboards/services.json",
       "required": true,
       "compare": "sha256"
     },
     {
       "category": "dashboard",
-      "source": "grafana-etc/dashboards/storage-backups.json",
+      "source": "config/grafana/dashboards/storage-backups.json",
       "destination": "/opt/homebrew/etc/grafana/dashboards/storage-backups.json",
       "required": true,
       "compare": "sha256"
     },
     {
       "category": "dashboard",
-      "source": "grafana-etc/dashboards/system-stats.json",
+      "source": "config/grafana/dashboards/system-stats.json",
       "destination": "/opt/homebrew/etc/grafana/dashboards/system-stats.json",
       "required": true,
       "compare": "sha256"
     },
     {
       "category": "dashboard",
-      "source": "grafana-etc/dashboards/unbound-dns.json",
+      "source": "config/grafana/dashboards/unbound-dns.json",
       "destination": "/opt/homebrew/etc/grafana/dashboards/unbound-dns.json",
       "required": true,
       "compare": "sha256"
@@ -446,58 +462,65 @@
     {
       "name": "blocklist job metrics",
       "category": "textfile",
-      "source": "unbound-etc/update-blocklist.sh",
+      "source": "scripts/dns/update-blocklist.sh",
       "destination": "/opt/homebrew/var/lib/node_exporter/textfile/unbound-blocklist.prom",
       "required": true,
-      "compare": "existence"
+      "compare": "existence",
+      "metadata": {"owner": "root", "group": "admin", "mode": "0644"}
     },
     {
       "name": "warm-list job metrics",
       "category": "textfile",
-      "source": "warmup/build-warm-list.sh",
+      "source": "scripts/dns/build-warm-list.sh",
       "destination": "/opt/homebrew/var/lib/node_exporter/textfile/unbound-warmlist.prom",
       "required": true,
-      "compare": "existence"
+      "compare": "existence",
+      "metadata": {"owner": "root", "group": "admin", "mode": "0644"}
     },
     {
       "name": "warmboot job metrics",
       "category": "textfile",
-      "source": "warmup/warm-at-boot.sh",
+      "source": "scripts/dns/warm-at-boot.sh",
       "destination": "/opt/homebrew/var/lib/node_exporter/textfile/unbound-warmboot.prom",
       "required": true,
-      "compare": "existence"
+      "compare": "existence",
+      "metadata": {"owner": "root", "group": "admin", "mode": "0644"}
     },
     {
       "name": "root hints job metrics",
       "category": "textfile",
-      "source": "usr-local-sbin/unbound-refresh-hints",
+      "source": "scripts/dns/refresh-root-hints.sh",
       "destination": "/opt/homebrew/var/lib/node_exporter/textfile/unbound-roothints.prom",
       "required": true,
-      "compare": "existence"
+      "compare": "existence",
+      "metadata": {"owner": "root", "group": "admin", "mode": "0644"}
     },
     {
       "name": "alert notifier metrics",
       "category": "textfile",
-      "source": "scripts/prometheus_alert_notifier.py",
+      "source": "scripts/monitoring/prometheus_alert_notifier.py",
       "destination": "/opt/homebrew/var/lib/node_exporter/textfile/unbound-alertnotify.prom",
       "required": true,
-      "compare": "existence"
+      "compare": "existence",
+      "metadata": {"owner": "localadmin", "group": "admin", "mode": "0644"}
     },
     {
       "name": "RPZ client metrics",
       "category": "textfile",
-      "source": "scripts/unbound_client_rpz_exporter.py",
+      "source": "scripts/monitoring/unbound_client_rpz_exporter.py",
       "destination": "/opt/homebrew/var/lib/node_exporter/textfile/unbound-clientstats.prom",
       "required": true,
-      "compare": "existence"
+      "compare": "existence",
+      "metadata": {"owner": "localadmin", "group": "admin", "mode": "0644"}
     },
     {
       "name": "Apple Content Cache metrics",
       "category": "textfile",
-      "source": "scripts/apple_content_cache_exporter.py",
+      "source": "scripts/monitoring/apple_content_cache_exporter.py",
       "destination": "/opt/homebrew/var/lib/node_exporter/textfile/apple-content-cache.prom",
       "required": true,
-      "compare": "existence"
+      "compare": "existence",
+      "metadata": {"owner": "localadmin", "group": "admin", "mode": "0644"}
     }
   ]
 }

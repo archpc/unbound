@@ -26,9 +26,9 @@ def load_module(name, relative_path):
     return module
 
 
-notifier = load_module("monitoring_notifier", "scripts/prometheus_alert_notifier.py")
-clientstats = load_module("monitoring_clientstats", "scripts/unbound_client_rpz_exporter.py")
-contentcache = load_module("monitoring_contentcache", "scripts/apple_content_cache_exporter.py")
+notifier = load_module("monitoring_notifier", "scripts/monitoring/prometheus_alert_notifier.py")
+clientstats = load_module("monitoring_clientstats", "scripts/monitoring/unbound_client_rpz_exporter.py")
+contentcache = load_module("monitoring_contentcache", "scripts/monitoring/apple_content_cache_exporter.py")
 
 
 APPLE_STATUS_FIXTURE = """Apple content cache status:
@@ -378,10 +378,10 @@ class ShellAndRulesContractTests(unittest.TestCase):
 
     def test_shell_collectors_share_breadcrumb_and_atomic_write_convention(self):
         collectors = {
-            "unbound-etc/update-blocklist.sh": "blocklist",
-            "warmup/build-warm-list.sh": "warmlist",
-            "warmup/warm-at-boot.sh": "warmboot",
-            "usr-local-sbin/unbound-refresh-hints": "roothints",
+            "scripts/dns/update-blocklist.sh": "blocklist",
+            "scripts/dns/build-warm-list.sh": "warmlist",
+            "scripts/dns/warm-at-boot.sh": "warmboot",
+            "scripts/dns/refresh-root-hints.sh": "roothints",
         }
         help_emitter = "echo '# HELP unbound_job_last_success_timestamp_seconds"
         type_emitter = "# TYPE unbound_job_last_success_timestamp_seconds gauge"
@@ -395,10 +395,10 @@ class ShellAndRulesContractTests(unittest.TestCase):
                 self.assertIn("mv ", source)
 
     def test_shell_collectors_express_launchd_failure_exit_behavior(self):
-        blocklist = (ROOT / "unbound-etc/update-blocklist.sh").read_text()
-        warmboot = (ROOT / "warmup/warm-at-boot.sh").read_text()
-        warmlist = (ROOT / "warmup/build-warm-list.sh").read_text()
-        roothints = (ROOT / "usr-local-sbin/unbound-refresh-hints").read_text()
+        blocklist = (ROOT / "scripts/dns/update-blocklist.sh").read_text()
+        warmboot = (ROOT / "scripts/dns/warm-at-boot.sh").read_text()
+        warmlist = (ROOT / "scripts/dns/build-warm-list.sh").read_text()
+        roothints = (ROOT / "scripts/dns/refresh-root-hints.sh").read_text()
         self.assertIn("set -euo pipefail", blocklist)
         self.assertIn('exit "$status"', warmboot)
         self.assertIn("exit 1", warmlist)
@@ -418,6 +418,10 @@ class ShellAndRulesContractTests(unittest.TestCase):
             fixture = td / "downloaded.rpz"
             fixture.write_text("$TTL 300\nb.example. CNAME .\n")
             self._write_executable(bin_dir / "chown", "#!/bin/bash\nexit 0\n")
+            self._write_executable(
+                bin_dir / "unbound-control",
+                '#!/bin/bash\n[ "${FAIL_RELOAD:-0}" != 1 ]\n',
+            )
             self._write_executable(bin_dir / "curl", """#!/bin/bash
 out=''
 while [ "$#" -gt 0 ]; do
@@ -432,11 +436,12 @@ cp "$FIXTURE_RPZ" "$out"
                 'unbound_job_last_success_timestamp_seconds{task="blocklist"} 77\n'
             )
             script = self._rebased_script(
-                "unbound-etc/update-blocklist.sh",
+                "scripts/dns/update-blocklist.sh",
                 td / "update-blocklist.sh",
                 [
                     ('ETC="/opt/homebrew/etc/unbound"', f'ETC="{etc}"'),
-                    ('CTRL="/opt/homebrew/sbin/unbound-control"', 'CTRL="/usr/bin/true"'),
+                    ('CTRL="/opt/homebrew/sbin/unbound-control"',
+                     f'CTRL="{bin_dir / "unbound-control"}"'),
                     ('CHECK="/opt/homebrew/sbin/unbound-checkconf"', 'CHECK="/usr/bin/true"'),
                     ('METRICS_DIR="/opt/homebrew/var/lib/node_exporter/textfile"',
                      f'METRICS_DIR="{metrics}"'),
@@ -449,6 +454,16 @@ cp "$FIXTURE_RPZ" "$out"
             self.assertEqual(failed.returncode, 1)
             self.assertIn('task="blocklist"} 77', prom.read_text())
             self.assertFalse(any(metrics.glob("*.prom.*")))
+
+            reload_failed = self._run_script(
+                script, "hagezi-normal", env={**env, "FAIL_RELOAD": "1"}
+            )
+            self.assertEqual(reload_failed.returncode, 1)
+            self.assertEqual(
+                (blocklists / "hagezi-normal.rpz").read_text(),
+                "a.example. CNAME .\n",
+            )
+            self.assertIn('task="blocklist"} 77', prom.read_text())
 
             succeeded = self._run_script(script, "hagezi-normal", env=env)
             self.assertEqual(succeeded.returncode, 0, succeeded.stderr)
@@ -481,13 +496,15 @@ msg ads.blocked.test. IN A 300 1 0 0 1
 EOF
 """)
             script = self._rebased_script(
-                "warmup/build-warm-list.sh",
+                "scripts/dns/build-warm-list.sh",
                 td / "build-warm-list.sh",
                 [
                     ('RPZ="/opt/homebrew/etc/unbound/blocklists/hagezi-normal.rpz"',
                      f'RPZ="{rpz}"'),
                     ('METRICS_DIR="/opt/homebrew/var/lib/node_exporter/textfile"',
                      f'METRICS_DIR="{metrics}"'),
+                    ('GENERIC="/usr/local/share/unbound-stack/dns-warm-domains.txt"',
+                     f'GENERIC="{td / "dns-warm-domains.txt"}"'),
                 ],
             )
             output = td / "personal.txt"
@@ -509,8 +526,36 @@ EOF
                 env={**env, "FIXTURE_FAIL": "1"},
             )
             self.assertEqual(failed.returncode, 1)
+            self.assertIn("permission denied", failed.stderr)
             self.assertFalse((td / "should-not-exist.txt").exists())
             self.assertEqual(prom.read_text(), prior_metrics)
+
+    def test_warm_list_prune_is_atomic_and_preserves_metadata(self):
+        with tempfile.TemporaryDirectory() as raw_td:
+            td = Path(raw_td)
+            bin_dir = td / "bin"
+            bin_dir.mkdir()
+            self._write_executable(bin_dir / "dig", """#!/bin/bash
+case "$*" in
+  *blocked.test*) echo 'status: NXDOMAIN; flags: qr aa rd ra;' ;;
+  *) echo 'status: NOERROR; flags: qr rd ra;' ;;
+esac
+""")
+            domain_file = td / "domains.txt"
+            domain_file.write_text("blocked.test\nallowed.test\n")
+            domain_file.chmod(0o600)
+            before = domain_file.stat()
+            result = self._run_script(
+                ROOT / "scripts/dns/check-warm-list.sh",
+                "--prune", str(domain_file),
+                env={"PATH": f"{bin_dir}:/usr/bin:/bin"},
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(domain_file.read_text(), "allowed.test\n")
+            after = domain_file.stat()
+            self.assertEqual(after.st_mode & 0o777, 0o600)
+            self.assertEqual((after.st_uid, after.st_gid), (before.st_uid, before.st_gid))
+            self.assertFalse(any(td.glob("domains.txt.tmp.*")))
 
     def test_warmboot_propagates_warmer_exit_and_writes_only_on_success(self):
         with tempfile.TemporaryDirectory() as raw_td:
@@ -524,18 +569,22 @@ EOF
                 "#!/bin/bash\nexit 0\n",
             )
             self._write_executable(
-                td / "warm-unbound-cache.sh",
+                td / "warm-cache.zsh",
                 '#!/bin/bash\nexit "${WARM_EXIT:-0}"\n',
             )
             (td / "dns-warm-domains.txt").write_text("example.com\n")
             script = self._rebased_script(
-                "warmup/warm-at-boot.sh",
+                "scripts/dns/warm-at-boot.sh",
                 td / "warm-at-boot.sh",
                 [
                     ('export PATH="/opt/homebrew/sbin:/opt/homebrew/bin:$PATH"',
                      'export PATH="$PATH"'),
                     ('METRICS_DIR="/opt/homebrew/var/lib/node_exporter/textfile"',
                      f'METRICS_DIR="{metrics}"'),
+                    ('LIST="/Users/localadmin/warmup/dns-warm-domains.personal.txt"',
+                     f'LIST="{td / "missing-personal.txt"}"'),
+                    ('[ -r "$LIST" ] || LIST="/usr/local/share/unbound-stack/dns-warm-domains.txt"',
+                     f'[ -r "$LIST" ] || LIST="{td / "dns-warm-domains.txt"}"'),
                 ],
             )
             env = {"PATH": f"{bin_dir}:/usr/bin:/bin"}
@@ -577,7 +626,7 @@ else
 fi
 """)
             script = self._rebased_script(
-                "usr-local-sbin/unbound-refresh-hints",
+                "scripts/dns/refresh-root-hints.sh",
                 td / "unbound-refresh-hints",
                 [
                     ('DEST="/opt/homebrew/etc/unbound/root.hints"',
@@ -602,7 +651,7 @@ fi
             self.assertFalse((td / "root.hints.new").exists())
 
     def test_every_shared_breadcrumb_has_an_absent_series_alert(self):
-        rules = (ROOT / "prometheus-etc/prometheus.rules.yml").read_text()
+        rules = (ROOT / "config/prometheus/prometheus.rules.yml").read_text()
         for task in ("blocklist", "warmlist", "roothints", "warmboot", "alertnotify", "clientstats"):
             with self.subTest(task=task):
                 expression = (
@@ -617,8 +666,8 @@ fi
         )
 
     def test_upstream_degradation_is_visible_and_alerted(self):
-        rules = (ROOT / "prometheus-etc/prometheus.rules.yml").read_text()
-        dashboard = (ROOT / "grafana-etc/dashboards/unbound-dns.json").read_text()
+        rules = (ROOT / "config/prometheus/prometheus.rules.yml").read_text()
+        dashboard = (ROOT / "config/grafana/dashboards/unbound-dns.json").read_text()
         expression = (
             'max(avg_over_time(probe_success{job="blackbox_upstream"}[10m])) < 0.95'
         )
@@ -632,7 +681,7 @@ fi
 
     def test_dns_probe_dashboard_separates_success_from_latency(self):
         dashboard = json.loads(
-            (ROOT / "grafana-etc/dashboards/unbound-dns.json").read_text()
+            (ROOT / "config/grafana/dashboards/unbound-dns.json").read_text()
         )
         panels = {panel["id"]: panel for panel in dashboard["panels"]}
 

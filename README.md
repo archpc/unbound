@@ -24,6 +24,9 @@ jobs, and an ntfy notifier observe the resolver and the host.
 | [DASHBOARDS.md](DASHBOARDS.md) | Grafana dashboard conventions | Dashboard contributors |
 | [AGENTS.md](AGENTS.md) | Repository-specific automation and contribution contract | Automated contributors |
 
+Dated audits and migration records live under `docs/`; they provide evidence and
+history but do not override the canonical documents above.
+
 ## Authority and live state
 
 Repository implementation is authoritative in this order:

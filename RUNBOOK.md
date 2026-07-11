@@ -109,7 +109,7 @@ textfile timestamps and corresponding alerts.
    `NXDOMAIN` with `aa` is a synthesized authoritative block. `NXDOMAIN` without `aa`
    is ordinary DNS and MUST NOT be treated as an RPZ false positive.
 
-2. Edit `unbound-etc/blocklists/hagezi-allow.rpz` in the repository. Add both the bare
+2. Edit `config/unbound/blocklists/hagezi-allow.rpz` in the repository. Add both the bare
    and wildcard `CNAME rpz-passthru.` records and increment the SOA serial.
 
 3. Follow [DEPLOYMENT.md](DEPLOYMENT.md#deploy-the-rpz-allowlist). Reload only the
@@ -132,7 +132,7 @@ The generated blocklist file MUST NOT be hand-edited.
 | Success | Config validates and the domain returns authoritative NXDOMAIN |
 | Failure | `unbound-checkconf` error or unexpected result after reload |
 
-Add the following under `server:` in `unbound-etc/unbound.conf`:
+Add the following under `server:` in `config/unbound/unbound.conf`:
 
 ```text
 local-zone: "example.com." always_nxdomain
@@ -154,23 +154,23 @@ Do not put the rule in a generated RPZ file.
 Refresh from the tracked selector file:
 
 ```sh
-sudo /opt/homebrew/etc/unbound/update-blocklist.sh
+sudo /usr/local/libexec/unbound-stack/dns/update-blocklist.sh
 ```
 
 Apply a one-time source override:
 
 ```sh
-sudo /opt/homebrew/etc/unbound/update-blocklist.sh <source>
+sudo /usr/local/libexec/unbound-stack/dns/update-blocklist.sh <source>
 ```
 
 The explicit source argument is temporary. To change nightly behavior, edit and deploy
-`unbound-etc/blocklist-source`. Supported sources and validation floors are in
+`config/unbound/blocklist-source`. Supported sources and validation floors are in
 [REFERENCE.md](REFERENCE.md#blocklist-sources).
 
 The interactive wrapper MAY be used instead:
 
 ```sh
-sudo /opt/homebrew/etc/unbound/blocklist-tui.sh
+sudo /usr/local/libexec/unbound-stack/dns/manage-blocklist.sh
 ```
 
 ## Warm the DNS cache
@@ -184,7 +184,7 @@ sudo /opt/homebrew/etc/unbound/blocklist-tui.sh
 | Failure | Missing domain file, resolver probe failure, or control-socket error |
 
 ```sh
-sudo /Users/localadmin/warmup/warm-unbound-cache.sh
+sudo /usr/local/libexec/unbound-stack/dns/warm-cache.zsh
 ```
 
 Use this after an Unbound restart. It is not a substitute for diagnosing slow or failed
@@ -201,7 +201,7 @@ recursion.
 | Failure | Control-socket error, empty usable cache, or unwritable destination |
 
 ```sh
-sudo /Users/localadmin/warmup/build-warm-list.sh
+sudo /usr/local/libexec/unbound-stack/dns/build-warm-list.sh
 ```
 
 The output contains household behavior data. It MUST NOT be copied into the repository
@@ -240,7 +240,7 @@ Unbound MUST NOT be started through non-root `brew services`.
 | Failure | Helper exits nonzero or port 5900 remains closed |
 
 ```sh
-sudo /usr/local/sbin/screenshare-on
+sudo /usr/local/sbin/screenshare on
 ```
 
 ### Disable
@@ -254,7 +254,7 @@ sudo /usr/local/sbin/screenshare-on
 | Failure | Port remains listening; investigate before ending the session |
 
 ```sh
-sudo /usr/local/sbin/screenshare-off
+sudo /usr/local/sbin/screenshare off
 ```
 
 Screen Sharing SHOULD be disabled immediately after use.
@@ -311,7 +311,7 @@ and cache warmup.
 | Client RPZ collector | `/opt/homebrew/var/log/unbound-clientstats.log` |
 | Content cache collector | `/opt/homebrew/var/log/apple-content-cache-exporter.log` |
 | Blocklist / warmlist / warmboot | `/opt/homebrew/var/log/unbound-{blocklist,warmlist,warmboot}.log` |
-| Root hints | `/var/log/unbound-refresh-hints.log` |
+| Root hints | `/opt/homebrew/var/log/unbound-roothints.log` |
 
 Reading logs is read-only and normally needs no `sudo`; unified log visibility MAY vary
 by account. Scheduled-job logs are size-rotated by the tracked newsyslog configuration.

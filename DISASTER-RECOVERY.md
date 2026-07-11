@@ -142,6 +142,9 @@ sudo install -d -o root -g admin -m 0775 /opt/homebrew/var/lib/node_exporter/tex
 sudo install -d -o localadmin -g staff -m 0755 /Users/localadmin/monitoring/state
 sudo install -d -o localadmin -g staff -m 0755 /Users/localadmin/warmup
 sudo install -d -o root -g wheel -m 0755 /usr/local/sbin
+sudo install -d -o root -g wheel -m 0755 /usr/local/libexec/unbound-stack/dns
+sudo install -d -o root -g wheel -m 0755 /usr/local/libexec/unbound-stack/monitoring
+sudo install -d -o root -g wheel -m 0755 /usr/local/share/unbound-stack
 ```
 
 The group-writable textfile directory is an explicit trust boundary; see
@@ -159,18 +162,18 @@ The group-writable textfile directory is an explicit trust boundary; see
 Install the tracked Unbound files:
 
 ```sh
-sudo install -o unbound -g unbound -m 0644 unbound-etc/unbound.conf /opt/homebrew/etc/unbound/unbound.conf
-sudo install -o unbound -g unbound -m 0644 unbound-etc/root.hints /opt/homebrew/etc/unbound/root.hints
-sudo install -o unbound -g unbound -m 0644 unbound-etc/blocklists/hagezi-allow.rpz /opt/homebrew/etc/unbound/blocklists/hagezi-allow.rpz
-sudo install -o root -g wheel -m 0755 unbound-etc/update-blocklist.sh /opt/homebrew/etc/unbound/update-blocklist.sh
-sudo install -o root -g wheel -m 0755 unbound-etc/blocklist-tui.sh /opt/homebrew/etc/unbound/blocklist-tui.sh
-sudo install -o root -g wheel -m 0644 unbound-etc/blocklist-source /opt/homebrew/etc/unbound/blocklist-source
+sudo install -o unbound -g unbound -m 0644 config/unbound/unbound.conf /opt/homebrew/etc/unbound/unbound.conf
+sudo install -o unbound -g unbound -m 0644 config/unbound/root.hints /opt/homebrew/etc/unbound/root.hints
+sudo install -o unbound -g unbound -m 0644 config/unbound/blocklists/hagezi-allow.rpz /opt/homebrew/etc/unbound/blocklists/hagezi-allow.rpz
+sudo install -o root -g wheel -m 0755 scripts/dns/update-blocklist.sh /usr/local/libexec/unbound-stack/dns/update-blocklist.sh
+sudo install -o root -g wheel -m 0755 scripts/dns/manage-blocklist.sh /usr/local/libexec/unbound-stack/dns/manage-blocklist.sh
+sudo install -o root -g wheel -m 0644 config/unbound/blocklist-source /opt/homebrew/etc/unbound/blocklist-source
 ```
 
 Run the updater before config validation:
 
 ```sh
-sudo /opt/homebrew/etc/unbound/update-blocklist.sh
+sudo /usr/local/libexec/unbound-stack/dns/update-blocklist.sh
 ```
 
 Before Unbound starts, the updater may install a valid zone and then return failure only
@@ -208,16 +211,17 @@ Validate before starting:
 python3 -m json.tool /opt/homebrew/etc/grafana/dashboards/unbound-dns.json >/dev/null
 ```
 
-Install runtime Python scripts under `/Users/localadmin/monitoring`, warmup files under
-`/Users/localadmin/warmup`, and helpers under `/usr/local/sbin`. Python collectors and
-warmup files SHOULD be owned by `localadmin`; root helpers SHOULD be root-owned.
+Install all scheduled custom code under `/usr/local/libexec/unbound-stack`, owned by
+`root:wheel` and mode 0755. Install the curated warm list under
+`/usr/local/share/unbound-stack`; keep only sensitive mutable state under
+`/Users/localadmin`. Operator helpers belong under `/usr/local/sbin`.
 
 Run non-network self-tests:
 
 ```sh
-/usr/bin/python3 /Users/localadmin/monitoring/apple_content_cache_exporter.py --test
-/usr/bin/python3 /Users/localadmin/monitoring/unbound_client_rpz_exporter.py --test
-/usr/bin/python3 /Users/localadmin/monitoring/prometheus_alert_notifier.py --selftest
+/usr/bin/python3 /usr/local/libexec/unbound-stack/monitoring/apple_content_cache_exporter.py --test
+/usr/bin/python3 /usr/local/libexec/unbound-stack/monitoring/unbound_client_rpz_exporter.py --test
+/usr/bin/python3 /usr/local/libexec/unbound-stack/monitoring/prometheus_alert_notifier.py --selftest
 ```
 
 ### 6. Install LaunchDaemons
@@ -274,7 +278,7 @@ topic in output. The topic MUST NOT be embedded in a command line or diagnostic 
   a Homebrew Tailscale service.
 - Deploy the sshd fragment only after `sudo sshd -t` succeeds. Keep the original session
   open and prove a new key-only login before closing it.
-- Install `screenshare-on` and `screenshare-off`; leave Screen Sharing disabled.
+- Install `screenshare`; leave Screen Sharing disabled.
 - Install the tracked newsyslog file and validate with `sudo newsyslog -nv -f`.
 - Authorize the resolved Cellar paths for Unbound, Prometheus, and Grafana in the macOS
   application firewall. Re-test LAN reachability.

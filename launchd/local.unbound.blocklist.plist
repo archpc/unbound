@@ -7,7 +7,7 @@
     <key>ProgramArguments</key>
     <array>
         <string>/bin/bash</string>
-        <string>/opt/homebrew/etc/unbound/update-blocklist.sh</string>
+        <string>/usr/local/libexec/unbound-stack/dns/update-blocklist.sh</string>
     </array>
     <key>StartCalendarInterval</key>
     <dict>

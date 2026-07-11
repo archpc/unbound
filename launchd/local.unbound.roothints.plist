@@ -7,7 +7,7 @@
     <string>local.unbound.roothints</string>
     <key>ProgramArguments</key>
     <array>
-        <string>/usr/local/sbin/unbound-refresh-hints</string>
+        <string>/usr/local/libexec/unbound-stack/dns/refresh-root-hints.sh</string>
     </array>
     <key>StartCalendarInterval</key>
     <dict>
@@ -19,9 +19,9 @@
         <integer>0</integer>
     </dict>
     <key>StandardOutPath</key>
-    <string>/var/log/unbound-refresh-hints.log</string>
+    <string>/opt/homebrew/var/log/unbound-roothints.log</string>
     <key>StandardErrorPath</key>
-    <string>/var/log/unbound-refresh-hints.log</string>
+    <string>/opt/homebrew/var/log/unbound-roothints.log</string>
     <key>RunAtLoad</key>
     <false/>
 </dict>

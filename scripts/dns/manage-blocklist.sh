@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# blocklist-tui.sh — interactive source manager for the single generated RPZ.
+# manage-blocklist.sh — interactive source manager for the generated RPZ.
 # Read-only state display lives here; downloads, validation, replacement, reload,
 # and metric writes are delegated to update-blocklist.sh.
 set -uo pipefail
@@ -9,7 +9,7 @@ SELF_DIR="$(cd "$(dirname "$0")" && pwd)"
 ETC="/opt/homebrew/etc/unbound"
 ZONEFILE="$ETC/blocklists/hagezi-normal.rpz"
 SOURCE_FILE="$ETC/blocklist-source"
-UPDATE_SCRIPT="$SELF_DIR/update-blocklist.sh"
+UPDATE_SCRIPT="/usr/local/libexec/unbound-stack/dns/update-blocklist.sh"
 PROM="/opt/homebrew/var/lib/node_exporter/textfile/unbound-blocklist.prom"
 SOURCE_LIST="hagezi-normal hagezi-pro 1hosts-lite 1hosts-xtra oisd-small oisd-big"
 
@@ -18,7 +18,7 @@ if [ "$(id -u)" -ne 0 ]; then
     exit 1
 fi
 if [ ! -f "$UPDATE_SCRIPT" ]; then
-    echo "can't find update-blocklist.sh next to this script at $UPDATE_SCRIPT" >&2
+    echo "can't find blocklist updater at $UPDATE_SCRIPT" >&2
     exit 1
 fi
 
@@ -105,7 +105,12 @@ change_source() {
 
     if bash "$UPDATE_SCRIPT" "$picked"; then
         if [ "$persist" -eq 1 ]; then
-            printf '%s\n' "$picked" > "$SOURCE_FILE"
+            tmp="${SOURCE_FILE}.tmp.$$"
+            trap 'rm -f "$tmp"' RETURN
+            printf '%s\n' "$picked" > "$tmp"
+            chmod 0644 "$tmp"
+            chown root:wheel "$tmp"
+            mv "$tmp" "$SOURCE_FILE"
             echo "permanent source updated: $picked"
         fi
     else

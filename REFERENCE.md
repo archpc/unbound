@@ -105,7 +105,7 @@ Jobs with no `UserName` run as root. `homebrew.mxcl.unbound` is managed by root
 | `local.unbound.blocklist` | root | Daily 03:30 | `update-blocklist.sh` | `/opt/homebrew/var/log/unbound-blocklist.log` |
 | `local.unbound.warmlist` | root | Daily 23:30 | `build-warm-list.sh` | `/opt/homebrew/var/log/unbound-warmlist.log` |
 | `local.unbound.warmboot` | root | Once at boot | `warm-at-boot.sh` | `/opt/homebrew/var/log/unbound-warmboot.log` |
-| `local.unbound.roothints` | root | Monthly, day 1 at 03:00 | `unbound-refresh-hints` | `/var/log/unbound-refresh-hints.log` |
+| `local.unbound.roothints` | root | Monthly, day 1 at 03:00 | `refresh-root-hints.sh` | `/opt/homebrew/var/log/unbound-roothints.log` |
 | `local.unbound.contentcache` | `localadmin` | Every 300 s and at load | `apple_content_cache_exporter.py` | `/opt/homebrew/var/log/apple-content-cache-exporter.log` |
 | `local.unbound.clientstats` | `localadmin` | Every 120 s and at load | `unbound_client_rpz_exporter.py` | `/opt/homebrew/var/log/unbound-clientstats.log` |
 | `local.unbound.alertnotify` | `localadmin` | Every 120 s and at load | `prometheus_alert_notifier.py` | `/opt/homebrew/var/log/unbound-alertnotify.log` |
@@ -228,7 +228,7 @@ Prometheus datasource by UID `prometheus`.
 | Textfiles | `/opt/homebrew/var/lib/node_exporter/textfile/*.prom` | Generated; existence only |
 | Notifier state | `/Users/localadmin/monitoring/state/notified-alerts.json` | Runtime only |
 | ntfy topic | `/Users/localadmin/monitoring/ntfy.topic` | Secret; existence only; MUST NOT be read by repository tooling |
-| Personal warm list | `/Users/localadmin/warmup/dns-warm-domains.personal.txt` | Private household profile; optional; MUST NOT be committed |
+| Personal warm list | `/Users/localadmin/warmup/dns-warm-domains.personal.txt` | `localadmin:staff` mode 0600; private household profile; optional; MUST NOT be committed |
 | Root trust anchor | `/opt/homebrew/var/lib/unbound/root.key` | Managed runtime state |
 
 ## External dependencies

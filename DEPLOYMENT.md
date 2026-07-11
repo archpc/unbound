@@ -39,7 +39,7 @@ used for repository synchronization.
 
 | Component | Repository validator | Target validator | Activation |
 |---|---|---|---|
-| Unbound config | `unbound-checkconf unbound-etc/unbound.conf` when local Unbound is available | `/opt/homebrew/sbin/unbound-checkconf <staged-file>` or validate after a controlled staged-path substitution | `sudo unbound-control reload` |
+| Unbound config | `unbound-checkconf config/unbound/unbound.conf` when local Unbound is available | `/opt/homebrew/sbin/unbound-checkconf <staged-file>` or validate after a controlled staged-path substitution | `sudo unbound-control reload` |
 | RPZ allowlist | Zone syntax through `unbound-checkconf` with the full config | `/opt/homebrew/sbin/unbound-checkconf` | `sudo unbound-control auth_zone_reload hagezi.allow` |
 | Blocklist selector | One line; value supported by `update-blocklist.sh` | Run updater with the selected source | Updater reloads `hagezi.rpz` |
 | Prometheus config | YAML parse; `promtool check config` when available | `/opt/homebrew/opt/prometheus/bin/promtool check config <file>` | `pkill -HUP -x prometheus` |
@@ -50,7 +50,7 @@ used for repository synchronization.
 | LaunchDaemon | `plutil -lint <file>` | `plutil -lint <staged-file>` | bootout/bootstrap or kickstart as appropriate |
 | Python script | `python3 -m py_compile`; script self-test when provided | `/usr/bin/python3 <staged-file> --test` or `--selftest` | Kickstart owning periodic job or daemon |
 | Bash script | `bash -n <file>` | `/bin/bash -n <staged-file>` | Next schedule or explicit kickstart |
-| Zsh warmer | `zsh -n warmup/warm-unbound-cache.sh` | `/bin/zsh -n <staged-file>` | Next explicit or boot-time run |
+| Zsh warmer | `zsh -n scripts/dns/warm-cache.zsh` | `/bin/zsh -n <staged-file>` | Next explicit or boot-time run |
 | sshd fragment | Structural review only off-host | `sudo sshd -t` with a second session kept open | New SSH connection reads it automatically |
 | newsyslog | Review format | `sudo newsyslog -nv -f <file>` | macOS periodic newsyslog run |
 
@@ -95,7 +95,7 @@ config references it.
 
 ```sh
 # Workstation
-scp unbound-etc/unbound.conf localadmin@192.168.0.100:~/unbound.conf.stage
+scp config/unbound/unbound.conf localadmin@192.168.0.100:~/unbound.conf.stage
 
 # Mini
 /opt/homebrew/sbin/unbound-checkconf ~/unbound.conf.stage
@@ -133,8 +133,8 @@ file, validate the full Unbound configuration, then reload only `hagezi.allow`.
 
 ```sh
 # Workstation: choose one or both files
-scp prometheus-etc/prometheus.yml localadmin@192.168.0.100:~/prometheus.yml.stage
-scp prometheus-etc/prometheus.rules.yml localadmin@192.168.0.100:~/prometheus.rules.yml.stage
+scp config/prometheus/prometheus.yml localadmin@192.168.0.100:~/prometheus.yml.stage
+scp config/prometheus/prometheus.rules.yml localadmin@192.168.0.100:~/prometheus.rules.yml.stage
 
 # Mini: validate staged files before replacement
 /opt/homebrew/opt/prometheus/bin/promtool check config ~/prometheus.yml.stage
@@ -165,8 +165,8 @@ The returned sample value MUST be `1`. A rule change SHOULD also be confirmed th
 
 ```sh
 # Workstation: validate and stage
-python3 -m json.tool grafana-etc/dashboards/<name>.json >/dev/null
-scp grafana-etc/dashboards/<name>.json localadmin@192.168.0.100:~/<name>.json.stage
+python3 -m json.tool config/grafana/dashboards/<name>.json >/dev/null
+scp config/grafana/dashboards/<name>.json localadmin@192.168.0.100:~/<name>.json.stage
 
 # Mini: validate staged content, then replace
 python3 -m json.tool ~/<name>.json.stage >/dev/null
@@ -219,9 +219,9 @@ root `brew services`, not hand-deployed from that snapshot.
 
 | Source | Runtime path | Self-test | Job |
 |---|---|---|---|
-| `scripts/apple_content_cache_exporter.py` | `~/monitoring/apple_content_cache_exporter.py` | `--test` | `local.unbound.contentcache` |
-| `scripts/unbound_client_rpz_exporter.py` | `~/monitoring/unbound_client_rpz_exporter.py` | `--test` | `local.unbound.clientstats` |
-| `scripts/prometheus_alert_notifier.py` | `~/monitoring/prometheus_alert_notifier.py` | `--selftest` | `local.unbound.alertnotify` |
+| `scripts/monitoring/apple_content_cache_exporter.py` | `/usr/local/libexec/unbound-stack/monitoring/apple_content_cache_exporter.py` | `--test` | `local.unbound.contentcache` |
+| `scripts/monitoring/unbound_client_rpz_exporter.py` | `/usr/local/libexec/unbound-stack/monitoring/unbound_client_rpz_exporter.py` | `--test` | `local.unbound.clientstats` |
+| `scripts/monitoring/prometheus_alert_notifier.py` | `/usr/local/libexec/unbound-stack/monitoring/prometheus_alert_notifier.py` | `--selftest` | `local.unbound.alertnotify` |
 
 The notifier self-test MUST NOT be replaced with `--test-send` unless a real ntfy push
 is intentionally authorized. Deployment procedures MUST NOT read or print the topic.

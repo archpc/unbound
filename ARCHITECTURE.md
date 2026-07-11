@@ -145,13 +145,15 @@ notification limitation.
 |---|---|---|---|
 | `homebrew.mxcl.unbound` | root service definition | Unbound drops to user `unbound` | Port 53, config ownership, control socket |
 | `local.unbound.exporter` | root | root | Reads the root-owned Unbound control socket |
-| `local.unbound.blocklist` | root | root | Replaces Unbound-owned zones and reloads RPZ zones |
-| `local.unbound.roothints` | root | root | Replaces root hints under `/opt/homebrew/etc/unbound` |
-| `local.unbound.warmboot` / `warmlist` | root | root | Uses the control socket; warmboot queries locally |
+| `local.unbound.blocklist` | root | root | Executes root-owned libexec code, replaces Unbound-owned zones and reloads RPZ zones |
+| `local.unbound.roothints` | root | root | Executes root-owned libexec code and replaces root hints under `/opt/homebrew/etc/unbound` |
+| `local.unbound.warmboot` / `warmlist` | root | root | Executes root-owned libexec code and uses the control socket |
 | Prometheus, Grafana, node_exporter, blackbox | `localadmin` | unprivileged admin account | No control-socket access required; starts at boot without GUI login |
 | Content-cache, clientstats, alert notifier | `localadmin` | unprivileged admin account | Read-only source APIs plus textfile writes or outbound HTTPS |
 
-The textfile directory is group-writable so `localadmin` jobs can publish metrics. This
+All custom executable code is root-owned under `/usr/local/libexec/unbound-stack`, even
+when a LaunchDaemon drops to `localadmin`. Root jobs MUST NOT execute user-writable
+code. The textfile directory is group-writable so `localadmin` jobs can publish metrics. This
 is an accepted trust boundary: any process in the `admin` group can write a well-formed
 metric that alert rules trust. `node_textfile_scrape_error` detects malformed files, not
 fabricated valid values.

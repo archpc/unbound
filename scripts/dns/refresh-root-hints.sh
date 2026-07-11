@@ -1,8 +1,8 @@
 #!/bin/bash
 #
-# unbound-refresh-hints — refresh the root-server hints file.
+# refresh-root-hints.sh — refresh the root-server hints file.
 #
-# Deployed at /usr/local/sbin/unbound-refresh-hints, run monthly by the
+# Deployed under /usr/local/libexec/unbound-stack/dns, run monthly by the
 # local.unbound.roothints LaunchDaemon (1st of the month, 03:00).
 #
 # root.hints only bootstraps priming at (re)start; a running unbound learns
@@ -43,11 +43,12 @@ echo "root.hints refreshed: $(grep -c 'ROOT-SERVERS.NET' "$DEST") root-server re
 METRICS_DIR="/opt/homebrew/var/lib/node_exporter/textfile"
 mkdir -p "$METRICS_DIR" 2>/dev/null || true
 if [ -w "$METRICS_DIR" ]; then
+    tmp="$METRICS_DIR/unbound-roothints.prom.$$"
+    trap 'rm -f "$NEW" "$tmp"' EXIT
     {
         echo '# TYPE unbound_job_last_success_timestamp_seconds gauge'
         printf 'unbound_job_last_success_timestamp_seconds{task="roothints"} %s\n' "$(date +%s)"
         echo '# TYPE unbound_roothints_records gauge'
         printf 'unbound_roothints_records %s\n' "$(grep -c 'ROOT-SERVERS.NET' "$DEST")"
-    } > "$METRICS_DIR/unbound-roothints.prom.$$" \
-      && mv "$METRICS_DIR/unbound-roothints.prom.$$" "$METRICS_DIR/unbound-roothints.prom"
+    } > "$tmp" && mv "$tmp" "$METRICS_DIR/unbound-roothints.prom"
 fi

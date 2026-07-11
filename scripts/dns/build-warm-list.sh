@@ -22,10 +22,10 @@
 # than the generic Tranco list. It is gitignored on purpose. Keep it local;
 # do not commit it to a repo that travels.
 
-set -u
+set -euo pipefail
 
 script_dir="$(cd "$(dirname "$0")" && pwd)"
-OUT="${1:-$script_dir/dns-warm-domains.personal.txt}"
+OUT="${1:-/Users/localadmin/warmup/dns-warm-domains.personal.txt}"
 MAX="${2:-250}"
 RPZ="/opt/homebrew/etc/unbound/blocklists/hagezi-normal.rpz"
 
@@ -47,7 +47,18 @@ collapse() {
 
 blocked="$(mktemp)"; candidates="$(mktemp)"
 nshosts="$(mktemp)"; cnhosts="$(mktemp)"; exclude="$(mktemp)"
-trap 'rm -f "$blocked" "$candidates" "$nshosts" "$cnhosts" "$exclude"' EXIT
+out_tmp="${OUT}.tmp.$$"
+candidates_filtered="${candidates}.f"
+candidates_top="${candidates}.top"
+candidates_merged="${candidates}.merged"
+metrics_tmp=""
+cleanup() {
+  rm -f "$blocked" "$candidates" "$nshosts" "$cnhosts" "$exclude" \
+    "$out_tmp" "$candidates_filtered" "$candidates_top" \
+    "$candidates_merged"
+  [ -z "$metrics_tmp" ] || rm -f "$metrics_tmp"
+}
+trap cleanup EXIT
 
 # Blocked set: registrable domains HaGeZi blocks wholesale (so we don't warm a
 # domain the RPZ would just nxdomain). Subdomain-only blocks don't drop the
@@ -60,8 +71,10 @@ fi
 # Grab the cache once, surfacing the REAL error if the control call fails
 # (usual cause: run without sudo — the control socket is root-owned). Don't
 # swallow it into a misleading "empty cache" message.
-dump="$(unbound-control dump_cache 2>&1)"; status=$?
-if [ "$status" -ne 0 ]; then
+if dump="$(unbound-control dump_cache 2>&1)"; then
+  status=0
+else
+  status=$?
   printf 'unbound-control dump_cache failed (exit %d):\n%s\n' "$status" "$dump" >&2
   case "$dump" in *[Pp]ermission*) echo '-> run this script with sudo (control socket is root-owned).' >&2 ;; esac
   exit 1
@@ -119,25 +132,25 @@ fi
 
 # Drop blocked domains (grep -v tolerates the 'no matches' exit code), cap to MAX.
 if [ -s "$blocked" ]; then
-  grep -Fxvf "$blocked" "$candidates" > "$candidates.f" || true
-  mv "$candidates.f" "$candidates"
+  grep -Fxvf "$blocked" "$candidates" > "$candidates_filtered" || true
+  mv "$candidates_filtered" "$candidates"
 fi
-head -n "$MAX" "$candidates" > "$candidates.top"
+head -n "$MAX" "$candidates" > "$candidates_top"
 
 # Merge in the curated popular list shipped next to this script (if present):
 # household traffic ranks first, then popular domains not already covered.
 # This keeps warmups strong right after a reboot, when the cache — and thus
 # the personal signal — is thin or empty.
-GENERIC="$script_dir/dns-warm-domains.txt"
+GENERIC="/usr/local/share/unbound-stack/dns-warm-domains.txt"
 {
-  cat "$candidates.top"
+  cat "$candidates_top"
   if [ -r "$GENERIC" ]; then
     tr -d '\r' < "$GENERIC" | grep -vE '^[[:space:]]*(#|$)'
   fi
-} | awk '!seen[$0]++' > "$candidates.merged"
+} | awk '!seen[$0]++' > "$candidates_merged"
 
-personal="$(wc -l < "$candidates.top" | tr -d ' ')"
-count="$(wc -l < "$candidates.merged" | tr -d ' ')"
+personal="$(wc -l < "$candidates_top" | tr -d ' ')"
+count="$(wc -l < "$candidates_merged" | tr -d ' ')"
 {
   echo "# Personalized DNS warmup list — generated $(date '+%Y-%m-%d %H:%M')"
   echo "# $personal household domains from the unbound message cache (by cache"
@@ -145,23 +158,25 @@ count="$(wc -l < "$candidates.merged" | tr -d ' ')"
   echo "# $((count - personal)) curated popular domains not already covered."
   echo "# Regenerate with build-warm-list.sh."
   echo "# PRIVACY: household profile — keep local, do NOT commit."
-  cat "$candidates.merged"
-} > "$OUT"
-rm -f "$candidates.top" "$candidates.merged"
+  cat "$candidates_merged"
+} > "$out_tmp"
+chmod 0600 "$out_tmp"
+if [ "$(id -u)" -eq 0 ]; then
+  /usr/sbin/chown localadmin:staff "$out_tmp"
+fi
+mv "$out_tmp" "$OUT"
 
 echo "wrote $count domains to $OUT ($personal personal + $((count - personal)) popular)"
-echo "use it:  sudo $script_dir/warm-unbound-cache.sh \"$OUT\""
+echo "use it:  sudo $script_dir/warm-cache.zsh \"$OUT\""
 
 # Success breadcrumb for the monitoring stack (see update-blocklist.sh for
 # the pattern; prometheus.rules.yml alarms when the timestamp goes stale).
 METRICS_DIR="/opt/homebrew/var/lib/node_exporter/textfile"
 mkdir -p "$METRICS_DIR" 2>/dev/null || true
 if [ -w "$METRICS_DIR" ]; then
-    tmp="$METRICS_DIR/unbound-warmlist.prom.$$"
-    # Clean our own temp on any exit; a run killed between the write and the mv
-    # otherwise leaves an orphan .prom.<pid> forever (node_exporter globs only
-    # *.prom so it's inert, but it's litter). Also sweep any pre-existing orphans.
-    trap 'rm -f "$tmp"' EXIT
+    metrics_tmp="$METRICS_DIR/unbound-warmlist.prom.$$"
+    # Sweep pre-existing producer-specific orphans. cleanup removes this run's
+    # temporary file without replacing the earlier cleanup responsibilities.
     rm -f "$METRICS_DIR"/unbound-warmlist.prom.[0-9]* 2>/dev/null || true
     {
         echo '# TYPE unbound_job_last_success_timestamp_seconds gauge'
@@ -169,6 +184,7 @@ if [ -w "$METRICS_DIR" ]; then
         echo '# TYPE unbound_warmlist_domains gauge'
         printf 'unbound_warmlist_domains{kind="personal"} %s\n' "$personal"
         printf 'unbound_warmlist_domains{kind="popular"} %s\n' "$((count - personal))"
-    } > "$tmp" \
-      && mv "$tmp" "$METRICS_DIR/unbound-warmlist.prom"
+    } > "$metrics_tmp" \
+      && mv "$metrics_tmp" "$METRICS_DIR/unbound-warmlist.prom"
+    metrics_tmp=""
 fi

@@ -17,7 +17,7 @@
     <key>ProgramArguments</key>
     <array>
         <string>/usr/bin/python3</string>
-        <string>/Users/localadmin/monitoring/apple_content_cache_exporter.py</string>
+        <string>/usr/local/libexec/unbound-stack/monitoring/apple_content_cache_exporter.py</string>
         <string>--output</string>
         <string>/opt/homebrew/var/lib/node_exporter/textfile/apple-content-cache.prom</string>
     </array>

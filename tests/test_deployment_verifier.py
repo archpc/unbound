@@ -38,13 +38,16 @@ def digest(data):
 
 
 class DeploymentVerifierTests(unittest.TestCase):
-    def write_manifest(self, root, entries):
+    def write_manifest(self, root, entries, metadata_defaults=None):
         path = root / "manifest.json"
-        path.write_text(json.dumps({
+        manifest = {
             "version": 1,
             "target": {"ssh": "localadmin@example.invalid"},
             "entries": entries,
-        }))
+        }
+        if metadata_defaults is not None:
+            manifest["metadata_defaults"] = metadata_defaults
+        path.write_text(json.dumps(manifest))
         return path
 
     def source_entry(self, source="source.conf", required=True, compare="sha256"):
@@ -173,6 +176,36 @@ class DeploymentVerifierTests(unittest.TestCase):
             self.assertIn("content redacted; checksum skipped", report)
             self.assertNotIn("sha256 match", report)
             self.assertIn('"sha256":false', remote_script)
+
+    def test_metadata_defaults_detect_owner_and_mode_drift(self):
+        with tempfile.TemporaryDirectory() as raw:
+            root = Path(raw)
+            (root / "source.conf").write_text("same")
+            path = self.write_manifest(
+                root,
+                [self.source_entry(compare="existence")],
+                {"config": {"owner": "root", "group": "wheel", "mode": "0644"}},
+            )
+            manifest = verifier.load_manifest(path, root)
+            fact = self.remote_file()
+            fact.update({"owner": "localadmin", "mode": "0664"})
+            report, code, counts = verifier.render_report(
+                manifest, path, root, {0: fact}
+            )
+            self.assertEqual(code, 1)
+            self.assertEqual(counts["drift"], 1)
+            self.assertIn("owner expected=root actual=localadmin", report)
+            self.assertIn("mode expected=0644 actual=0664", report)
+
+    def test_entry_metadata_must_be_well_formed(self):
+        with tempfile.TemporaryDirectory() as raw:
+            root = Path(raw)
+            (root / "source.conf").write_text("same")
+            entry = self.source_entry(compare="existence")
+            entry["metadata"] = "root:wheel"
+            path = self.write_manifest(root, [entry])
+            with self.assertRaisesRegex(verifier.ManifestError, "invalid metadata"):
+                verifier.load_manifest(path, root)
 
     def test_remote_failure_is_incomplete_but_not_drift(self):
         with tempfile.TemporaryDirectory() as raw:
