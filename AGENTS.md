@@ -77,16 +77,11 @@ Run only validators relevant to the changed files. A complete documentation/runt
 validation set is:
 
 ```sh
-python3 tools/check-docs.py
-python3 -m json.tool deployment-manifest.json >/dev/null
-bash -n scripts/dns/*.sh scripts/maintenance/*.sh tools/*.sh
-zsh -n scripts/dns/warm-cache.zsh
-plutil -lint launchd/*.plist
-PYTHONPYCACHEPREFIX=/private/tmp/pycache-unbound python3 -m py_compile scripts/monitoring/*.py tools/*.py
-PYTHONPYCACHEPREFIX=/private/tmp/pycache-unbound python3 -m unittest \
-  tests.test_monitoring_stack tests.test_deployment_verifier
-git diff --check
+tools/validate-repository.sh
 ```
+
+The validation entrypoint MUST remain offline and MUST NOT invoke SSH, deployment
+verification, or a live service API.
 
 `promtool` and `unbound-checkconf` MAY be unavailable on the workstation. If they are
 missing, report that native validation was not run; do not imply equivalent coverage.

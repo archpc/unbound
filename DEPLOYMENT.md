@@ -16,6 +16,16 @@ by component validation and the smallest reload that makes the change active.
 Run repository-side commands from the repository root on the operator workstation.
 Run live validators and reloads on the mini.
 
+## Offline validation boundary
+
+`tools/validate-repository.sh` runs on the operator workstation and MUST remain offline
+with respect to the mini: it MUST NOT use SSH, deployment credentials, runtime secrets,
+or live service APIs. It proves repository syntax and structural contracts; it does not
+prove that intended files are deployed or that services are healthy.
+
+Target-host validation and functional canaries remain REQUIRED where the validation
+matrix specifies them.
+
 ## Change workflow
 
 1. Inspect `git status --short` and preserve unrelated worktree changes.

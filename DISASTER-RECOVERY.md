@@ -119,9 +119,7 @@ recovery record.
 Run repository validation before deployment:
 
 ```sh
-python3 tools/check-docs.py
-PYTHONPYCACHEPREFIX=/private/tmp/pycache-unbound python3 -m unittest \
-  tests.test_monitoring_stack tests.test_deployment_verifier
+tools/validate-repository.sh
 ```
 
 ### 3. Create runtime directories

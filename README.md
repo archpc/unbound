@@ -91,10 +91,10 @@ the procedure metadata and [TROUBLESHOOTING.md](TROUBLESHOOTING.md) when a resul
 Run from the repository root:
 
 ```sh
-python3 tools/check-docs.py
-PYTHONPYCACHEPREFIX=/private/tmp/pycache-unbound python3 -m unittest \
-  tests.test_monitoring_stack tests.test_deployment_verifier
-git diff --check
+tools/validate-repository.sh
 ```
 
-Component-specific validators are listed in [DEPLOYMENT.md](DEPLOYMENT.md#validation-matrix).
+This entrypoint is offline. It validates repository structure, documentation, JSON,
+YAML, shell, Python, plists, tests, and diff hygiene. It does not contact the mini or
+prove live state. Component-specific validators are listed in
+[DEPLOYMENT.md](DEPLOYMENT.md#validation-matrix).
