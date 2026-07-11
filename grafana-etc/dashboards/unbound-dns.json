@@ -697,9 +697,27 @@
       "fieldConfig": {
         "defaults": {
           "color": {
-            "mode": "palette-classic"
+            "mode": "thresholds"
           },
-          "unit": "short",
+          "custom": {
+            "fillOpacity": 70,
+            "lineWidth": 0,
+            "spanNulls": false
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          },
+          "unit": "percentunit",
           "min": 0,
           "max": 1
         },
@@ -713,14 +731,18 @@
       },
       "id": 13,
       "options": {
+        "alignValue": "left",
         "legend": {
           "displayMode": "list",
           "placement": "bottom",
           "showLegend": true
         },
+        "mergeValues": true,
+        "rowHeight": 0.9,
+        "showValue": "auto",
         "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
+          "mode": "single",
+          "sort": "none"
         }
       },
       "targets": [
@@ -729,13 +751,41 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "probe_success{job=~\"blackbox_.*\"}",
+          "expr": "probe_success{job=\"blackbox_resolver\", instance=\"192.168.0.100\"}",
           "refId": "A",
-          "legendFormat": "{{job}} {{instance}}"
+          "legendFormat": "Resolver · 192.168.0.100"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "probe_success{job=\"blackbox_rpz_canary\", instance=\"192.168.0.100\"}",
+          "refId": "B",
+          "legendFormat": "RPZ canary · 192.168.0.100"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "probe_success{job=\"blackbox_upstream\", instance=\"1.1.1.1\"}",
+          "refId": "C",
+          "legendFormat": "Cloudflare · 1.1.1.1"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "probe_success{job=\"blackbox_upstream\", instance=\"8.8.8.8\"}",
+          "refId": "D",
+          "legendFormat": "Google · 8.8.8.8"
         }
       ],
-      "title": "Probe success (1 = healthy)",
-      "type": "timeseries"
+      "title": "DNS probe success",
+      "description": "Each target has its own percentage row. Aligned failures in the 1.1.1.1 and 8.8.8.8 rows expose paired upstream-path loss without combining unrelated probes.",
+      "type": "state-timeline"
     },
     {
       "datasource": {
@@ -775,12 +825,13 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "probe_duration_seconds{job=~\"blackbox_.*\"}",
+          "expr": "probe_duration_seconds{job=~\"blackbox_.*\"} and on (job, instance) (probe_success{job=~\"blackbox_.*\"} == 1)",
           "refId": "A",
           "legendFormat": "{{job}} {{instance}}"
         }
       ],
-      "title": "Probe latency",
+      "title": "Successful probe latency",
+      "description": "Shows duration only when the corresponding probe succeeded. Failed probes and their timeout duration are intentionally omitted; use DNS probe success for failures.",
       "type": "timeseries"
     },
     {
@@ -1605,6 +1656,6 @@
   "timezone": "browser",
   "title": "Unbound DNS",
   "uid": "unbound-dns",
-  "version": 11,
+  "version": 12,
   "weekStart": ""
 }

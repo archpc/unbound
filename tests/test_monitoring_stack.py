@@ -630,6 +630,37 @@ fi
             dashboard,
         )
 
+    def test_dns_probe_dashboard_separates_success_from_latency(self):
+        dashboard = json.loads(
+            (ROOT / "grafana-etc/dashboards/unbound-dns.json").read_text()
+        )
+        panels = {panel["id"]: panel for panel in dashboard["panels"]}
+
+        success = panels[13]
+        self.assertEqual(success["title"], "DNS probe success")
+        self.assertEqual(success["type"], "state-timeline")
+        self.assertEqual(success["fieldConfig"]["defaults"]["unit"], "percentunit")
+        self.assertEqual(success["fieldConfig"]["defaults"]["min"], 0)
+        self.assertEqual(success["fieldConfig"]["defaults"]["max"], 1)
+        self.assertEqual(
+            [target["legendFormat"] for target in success["targets"]],
+            [
+                "Resolver · 192.168.0.100",
+                "RPZ canary · 192.168.0.100",
+                "Cloudflare · 1.1.1.1",
+                "Google · 8.8.8.8",
+            ],
+        )
+        self.assertEqual(len(success["targets"]), 4)
+
+        latency = panels[14]
+        self.assertEqual(latency["title"], "Successful probe latency")
+        self.assertEqual(
+            latency["targets"][0]["expr"],
+            'probe_duration_seconds{job=~"blackbox_.*"} and on (job, instance) '
+            '(probe_success{job=~"blackbox_.*"} == 1)',
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
