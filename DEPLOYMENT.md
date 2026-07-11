@@ -243,6 +243,23 @@ For a blank host, dependencies require this order:
 11. Restore or recreate the ntfy topic without exposing it; deploy the notifier.
 12. Apply application-firewall allows to resolved Cellar paths for LAN-facing binaries.
 13. Install and validate SSH hardening while keeping an existing session open.
+
+## One-time runtime-layout migration
+
+The reviewed migration helper installs the root-owned libexec layout, validates native
+configuration, replaces only the seven affected LaunchDaemons, runs DNS and monitoring
+acceptance checks, and restores the supplied rollback bundle automatically on error.
+It MUST be run only from the staged commit recorded in the helper.
+
+```sh
+sudo /Users/localadmin/unbound-migration-dcb19cf/migrate-layout.sh \
+  /Users/localadmin/unbound-migration-dcb19cf \
+  /Users/localadmin/unbound-rollback-20260711-dcb19cf
+```
+
+The sudo password MUST be entered interactively and MUST NOT be placed in a command,
+file, shell history expansion, or automation transcript. The rollback directory MUST
+remain on the mini after successful migration.
 14. Run the complete validation checklist in [DISASTER-RECOVERY.md](DISASTER-RECOVERY.md#acceptance-checklist).
 
 Detailed rebuild commands and rollback criteria are in

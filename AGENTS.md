@@ -79,7 +79,7 @@ validation set is:
 ```sh
 python3 tools/check-docs.py
 python3 -m json.tool deployment-manifest.json >/dev/null
-bash -n scripts/dns/*.sh scripts/maintenance/*.sh
+bash -n scripts/dns/*.sh scripts/maintenance/*.sh tools/*.sh
 zsh -n scripts/dns/warm-cache.zsh
 plutil -lint launchd/*.plist
 PYTHONPYCACHEPREFIX=/private/tmp/pycache-unbound python3 -m py_compile scripts/monitoring/*.py tools/*.py
