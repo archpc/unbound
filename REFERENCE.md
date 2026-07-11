@@ -75,7 +75,7 @@ and reverse records MUST be changed together.
 
 ## Blocklist sources
 
-The selector file currently contains `1hosts-lite`. An explicit command-line source is
+The selector file currently contains `hagezi-normal`. An explicit command-line source is
 a one-time override and does not rewrite the selector file.
 
 | Source | Download endpoint | Minimum accepted lines | Approximate sample size in script comments |

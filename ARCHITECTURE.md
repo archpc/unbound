@@ -71,7 +71,7 @@ logging remains enabled.
 | 1 | `hagezi.allow` | `/opt/homebrew/etc/unbound/blocklists/hagezi-allow.rpz` | `rpz-passthru` exceptions override the blocklist |
 | 2 | `hagezi.rpz` | `/opt/homebrew/etc/unbound/blocklists/hagezi-normal.rpz` | Generated list, forced NXDOMAIN |
 
-The tracked selector is `1hosts-lite`. If the selector file is empty or absent, the
+The tracked selector is `hagezi-normal`. If the selector file is empty or absent, the
 updater falls back to `hagezi-normal`.
 
 ## Monitoring pipeline
