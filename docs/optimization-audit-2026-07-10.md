@@ -125,3 +125,71 @@ schedules, privilege levels, and failure domains remain intact.
 
 All DNS policy, service labels, schedules, ports, metric names, textfile names,
 Prometheus jobs, Grafana UIDs, and sensitive-state paths remain unchanged.
+
+## Migration completion and acceptance
+
+The controlled migration completed on 2026-07-11. Repository commit `dcb19cf`
+contains the target layout and `65d246e` contains the rollback-safe migration helper.
+Nothing was pushed.
+
+The migration installed inactive files first, ran target-host `promtool`,
+`unbound-checkconf`, plist, shell, Python, collector self-test, and newsyslog
+validation, then replaced and bootstrapped only the seven affected LaunchDaemons. The
+six long-running DNS and monitoring services were not restarted. Every required
+acceptance check passed, so obsolete copies were removed and the rollback trap was
+disarmed.
+
+### Measured before and after
+
+| Measure | Before | After | Result |
+|---|---:|---:|---|
+| Tracked repository files | 66 | 67 | Audit and migration tooling added while runtime organization became explicit |
+| Runtime scripts | 12 | 11 | Two Screen Sharing state scripts consolidated into one command |
+| Runtime script lines | 2,178 | 2,204 | Reliability checks added; no line-count reduction claimed |
+| Deployment mappings | 68 | 67 | Screen Sharing mappings consolidated; metadata coverage expanded |
+| Automated tests | 32 | 35 | Added metadata-schema, rollback, and atomic-prune coverage |
+| System LaunchDaemons | 13 | 13 | Topology intentionally unchanged |
+| Periodic or boot jobs | 7 | 7 | Schedules intentionally unchanged |
+| Long-running managed processes | 6 | 6 | Process topology intentionally unchanged |
+| Prometheus targets | 8 healthy | 8 healthy | No scrape-target reduction justified |
+| Prometheus rules | 29 | 29 | Alert coverage preserved |
+| Textfile metric writers | 7 | 7 | Independent producer failure domains preserved |
+| Target-layout deployment drift | 21 mismatched or missing entries | 0 | Final verifier: 67 OK, zero drift or unknown |
+| Known stale live files | 17 | 0 | Removed only after acceptance; rollback copies retained |
+
+### Live acceptance evidence
+
+- `unbound-checkconf` passed against the live configuration.
+- Localhost and LAN queries returned DNSSEC-valid `NOERROR` for `cloudflare.com`,
+  authoritative RPZ `NXDOMAIN` for `google-analytics.com`, `SERVFAIL` for
+  `dnssec-failed.org`, and `192.168.0.100` for `mini.lan`.
+- Both expected TCP and UDP port 53 listeners remained present. Prometheus, Grafana,
+  node_exporter, blackbox_exporter, and unbound_exporter listeners remained present.
+- Unbound cache statistics remained available; the migration did not restart Unbound.
+- All eight Prometheus targets were healthy, all 29 rules were loaded, no alerts were
+  firing, and `node_textfile_scrape_error` was zero.
+- Grafana reported seven provisioned dashboards. Each dashboard domain returned live
+  Prometheus series: Unbound DNS, Apple Content Cache, storage/backups, system stats,
+  services, Prometheus internals, and network/Tailscale.
+- Grafana health reported database `ok`; its unauthenticated dashboard API and browser
+  route correctly required authentication.
+- The ntfy notifier test returned HTTP 200 with the topic redacted. Delivery-failure
+  metrics remained zero and Prometheus polling remained successful.
+- All RunAtLoad jobs completed with exit code zero. Periodic jobs remained loaded with
+  their unchanged schedules and stable labels.
+- All 67 manifest entries matched content and declared metadata. The private warm list
+  is now `localadmin:staff` mode 0600.
+- No installed plist references an obsolete path, no producer temporary files remain,
+  and all 17 obsolete or stale live files were removed after acceptance.
+- Screen Sharing was temporarily enabled for visual verification and was explicitly
+  disabled afterward; port 5900 was confirmed closed.
+
+The verified rollback bundle remains at
+`/Users/localadmin/unbound-rollback-20260711-dcb19cf` with 23 saved public files,
+checksums, ownership/mode metadata, service state, and rollback instructions. Sensitive
+contents were not included or printed. The non-production staging directory was
+removed after acceptance. No compatibility wrappers remain.
+
+No reboot was performed. Reboot resilience was checked through valid LaunchDaemon
+definitions, stable absolute program paths, declared ownership and modes, existing
+generated files, successful bootstrap, and post-bootstrap job exits.
