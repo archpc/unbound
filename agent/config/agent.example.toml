@@ -1,0 +1,44 @@
+# Experimental gateway configuration. Copy outside the repository before use.
+# All network services are required to remain loopback-only.
+gateway_bind = "127.0.0.1"
+gateway_port = 8787
+model_endpoint = "http://127.0.0.1:11435"
+model_name = "local-minicpm-instruct"
+model_context_size = 8192
+model_temperature = 0.1
+model_top_p = 1.0
+model_max_tokens = 1024
+request_timeout_seconds = 45
+maximum_tool_rounds = 4
+maximum_tool_calls_per_round = 1
+per_tool_timeout_seconds = 10
+maximum_tool_output_bytes = 32768
+maximum_request_bytes = 16384
+prometheus_endpoint = "http://127.0.0.1:9090"
+unbound_control_path = "/opt/homebrew/sbin/unbound-control"
+launchctl_path = "/bin/launchctl"
+dig_path = "/usr/bin/dig"
+python_path = "/usr/bin/python3"
+deployment_verifier_path = "/Users/localadmin/src/unbound/tools/verify-deployment.py"
+repository_root = "/Users/localadmin/src/unbound"
+metrics_prefix = "agent"
+
+[approved_services]
+unbound = "homebrew.mxcl.unbound"
+prometheus = "local.unbound.prometheus"
+grafana = "local.unbound.grafana"
+blackbox_exporter = "local.unbound.blackbox"
+unbound_exporter = "local.unbound.exporter"
+node_exporter = "local.unbound.nodeexporter"
+alert_notifier = "local.unbound.alertnotify"
+content_cache_exporter = "local.unbound.contentcache"
+
+[approved_log_sources]
+unbound = "/opt/homebrew/var/log/unbound.log"
+prometheus = "/opt/homebrew/var/log/prometheus.log"
+grafana = "/opt/homebrew/var/log/unbound-grafana-launchd.log"
+blackbox_exporter = "/opt/homebrew/var/log/unbound-blackbox.log"
+unbound_exporter = "/opt/homebrew/var/log/unbound-exporter.log"
+node_exporter = "/opt/homebrew/var/log/node_exporter.log"
+alert_notifier = "/opt/homebrew/var/log/unbound-alertnotify.log"
+content_cache_exporter = "/opt/homebrew/var/log/apple-content-cache-exporter.log"
