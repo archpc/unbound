@@ -66,10 +66,14 @@ subsection() {
   printf '%s\n' '--------------------------------------------------------------------------------'
 }
 
+# This is a defense-in-depth filter for captured command output. Secret-bearing files
+# are excluded separately below; neither control should be treated as a substitute for
+# reviewing the completed bundle before sharing it.
 redact_stream() {
   sed -E \
     -e 's/^([[:space:]]*(password|passwd|secret|token|api[_-]?key|auth[_-]?token|ntfy[_-]?topic|webhook)[[:space:]]*[:=][[:space:]]*).*/\1[REDACTED]/I' \
     -e 's/(Authorization:[[:space:]]*(Bearer|Basic)[[:space:]]+).*/\1[REDACTED]/I' \
+    -e 's#(https://ntfy\.sh/)[A-Za-z0-9._-]+#\1[REDACTED]#gI' \
     -e 's#(https?://)[^/@[:space:]]+:[^/@[:space:]]+@#\1[REDACTED]@#g'
 }
 
@@ -77,8 +81,12 @@ is_secret_path() {
   local lower
   lower="$(printf '%s' "$1" | tr '[:upper:]' '[:lower:]')"
 
+  # These two runtime files have innocuous-looking names but contain the ntfy channel
+  # credential and private browsing-derived warm-list data, respectively.
   case "$lower" in
     .env|*/.env|*/.env.*|\
+    ntfy.topic|*/ntfy.topic|\
+    dns-warm-domains.personal.txt|*/dns-warm-domains.personal.txt|\
     *.pem|*.key|*.p12|*.pfx|*.jks|\
     */id_rsa|*/id_rsa.*|\
     */id_ed25519|*/id_ed25519.*|\
@@ -423,10 +431,13 @@ subsection() {
   printf '%s\n' '--------------------------------------------------------------------------------'
 }
 
+# Keep this embedded remote redactor aligned with the local redact_stream above. The
+# generated script is self-contained and cannot call functions from the parent process.
 redact_stream() {
   sed -E \
     -e 's/^([[:space:]]*(password|passwd|secret|token|api[_-]?key|auth[_-]?token|ntfy[_-]?topic|webhook)[[:space:]]*[:=][[:space:]]*).*/\1[REDACTED]/I' \
     -e 's/(Authorization:[[:space:]]*(Bearer|Basic)[[:space:]]+).*/\1[REDACTED]/I' \
+    -e 's#(https://ntfy\.sh/)[A-Za-z0-9._-]+#\1[REDACTED]#gI' \
     -e 's#(https?://)[^/@[:space:]]+:[^/@[:space:]]+@#\1[REDACTED]@#g'
 }
 
