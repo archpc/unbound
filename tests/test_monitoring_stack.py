@@ -8,6 +8,7 @@ import json
 import math
 import os
 from pathlib import Path
+import sqlite3
 import subprocess
 import sys
 import tempfile
@@ -83,6 +84,31 @@ def parse_exposition(lines):
 
 
 class PythonCollectorTests(unittest.TestCase):
+    def _write_content_cache_metrics_db(self, path, rows):
+        connection = sqlite3.connect(path)
+        try:
+            connection.execute(
+                "CREATE TABLE ZMETRIC ("
+                "ZCREATIONDATE REAL, ZBYTESFROMCACHETOCLIENT INTEGER, "
+                "ZBYTESFROMORIGINTOCLIENT INTEGER, "
+                "ZBYTESFROMPARENTTOCLIENT INTEGER, ZBYTESFROMPEERTOCLIENT INTEGER)"
+            )
+            connection.executemany(
+                "INSERT INTO ZMETRIC VALUES (?, ?, ?, ?, ?)", rows
+            )
+            connection.commit()
+        finally:
+            connection.close()
+
+    def _traffic_row(self, epoch, cache=0, origin=0, parent=0, peer=0):
+        return (
+            epoch - contentcache.CORE_DATA_EPOCH_OFFSET_SECONDS,
+            cache,
+            origin,
+            parent,
+            peer,
+        )
+
     def test_content_cache_fixture_and_prometheus_contract(self):
         top, details = contentcache.parse_status_text(APPLE_STATUS_FIXTURE)
         self.assertEqual(top["CacheStatus"], "OK")
@@ -116,6 +142,111 @@ class PythonCollectorTests(unittest.TestCase):
         self.assertEqual(types["apple_content_cache_returned_to_clients_bytes"], "gauge")
         self.assertEqual(types["apple_content_cache_stored_from_origin_bytes"], "gauge")
         self.assertTrue(any("could not be parsed" in warning for warning in warnings))
+
+    def test_content_cache_authoritative_traffic_scenarios(self):
+        gib = 1024**3
+        now = 1_800_000_000
+        scenarios = [
+            ("first uncached download", 0, 8 * gib, 0.0),
+            ("second identical cached download", 8 * gib, 0, 1.0),
+            ("mixed traffic", 2 * gib, 6 * gib, 0.25),
+            ("zero traffic", 0, 0, 0.0),
+        ]
+        for name, cache_bytes, origin_bytes, expected_ratio in scenarios:
+            with self.subTest(name=name), tempfile.TemporaryDirectory() as td:
+                db = Path(td) / "Metrics.db"
+                self._write_content_cache_metrics_db(
+                    db,
+                    [self._traffic_row(
+                        now - 60, cache=cache_bytes, origin=origin_bytes
+                    )],
+                )
+                traffic = contentcache.read_traffic_metrics(
+                    db, since_epoch=now - 3600, now=now
+                )
+                totals = traffic["since_reset"]
+                ratio = totals["cache_to_client"] / max(
+                    totals["cache_to_client"] + totals["origin_to_client"], 1
+                )
+                self.assertEqual(totals["cache_to_client"], cache_bytes)
+                self.assertEqual(totals["origin_to_client"], origin_bytes)
+                self.assertEqual(totals["total_to_client"], cache_bytes + origin_bytes)
+                self.assertEqual(ratio, expected_ratio)
+
+    def test_content_cache_traffic_reset_restart_and_retention(self):
+        gib = 1024**3
+        now = 1_800_000_000
+        reset = now - 3600
+        with tempfile.TemporaryDirectory() as td:
+            db = Path(td) / "Metrics.db"
+            self._write_content_cache_metrics_db(
+                db,
+                [
+                    self._traffic_row(now - 7200, cache=9 * gib),
+                    self._traffic_row(now - 60, origin=3 * gib),
+                ],
+            )
+            first = contentcache.read_traffic_metrics(db, reset, now)
+            after_exporter_restart = contentcache.read_traffic_metrics(db, reset, now)
+            self.assertEqual(first, after_exporter_restart)
+            self.assertEqual(first["since_reset"]["cache_to_client"], 0)
+            self.assertEqual(first["since_reset"]["origin_to_client"], 3 * gib)
+            self.assertEqual(first["last_24h"]["total_to_client"], 12 * gib)
+
+            too_old = contentcache.read_traffic_metrics(
+                db,
+                since_epoch=now - contentcache.METRICS_GUARANTEED_RETENTION_SECONDS - 1,
+                now=now,
+            )
+            self.assertFalse(too_old["since_reset_complete"])
+            self.assertIsNone(too_old["since_reset"])
+
+    def test_content_cache_emits_direct_traffic_metric_contract(self):
+        top, details = contentcache.parse_status_text(APPLE_STATUS_FIXTURE)
+        traffic = {
+            "since_reset_complete": True,
+            "since_reset": {
+                "cache_to_client": 8,
+                "origin_to_client": 0,
+                "total_to_client": 8,
+            },
+            "last_24h": {
+                "cache_to_client": 8,
+                "origin_to_client": 0,
+                "total_to_client": 8,
+            },
+        }
+        lines, _ = contentcache.build_metrics(
+            top, details, now=1_751_000_000, traffic=traffic
+        )
+        _, types, samples = parse_exposition(lines)
+        self.assertEqual(types["apple_content_cache_cache_to_client_bytes_total"], "counter")
+        self.assertEqual(types["apple_content_cache_origin_to_client_bytes_total"], "counter")
+        self.assertEqual(types["apple_content_cache_total_to_client_bytes_total"], "counter")
+        self.assertEqual(
+            types["apple_content_cache_cache_to_client_last_24h_bytes"], "gauge"
+        )
+        self.assertIn("apple_content_cache_traffic_metrics_available", samples)
+        self.assertIn("apple_content_cache_since_reset_traffic_complete", samples)
+
+    def test_content_cache_dashboard_uses_direct_hit_and_origin_metrics(self):
+        dashboard = json.loads(
+            (ROOT / "config/grafana/dashboards/apple-content-cache.json").read_text()
+        )
+        panels = {panel["title"]: panel for panel in dashboard["panels"]}
+        since = panels["Cache Hit Ratio — Since Reset"]
+        last_24h = panels["Cache Hit Ratio — Last 24h"]
+        origin = panels["Origin Pass-Through — Last 24h"]
+        self.assertIn("cache_to_client_bytes_total", since["targets"][0]["expr"])
+        self.assertIn("origin_to_client_bytes_total", since["targets"][0]["expr"])
+        self.assertIn("cache_to_client_last_24h_bytes", last_24h["targets"][0]["expr"])
+        self.assertIn("origin_to_client_last_24h_bytes", last_24h["targets"][0]["expr"])
+        self.assertIn("total_to_client_last_24h_bytes", origin["targets"][0]["expr"])
+        dashboard_text = json.dumps(dashboard)
+        self.assertNotIn(
+            "returned_to_clients_bytes_total / clamp_min(apple_content_cache_stored_from_origin",
+            dashboard_text,
+        )
 
     def test_clientstats_malformed_ndjson_is_counted_not_crashing(self):
         lines = [

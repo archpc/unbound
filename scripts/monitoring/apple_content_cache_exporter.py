@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
 apple_content_cache_exporter.py - Prometheus textfile-collector metrics for
-macOS Content Caching, parsed from `AssetCacheManagerUtil status` (no sudo
-required - the status/settings/isActivated/canActivate subcommands are
-readable by any local user).
+macOS Content Caching. Service state and coarse lifetime totals come from
+`AssetCacheManagerUtil status`; cache-hit and origin pass-through traffic
+comes from Apple's read-only Metrics.db.
 
 Only fields explicitly needed for monitoring are exported; the tool reports
 many more (ServerGUID, PublicAddress, RestrictedMedia, ...) that are left out
@@ -17,6 +17,13 @@ point-in-time gauge. apple_content_cache_totals_since_seconds is exported
 alongside them so a Grafana panel can tell a real reset (service restart)
 apart from a rate dip.
 
+Apple's metrics database records interval deltas rather than lifetime
+counters. The exporter sums its authoritative bytesFromCacheToClient and
+bytesFromOriginToClient columns. Fixed 24-hour sums are gauges. Since-reset
+sums are exposed as counters only while the reset is within Apple's guaranteed
+30-day database retention; after that they are omitted rather than presented
+as incomplete counters.
+
 Usage:
   apple_content_cache_exporter.py --stdout
   apple_content_cache_exporter.py --output /path/to/apple-content-cache.prom
@@ -25,11 +32,16 @@ Usage:
 import argparse
 import os
 import re
+import sqlite3
 import subprocess
 import sys
 import time
+from pathlib import Path
 
 ASSET_CACHE_MANAGER_UTIL = "/usr/bin/AssetCacheManagerUtil"
+METRICS_DB = "/Library/Application Support/Apple/AssetCache/Metrics/Metrics.db"
+CORE_DATA_EPOCH_OFFSET_SECONDS = 978307200
+METRICS_GUARANTEED_RETENTION_SECONDS = 30 * 24 * 60 * 60
 
 _SIZE_RE = re.compile(r"^([\d.]+)\s*(KB|MB|GB|TB)$", re.IGNORECASE)
 _PERCENT_RE = re.compile(r"^([\d.]+)\s*%$")
@@ -119,6 +131,114 @@ def parse_status_text(text):
     return top, cache_details
 
 
+class MetricsDatabaseError(RuntimeError):
+    pass
+
+
+def _quote_identifier(value):
+    return '"' + value.replace('"', '""') + '"'
+
+
+def _metric_schema(connection):
+    """Return (table, logical-column map) for Apple's Core Data Metric table."""
+    required = {
+        "CREATIONDATE",
+        "BYTESFROMCACHETOCLIENT",
+        "BYTESFROMORIGINTOCLIENT",
+    }
+    tables = connection.execute(
+        "SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'"
+    ).fetchall()
+    for (table,) in tables:
+        columns = connection.execute(
+            f"PRAGMA table_info({_quote_identifier(table)})"
+        ).fetchall()
+        logical = {}
+        for column in columns:
+            physical = column[1]
+            normalized = physical.upper()
+            if normalized.startswith("Z"):
+                normalized = normalized[1:]
+            logical[normalized] = physical
+        if required <= set(logical):
+            return table, logical
+    raise MetricsDatabaseError(
+        "no table contains creationDate, bytesFromCacheToClient, and "
+        "bytesFromOriginToClient"
+    )
+
+
+def _aggregate_traffic(connection, table, columns, cutoff_epoch):
+    """Sum Apple's per-period client byte fields at or after cutoff_epoch."""
+    source_fields = [
+        "BYTESFROMCACHETOCLIENT",
+        "BYTESFROMORIGINTOCLIENT",
+        "BYTESFROMPARENTTOCLIENT",
+        "BYTESFROMPEERTOCLIENT",
+    ]
+
+    def sum_expression(logical_name):
+        physical = columns.get(logical_name)
+        if physical is None:
+            return "0"
+        return f"COALESCE({_quote_identifier(physical)}, 0)"
+
+    cache = sum_expression("BYTESFROMCACHETOCLIENT")
+    origin = sum_expression("BYTESFROMORIGINTOCLIENT")
+    total = " + ".join(sum_expression(name) for name in source_fields)
+    creation = _quote_identifier(columns["CREATIONDATE"])
+    # Core Data stores NSDate values as seconds since 2001-01-01 UTC.
+    cutoff_core_data = float(cutoff_epoch - CORE_DATA_EPOCH_OFFSET_SECONDS)
+    query = (
+        f"SELECT COALESCE(SUM({cache}), 0), "
+        f"COALESCE(SUM({origin}), 0), COALESCE(SUM({total}), 0) "
+        f"FROM {_quote_identifier(table)} WHERE {creation} >= ?"
+    )
+    row = connection.execute(query, (cutoff_core_data,)).fetchone()
+    return {
+        "cache_to_client": float(row[0]),
+        "origin_to_client": float(row[1]),
+        "total_to_client": float(row[2]),
+    }
+
+
+def read_traffic_metrics(path=METRICS_DB, since_epoch=None, now=None):
+    """Read authoritative Apple client traffic aggregates from Metrics.db.
+
+    Results are recomputed from immutable interval rows, so exporter restarts
+    do not reset them. A Content Cache reset does reset the since-reset window.
+    """
+    if now is None:
+        now = int(time.time())
+    connection = None
+    try:
+        uri = Path(path).resolve().as_uri() + "?mode=ro"
+        connection = sqlite3.connect(uri, uri=True, timeout=10)
+        connection.execute("PRAGMA query_only = ON")
+        table, columns = _metric_schema(connection)
+        result = {
+            "last_24h": _aggregate_traffic(
+                connection, table, columns, now - 24 * 60 * 60
+            ),
+            "since_reset": None,
+            "since_reset_complete": False,
+        }
+        if (
+            since_epoch is not None
+            and 0 <= now - since_epoch <= METRICS_GUARANTEED_RETENTION_SECONDS
+        ):
+            result["since_reset"] = _aggregate_traffic(
+                connection, table, columns, since_epoch
+            )
+            result["since_reset_complete"] = True
+        return result
+    except (OSError, sqlite3.Error, MetricsDatabaseError) as exc:
+        raise MetricsDatabaseError(f"could not read {path}: {exc}") from exc
+    finally:
+        if connection is not None:
+            connection.close()
+
+
 class Metric:
     def __init__(self, name, mtype, help_text):
         self.name = name
@@ -146,7 +266,7 @@ def escape_label(value):
     return str(value).replace("\\", "\\\\").replace("\n", "\\n").replace('"', '\\"')
 
 
-def build_metrics(top, cache_details, now=None):
+def build_metrics(top, cache_details, now=None, traffic=None):
     """Returns (list_of_rendered_lines, warnings). Missing optional fields are
     silently omitted (not an error) - see module docstring."""
     if now is None:
@@ -233,7 +353,7 @@ def build_metrics(top, cache_details, now=None):
     want("TotalBytesReturnedToClients", parse_size_to_bytes,
          f"apple_content_cache_returned_to_clients_bytes{suffix}",
          "counter" if is_counter else "gauge",
-         "Bytes served to LAN clients from the cache" + (" (cumulative since apple_content_cache_totals_since_seconds)." if is_counter else "."))
+         "Bytes returned to clients from all sources" + (" (cumulative since apple_content_cache_totals_since_seconds)." if is_counter else "."))
     want("TotalBytesStoredFromOrigin", parse_size_to_bytes,
          f"apple_content_cache_stored_from_origin_bytes{suffix}",
          "counter" if is_counter else "gauge",
@@ -247,6 +367,68 @@ def build_metrics(top, cache_details, now=None):
             metrics.append(m)
         else:
             warnings.append(f"TotalBytesAreSince={since_raw!r} could not be parsed as a timestamp")
+
+    traffic_ok = Metric(
+        "apple_content_cache_traffic_metrics_available",
+        "gauge",
+        "1 when Apple's Metrics.db was read and its traffic schema was recognized.",
+    )
+    traffic_ok.add(1 if traffic is not None else 0)
+    metrics.append(traffic_ok)
+
+    if traffic is not None:
+        complete = Metric(
+            "apple_content_cache_since_reset_traffic_complete",
+            "gauge",
+            "1 when since-reset traffic is within Apple's guaranteed 30-day metrics retention.",
+        )
+        complete.add(1 if traffic["since_reset_complete"] else 0)
+        metrics.append(complete)
+
+        last_24h = traffic["last_24h"]
+        for key, name, help_text in [
+            (
+                "cache_to_client",
+                "apple_content_cache_cache_to_client_last_24h_bytes",
+                "Bytes Apple recorded as served from this cache to clients during the last 24 hours.",
+            ),
+            (
+                "origin_to_client",
+                "apple_content_cache_origin_to_client_last_24h_bytes",
+                "Bytes Apple recorded as fetched from the internet and passed through to clients during the last 24 hours.",
+            ),
+            (
+                "total_to_client",
+                "apple_content_cache_total_to_client_last_24h_bytes",
+                "All bytes Apple recorded as served to clients from cache, origin, parent, or peer during the last 24 hours.",
+            ),
+        ]:
+            m = Metric(name, "gauge", help_text)
+            m.add(last_24h[key])
+            metrics.append(m)
+
+        since_reset = traffic["since_reset"]
+        if since_reset is not None:
+            for key, name, help_text in [
+                (
+                    "cache_to_client",
+                    "apple_content_cache_cache_to_client_bytes_total",
+                    "Bytes Apple recorded as served from this cache to clients since the Content Cache reset.",
+                ),
+                (
+                    "origin_to_client",
+                    "apple_content_cache_origin_to_client_bytes_total",
+                    "Bytes Apple recorded as fetched from the internet and passed through to clients since the Content Cache reset.",
+                ),
+                (
+                    "total_to_client",
+                    "apple_content_cache_total_to_client_bytes_total",
+                    "All bytes Apple recorded as served to clients from cache, origin, parent, or peer since the Content Cache reset.",
+                ),
+            ]:
+                m = Metric(name, "counter", help_text)
+                m.add(since_reset[key])
+                metrics.append(m)
 
     if "CacheStatus" in top and "Port" in top:
         m = Metric("apple_content_cache_info", "gauge",
@@ -386,6 +568,10 @@ def main():
     group.add_argument("--stdout", action="store_true", help="print metrics to stdout instead of writing a file")
     group.add_argument("--output", metavar="PATH", help="write Prometheus textfile output atomically to PATH")
     group.add_argument("--test", action="store_true", help="run internal self-tests and exit")
+    parser.add_argument(
+        "--metrics-db", default=METRICS_DB,
+        help="path to Apple's content-cache Metrics.db (default: %(default)s)",
+    )
     args = parser.parse_args()
 
     if args.test:
@@ -402,7 +588,18 @@ def main():
         print("AssetCacheManagerUtil status produced no parseable fields", file=sys.stderr)
         sys.exit(1)
 
-    lines, warnings = build_metrics(top, cache_details)
+    since_raw = top.get("TotalBytesAreSince")
+    since_epoch = parse_timestamp_to_epoch(since_raw) if since_raw is not None else None
+    traffic = None
+    traffic_warning = None
+    try:
+        traffic = read_traffic_metrics(args.metrics_db, since_epoch=since_epoch)
+    except MetricsDatabaseError as exc:
+        traffic_warning = str(exc)
+
+    lines, warnings = build_metrics(top, cache_details, traffic=traffic)
+    if traffic_warning:
+        warnings.append(traffic_warning)
     for w in warnings:
         print(f"warning: {w}", file=sys.stderr)
 

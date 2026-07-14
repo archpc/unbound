@@ -195,6 +195,9 @@ Prometheus because the delivery path is the failed component.
 | Content cache | `apple_content_cache_*_bytes_total` | Cumulative origin/client byte counters when reset epoch is known |
 | Content cache | `apple_content_cache_totals_since_seconds` | Counter reset epoch |
 | Content cache | `apple_content_cache_detail_bytes{category=...}` | Cache use by category |
+| Content cache | `apple_content_cache_cache_to_client_bytes_total`, `apple_content_cache_origin_to_client_bytes_total`, `apple_content_cache_total_to_client_bytes_total` | Authoritative Metrics.db client traffic since reset; omitted when the reset exceeds Apple's guaranteed 30-day retention |
+| Content cache | `apple_content_cache_cache_to_client_last_24h_bytes`, `apple_content_cache_origin_to_client_last_24h_bytes`, `apple_content_cache_total_to_client_last_24h_bytes` | Rolling 24-hour Metrics.db client traffic gauges |
+| Content cache | `apple_content_cache_traffic_metrics_available`, `apple_content_cache_since_reset_traffic_complete` | Metrics.db readability/schema and since-reset completeness gauges |
 
 `unbound_exporter`, node_exporter, blackbox_exporter, Prometheus, and Grafana expose
 additional upstream metric schemas. Those binaries are not vendored here; their live
@@ -204,7 +207,7 @@ additional upstream metric schemas. Those binaries are not vendored here; their 
 
 | File | UID | Title | Panels | Refresh | Default range |
 |---|---|---|---:|---:|---:|
-| `apple-content-cache.json` | `apple-content-cache` | Apple Content Cache | 19 | 1 m | 6 h |
+| `apple-content-cache.json` | `apple-content-cache` | Apple Content Cache | 21 | 1 m | 6 h |
 | `network-tailscale.json` | `network-tailscale` | Network / Tailscale | 6 | 30 s | 6 h |
 | `prometheus-monitoring.json` | `prometheus-monitoring` | Prometheus / Monitoring | 9 | 30 s | 6 h |
 | `services.json` | `services` | Services | 9 | 30 s | 6 h |

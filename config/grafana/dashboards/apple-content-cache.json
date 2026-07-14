@@ -875,12 +875,13 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "clamp_max(apple_content_cache_returned_to_clients_bytes_total / clamp_min(apple_content_cache_stored_from_origin_bytes_total, 1), 1)",
+          "expr": "apple_content_cache_cache_to_client_bytes_total / clamp_min(apple_content_cache_cache_to_client_bytes_total + apple_content_cache_origin_to_client_bytes_total, 1)",
           "refId": "A"
         }
       ],
-      "title": "Local Serving Ratio \u2014 Since Reset",
-      "type": "stat"
+      "title": "Cache Hit Ratio \u2014 Since Reset",
+      "type": "stat",
+      "description": "Authoritative Apple Metrics.db bytes served from cache divided by bytes served from cache plus origin. A first-time cache fill should be near 0%; a repeated identical download should be high. The panel has no data when the reset is older than Apple's guaranteed 30-day metrics retention."
     },
     {
       "datasource": {
@@ -1066,14 +1067,110 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "clamp_max(increase(apple_content_cache_returned_to_clients_bytes_total[24h]) / clamp_min(increase(apple_content_cache_stored_from_origin_bytes_total[24h]), 1), 1)",
+          "expr": "apple_content_cache_cache_to_client_last_24h_bytes / clamp_min(apple_content_cache_cache_to_client_last_24h_bytes + apple_content_cache_origin_to_client_last_24h_bytes, 1)",
           "refId": "A",
-          "legendFormat": "served-locally ratio (capped at 100%)"
+          "legendFormat": "cache hit ratio"
         }
       ],
-      "title": "Local Serving Ratio / WAN Savings (24h)",
+      "title": "Cache Hit Ratio \u2014 Last 24h",
       "type": "timeseries",
-      "description": "Capped at 100%: early in Prometheus history the 24h increase() denominator is tiny and the raw ratio explodes. ~0.2-0.3 is normal for a young cache; it climbs as devices re-fetch shared content. Low is not an error - it may just mean no repeat Apple traffic."
+      "description": "Authoritative Apple Metrics.db bytes served from cache divided by bytes served from cache plus origin over the rolling last 24 hours. A first-time cache fill should be near 0%; a repeated identical download should be high. Zero traffic displays 0%."
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "text"
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 12,
+        "x": 0,
+        "y": 36
+      },
+      "id": 24,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "apple_content_cache_cache_to_client_bytes_total",
+          "refId": "A"
+        }
+      ],
+      "title": "WAN Bytes Saved \u2014 Since Reset",
+      "type": "stat",
+      "description": "Bytes Apple records as served from this cache to clients. These bytes did not need to be fetched from the internet for that client request. Omitted when the reset is older than Apple's guaranteed 30-day metrics retention."
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "unit": "percentunit",
+          "min": 0,
+          "max": 1
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 12,
+        "x": 12,
+        "y": 36
+      },
+      "id": 25,
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "apple_content_cache_origin_to_client_last_24h_bytes / clamp_min(apple_content_cache_total_to_client_last_24h_bytes, 1)",
+          "refId": "A",
+          "legendFormat": "origin pass-through ratio"
+        }
+      ],
+      "title": "Origin Pass-Through \u2014 Last 24h",
+      "type": "timeseries",
+      "description": "Bytes fetched from the internet and passed through to clients divided by all bytes served to clients from cache, origin, parent, or peer during the rolling last 24 hours. Zero traffic displays 0%."
     }
   ],
   "refresh": "1m",
@@ -1095,6 +1192,6 @@
   "timezone": "browser",
   "title": "Apple Content Cache",
   "uid": "apple-content-cache",
-  "version": 6,
+  "version": 7,
   "weekStart": ""
 }
