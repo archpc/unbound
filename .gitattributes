@@ -1,0 +1,32 @@
+# Repository text is canonical LF, independent of contributor platform.
+* text=auto eol=lf
+
+# Windows-native scripts retain their platform-native line endings.
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+
+# Binary assets and archives must never be line-ending normalized.
+*.7z binary
+*.db binary
+*.doc binary
+*.docx binary
+*.gif binary
+*.gz binary
+*.ico binary
+*.jpeg binary
+*.jpg binary
+*.pdf binary
+*.png binary
+*.ppt binary
+*.pptx binary
+*.sqlite binary
+*.sqlite3 binary
+*.tar binary
+*.tgz binary
+*.woff binary
+*.woff2 binary
+*.xls binary
+*.xlsx binary
+*.zip binary
+.DS_Store binary
