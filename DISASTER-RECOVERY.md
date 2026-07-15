@@ -137,7 +137,7 @@ sudo install -d -o localadmin -g admin -m 0755 /opt/homebrew/etc/grafana/dashboa
 sudo install -d -o localadmin -g admin -m 0755 /opt/homebrew/etc/grafana/provisioning/dashboards
 sudo install -d -o localadmin -g admin -m 0755 /opt/homebrew/etc/grafana/provisioning/datasources
 sudo install -d -o root -g admin -m 0775 /opt/homebrew/var/lib/node_exporter/textfile
-sudo install -d -o localadmin -g staff -m 0755 /Users/localadmin/monitoring/state
+sudo install -d -o localadmin -g staff -m 0700 /Users/localadmin/monitoring/state
 sudo install -d -o localadmin -g staff -m 0755 /Users/localadmin/warmup
 sudo install -d -o root -g wheel -m 0755 /usr/local/sbin
 sudo install -d -o root -g wheel -m 0755 /usr/local/libexec/unbound-stack/dns
@@ -263,8 +263,9 @@ ready. Required labels and identities are listed in
 | Failure | Missing/invalid topic, unsafe permissions, self-test error, or accidental disclosure |
 
 Restore the ntfy topic from protected backup without printing it, set owner
-`localadmin:staff` and mode 0600, then run notifier `--selftest`. If the old topic is
-unavailable, generate a new random topic locally and resubscribe the operator's device.
+`localadmin:staff` and mode 0600, ensure the notifier state directory is mode 0700, then
+run notifier `--selftest`. If the old topic is unavailable, generate a new random topic
+locally and resubscribe the operator's device.
 
 `--test-send` MAY be run only when one real notification is intended. It redacts the
 topic in output. The topic MUST NOT be embedded in a command line or diagnostic paste.

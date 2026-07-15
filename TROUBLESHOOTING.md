@@ -241,7 +241,7 @@ writable by the intended identity, or node_exporter rejects a shared metric fami
 | Field | Value |
 |---|---|
 | Symptom | Prometheus has firing alerts but the phone receives nothing |
-| Signal | Notifier metrics, state, and log show query or delivery failure |
+| Signal | Notifier metrics, state metadata, and sanitized log categories show which local stage failed |
 | Noise | Pending alerts are intentionally not sent; duplicates are suppressed |
 | Likely causes | Alert still pending, notifier stale, Prometheus unavailable, ntfy failure, phone subscription issue |
 | Execution | Mini; phone for final confirmation |
@@ -252,18 +252,29 @@ Verification:
 ```sh
 curl -s http://127.0.0.1:9090/api/v1/alerts
 curl -s http://127.0.0.1:9100/metrics | grep '^unbound_ntfy_'
+stat -f '%Sp %Su:%Sg %N' \
+  /Users/localadmin/monitoring/state \
+  /Users/localadmin/monitoring/state/notified-alerts.json \
+  /Users/localadmin/monitoring/ntfy.topic
 tail -100 /opt/homebrew/var/log/unbound-alertnotify.log
 ```
 
-Expected result: successful Prometheus poll, no delivery failures, and the firing count
-matches the alerts API after the next 120-second poll.
+Expected result: query, state processing, resolution safety, persistence, and topic
+readiness gauges are one; consecutive failures are zero; the firing/pending counts match
+the valid alerts API entries after the next 120-second poll. The state directory is mode
+0700; state and topic files are mode 0600. `unbound_ntfy_phone_receipt_known` remains
+zero by design. A recent server-acceptance timestamp proves only ntfy HTTP 2xx.
 
-Smallest safe fix: if the transport must be tested, run the notifier's `--test-send`
-mode intentionally. It sends one real push and redacts the topic. Do not print or copy
-the topic into a command line.
+Smallest safe fix: correct the evidenced local stage. Run `--selftest` first; it is
+offline. If transport and device receipt must be tested, run `--test-send`
+intentionally. It sends one real push, withholds the topic, reports only server
+acceptance, and still requires the operator to confirm phone receipt. Do not print or
+copy the topic into a command line.
 
-Escalation criteria: repeated delivery failures, missing secret file, corrupted state,
-or a healthy ntfy push that never reaches the subscribed device.
+Escalation criteria: repeated server non-acceptance, unknown timeout/reset outcomes,
+missing or unsafe topic metadata, state/persistence errors, suppressed resolutions that
+cannot regain complete evidence, or an ntfy-accepted test that never reaches the
+subscribed device.
 
 ## Time Machine is stale or unknown
 

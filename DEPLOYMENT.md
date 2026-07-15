@@ -375,6 +375,50 @@ preference export during troubleshooting.
 The notifier self-test MUST NOT be replaced with `--test-send` unless a real ntfy push
 is intentionally authorized. Deployment procedures MUST NOT read or print the topic.
 
+### Deploy notifier delivery hardening
+
+The reviewed operator helper stages no secret and defaults to no action. Its `deploy`,
+`rollback`, and `acceptance` modes are live state changes and MUST be invoked manually
+on the mini from the exact reviewed checkout. Do not run them during repository review.
+
+Before deployment, require a clean committed checkout, the full repository suite, the
+focused notifier matrix, target `promtool` for the config and all 50 rules, and live
+dashboard PromQL validation. The helper validates the candidate again, refuses to race
+an active notifier process, creates a private rollback bundle, atomically installs the
+notifier/rules/two changed dashboards, hardens the state directory/file modes, validates
+the live Prometheus files, and sends SIGHUP only after validation succeeds. Grafana's
+file provider discovers the two dashboard files without a restart.
+
+```sh
+backup="$HOME/monitoring/rollback/ntfy-hardening-$(date +%Y%m%d-%H%M%S)"
+tools/ntfy-delivery-hardening-operator.sh deploy "$backup"
+```
+
+The rollback bundle contains the pre-deployment notifier state because the hardened
+schema stores salted fingerprints that the inherited script does not understand. It is
+mode 0700 and sensitive even though it never includes the topic. Preserve the exact
+printed path for rollback:
+
+```sh
+tools/ntfy-delivery-hardening-operator.sh rollback "$backup"
+```
+
+After at least one 120-second notifier interval and two 30-second Grafana scans, run the
+read-only post-deployment verifier:
+
+```sh
+tools/ntfy-delivery-hardening-operator.sh verify
+```
+
+An optional real transport/device acceptance test requires an explicit environment
+confirmation and sends exactly one clearly labeled notification. HTTP success proves
+only ntfy server acceptance; the operator MUST confirm device receipt separately.
+
+```sh
+CONFIRM_REAL_NTFY_SEND=YES \
+  tools/ntfy-delivery-hardening-operator.sh acceptance
+```
+
 ## Full installation order
 
 For a blank host, dependencies require this order:

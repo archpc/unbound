@@ -144,26 +144,53 @@ sequenceDiagram
 
     E->>P: metrics every 15s or 30s
     P->>P: evaluate rules every 15s
-    N->>P: poll /api/v1/alerts every 120s
+    N->>P: poll alerts, alert-rule freshness, and runtime evidence every 120s
     alt new firing alert
-        N->>T: push high or urgent notification
+        N->>N: persist pending transition and salted label fingerprint
+        N->>T: bounded push with stable sequence ID
+        T-->>N: HTTP acceptance or sanitized failure
         T->>O: phone notification
     else already announced
-        N->>N: suppress duplicate by fingerprint
-    else resolved alert
-        N->>T: push default-priority resolution
+        N->>N: suppress duplicate by exact label identity
+    else alert absent twice with complete dependency evidence
+        N->>T: update the stable sequence with a default-priority resolution
+    else pending, stale, malformed, restarted, or dependency-unknown evidence
+        N->>N: hold notification or resolution safely
     end
 ```
 
-There is no Alertmanager. `prometheus_alert_notifier.py` polls only firing alerts,
-deduplicates them in `~/monitoring/state/notified-alerts.json`, and pushes to the secret
-topic stored in `~/monitoring/ntfy.topic`. A missing severity and `warning` both map to
-high priority; `critical` maps to urgent. Resolutions use default priority.
+There is no Alertmanager. `prometheus_alert_notifier.py` observes pending and firing
+alerts but publishes only firing transitions. It verifies the alerts API against fresh
+alert-rule evaluation timestamps and Prometheus runtime evidence. Exact sorted labelsets
+are identified by a per-state-file salted HMAC; raw private labels are not stored as
+keys. Notification bodies admit only `job`, `exported_job`, `instance`, `mountpoint`,
+`task`, `file`, `rule_group`, and `fstype`; file paths become basenames and private
+non-system mountpoints become a generic filesystem marker. Annotations and every other
+label remain local. Missing severity and `warning` map to high priority; `critical` maps
+to urgent.
 
-The notifier can report Prometheus becoming unreachable directly after three failed
-polls. It cannot report its own complete death. `AlertNotifierStale` and
-`NtfyDeliveryFailures` therefore remain dashboard-visible tripwires with a circular
-notification limitation.
+The state directory is mode 0700; the durable JSON state and advisory overlap lock are
+mode 0600. State and textfile replacements are fsynced and atomically renamed. A new or
+invalid state file adopts the current firing set as a no-replay baseline, preventing a
+restart or corruption storm. A normal first firing is persisted before HTTP. A stable
+ntfy sequence ID makes a retry update the same client notification after a crash, but
+ntfy keeps append-only server events; transactional exactly-once HTTP delivery is not
+claimed.
+
+A missing firing identity is eligible to resolve only after two complete polls, after a
+ten-minute Prometheus-restart grace, and while its explicit collection dependencies are
+not pending or firing. API failure, stale rule evaluation, malformed entries, target
+inventory mismatch, node/textfile failure, blackbox failure, and Unbound-exporter
+failure therefore hold affected resolutions instead of converting UNKNOWN into
+RESOLVED. Permanent ntfy 4xx errors are not retried; 429 and transient failures use
+bounded attempts and bounded `Retry-After` deferral. At most ten transitions are sent in
+one run.
+
+The notifier can report unavailable or stale Prometheus alert-state evidence directly
+after three failed/incomplete polls. It cannot report its own complete death.
+`AlertNotifierStale`, processing/persistence metrics, and `NtfyDeliveryFailures`
+therefore remain dashboard-visible tripwires with a circular notification limitation.
+An ntfy HTTP 2xx proves server acceptance only; phone receipt is explicitly UNKNOWN.
 
 ## Ownership and privilege boundaries
 
@@ -224,7 +251,7 @@ fabricated valid values.
 | Personal warm list | Regenerated from cache; privacy-sensitive | Not tracked |
 | Prometheus TSDB | 90-day runtime retention | Not tracked |
 | Grafana users/sessions/database | Runtime state | Not tracked |
-| Notifier fingerprints and counters | Runtime state | Not tracked |
+| Notifier salted fingerprints, transitions, and counters | Runtime state, private mode | Not tracked |
 | Time Machine state and latest-backup timestamp | Recomputed every 15 minutes; destination identifiers omitted | Generated textfile, not tracked |
 | ntfy topic | Persistent secret, mode 600 | MUST NOT be tracked |
 | Root trust anchor | Managed by Unbound | Not tracked |

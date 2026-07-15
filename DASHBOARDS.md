@@ -148,7 +148,7 @@ Current justified dashboard thresholds are:
 | Producer freshness | per-producer alert age | LaunchDaemon cadence and matching alert |
 | Time Machine latest backup | amber at 6 h, red at 24 h | Observed hourly cadence; documented engineering judgment |
 | Blocklist size | red below 100% of selected source floor | Source-aware updater validation |
-| Notifier failures | red at 2 in 30 m | `NtfyDeliveryFailures` |
+| Notifier server non-acceptances | red at 2 in 30 m | `NtfyDeliveryFailures`; timeout/reset ambiguity is shown separately and neither series proves phone receipt |
 
 Do not add severity colors to uptime, byte totals, TSDB counts, cache use, CPU, memory,
 or ordinary network variation without an alert, limit, SLO, or evidence-based bound.
