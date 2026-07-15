@@ -4,7 +4,8 @@
 <dict>
     <!-- Read-only Time Machine state collection. This is a localadmin-owned
          system daemon because the Mac has no persistent GUI login session.
-         The script emits no destination paths, identifiers, or labels. -->
+         The script uses completed SnapshotDates when launchd cannot grant
+         tmutil Full Disk Access; it emits no destination metadata. -->
     <key>Label</key>
     <string>local.unbound.timemachine</string>
     <key>UserName</key>

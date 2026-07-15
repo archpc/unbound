@@ -367,9 +367,9 @@ groups:
           summary: "2+ failed ntfy pushes in 30m - phone alert channel broken or recently recovered"
           description: "The 30m increase window can remain firing briefly after delivery recovers because it still contains earlier failed sends; visible on dashboard only, by nature."
 
-      # Read-only tmutil collector, every 900s. The mtime guard detects a job
-      # that stopped rewriting; collection_success catches a fresh but failed
-      # tmutil read. Unconfigured Time Machine is reported as disabled, not bad.
+      # Read-only Time Machine collector, every 900s. The mtime guard detects a
+      # job that stopped rewriting; collection_success catches a fresh but failed
+      # state read. Unconfigured Time Machine is reported as disabled, not bad.
       - alert: TimeMachineMonitoringUnhealthy
         expr: |
           (up{job="node"} == 1)

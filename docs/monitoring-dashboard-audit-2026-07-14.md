@@ -474,7 +474,14 @@ provisioned configuration/tests rather than PromQL labels.
   `UpstreamDNSPathDegraded` firing episodes had a maximum around 15 m. These values are
   evidence for keeping a sustained-path view, not a new SLO.
 - Read-only `tmutil` evidence showed no running backup and a recent latest backup on the
-  audit date. Destination path/identifier was not recorded or exposed.
+  audit date. Destination path/identifier was not recorded or exposed. Deployment
+  validation on 2026-07-15 then proved that both user and root system LaunchDaemons
+  receive exit 80 from `tmutil latestbackup`, while destination and running-state reads
+  succeed. The host's macOS 26.5.2 man page requires root plus Full Disk Access for that
+  command; root alone is insufficient. The newest completed `SnapshotDates` entry in
+  the world-readable Time Machine preference plist exactly matched `tmutil
+  latestbackup -t` at epoch 1784091660 across 34 recorded snapshots. The collector now
+  uses that bounded, metadata-free preference field only when `tmutil` is unavailable.
 - Live `unbound-checkconf` and resolver/DNSSEC/RPZ canaries passed for the unchanged
   resolver configuration. This does not validate the undeployed dashboard candidate.
 
@@ -486,7 +493,7 @@ provisioned configuration/tests rather than PromQL labels.
 | Target `promtool check config /tmp/prometheus.yml` | PASS for candidate config syntax; it followed its absolute path to the live inherited 29-rule file, so the candidate rule file is covered by the separate rule check |
 | Target blackbox_exporter 0.28.0 staged `--config.check` | PASS for candidate HTTP/DNS modules |
 | Target `plutil -lint` on clientstats and Time Machine plists | PASS for both |
-| Time Machine collector unit/self-test | PASS; privacy, parse, missing/error, atomic replacement, and offline behavior covered |
+| Time Machine collector unit/self-test | PASS before deployment; privacy, tmutil and preference fallback parsing, missing/error, atomic replacement, and offline behavior covered |
 | Dashboard generator/inventory checks | PASS: five generated dashboards and 95 inherited inventory rows |
 
 ### Live PromQL validation

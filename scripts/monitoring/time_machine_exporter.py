@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 """Export privacy-preserving Time Machine state for node_exporter's textfile collector.
 
-The collector invokes only read-only ``tmutil`` subcommands.  It deliberately never
-copies command output into metrics or diagnostics because that output can contain a
-backup destination path, host name, or destination identifier.
+The collector invokes only read-only ``tmutil`` subcommands and, when launchd lacks
+Full Disk Access for ``tmutil latestbackup``, reads only completed ``SnapshotDates``
+from Time Machine's system preference plist.  It deliberately never copies command
+output or destination metadata into metrics or diagnostics because those sources can
+contain a backup destination path, host name, or destination identifier.
 
 Usage:
   time_machine_exporter.py --output /path/to/time-machine.prom
@@ -15,9 +17,11 @@ Without ``--output`` the rendered metrics are written to standard output.
 from __future__ import annotations
 
 import argparse
+import calendar
 from datetime import datetime
 import os
 from pathlib import Path
+import plistlib
 import re
 import subprocess
 import sys
@@ -26,6 +30,7 @@ from typing import Dict, List, Optional, Tuple, Union
 
 
 TMUTIL = "/usr/bin/tmutil"
+TIME_MACHINE_PREFERENCES = "/Library/Preferences/com.apple.TimeMachine.plist"
 COMMAND_TIMEOUT_SECONDS = 30
 LATEST_BACKUP_ATTEMPTS = 3
 LATEST_BACKUP_RETRY_DELAY_SECONDS = 2
@@ -110,17 +115,54 @@ def parse_latest_backup_timestamp(text: str) -> Optional[int]:
         return None
 
 
+def read_latest_backup_timestamp_from_preferences(
+    path: Union[str, os.PathLike[str]] = TIME_MACHINE_PREFERENCES,
+) -> Optional[int]:
+    """Return the newest completed SnapshotDate without exposing destination data.
+
+    macOS keeps completed backup dates inside each configured destination dictionary.
+    The file is readable by the unprivileged collector on the deployed host.  Only
+    datetime values under the bounded ``Destinations[*].SnapshotDates`` path are
+    considered; names, URLs, mount points, and destination identifiers are ignored.
+    Property-list dates are UTC, unlike the local-time text emitted by ``tmutil``.
+    """
+    try:
+        with Path(path).open("rb") as handle:
+            preferences = plistlib.load(handle)
+    except (OSError, plistlib.InvalidFileException):
+        return None
+    if not isinstance(preferences, dict):
+        return None
+    destinations = preferences.get("Destinations", [])
+    if not isinstance(destinations, list):
+        return None
+    dates: list[datetime] = []
+    for destination in destinations:
+        if not isinstance(destination, dict):
+            continue
+        snapshot_dates = destination.get("SnapshotDates", [])
+        if not isinstance(snapshot_dates, list):
+            continue
+        dates.extend(item for item in snapshot_dates if isinstance(item, datetime))
+    if not dates:
+        return None
+    try:
+        return calendar.timegm(max(dates).utctimetuple())
+    except (OverflowError, ValueError):
+        return None
+
+
 def collect_latest_backup_timestamp() -> Optional[int]:
-    """Retry the privacy-safe latest-backup read across transient tmutil gaps."""
+    """Read the latest completion time without requiring launchd Full Disk Access."""
     for attempt in range(LATEST_BACKUP_ATTEMPTS):
-        result = run_tmutil("latestbackup")
+        result = run_tmutil("latestbackup", "-t")
         if result.returncode == 0:
             timestamp = parse_latest_backup_timestamp(result.stdout or "")
             if timestamp is not None:
                 return timestamp
         if attempt + 1 < LATEST_BACKUP_ATTEMPTS:
             time.sleep(LATEST_BACKUP_RETRY_DELAY_SECONDS)
-    return None
+    return read_latest_backup_timestamp_from_preferences()
 
 
 def collect_snapshot() -> Tuple[Dict[str, Optional[int]], List[str]]:
@@ -168,7 +210,7 @@ def collect_snapshot() -> Tuple[Dict[str, Optional[int]], List[str]]:
     if latest_timestamp is None:
         snapshot["latest_backup_available"] = 0
         snapshot["collection_success"] = 0
-        errors.append("tmutil latest backup timestamp could not be determined")
+        errors.append("latest Time Machine backup timestamp could not be determined")
     else:
         snapshot["latest_backup_available"] = 1
         snapshot["latest_backup_timestamp_seconds"] = latest_timestamp
@@ -195,7 +237,7 @@ _METRICS = (
     (
         "time_machine_latest_backup_timestamp_seconds",
         "latest_backup_timestamp_seconds",
-        "Unix timestamp of the latest Time Machine backup in the Mac's local timezone.",
+        "Unix timestamp of the latest completed Time Machine backup.",
     ),
     (
         "time_machine_exporter_collection_success",

@@ -388,7 +388,7 @@
     {
       "id": 6,
       "title": "Time Machine collection",
-      "description": "Whether destination, running state, and latest-backup state were collected without error. It does not state that a backup is recent.",
+      "description": "Whether destination, running state, and latest-completed-backup state were collected without error. The timestamp uses tmutil when permitted and completed SnapshotDates otherwise. It does not state that a backup is recent.",
       "type": "stat",
       "datasource": {
         "type": "prometheus",
@@ -471,7 +471,7 @@
     {
       "id": 7,
       "title": "Latest backup age",
-      "description": "Age of the latest backup reported by tmutil. NOT CONFIGURED is explicit; missing or stale collection remains UNKNOWN. Six-hour warning and 24-hour failure bounds are based on the observed hourly schedule.",
+      "description": "Age of the latest completed backup from the privacy-safe collector. NOT CONFIGURED is explicit; missing or stale collection remains UNKNOWN. Six-hour warning and 24-hour failure bounds are based on the observed hourly schedule.",
       "type": "stat",
       "datasource": {
         "type": "prometheus",
@@ -1066,7 +1066,7 @@
     {
       "id": 15,
       "title": "Latest backup age",
-      "description": "Sawtooth age since the most recent backup. Gaps remain gaps instead of becoming zero; configuration and collection state are explicit above.",
+      "description": "Sawtooth age since the latest completed backup reported by the privacy-safe collector. Gaps remain gaps instead of becoming zero; configuration and collection state are explicit above.",
       "type": "timeseries",
       "datasource": {
         "type": "prometheus",

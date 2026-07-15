@@ -228,8 +228,8 @@ Prometheus because the delivery path is the failed component.
 | Content cache | `apple_content_cache_traffic_metrics_available`, `apple_content_cache_since_reset_traffic_complete` | Metrics.db readability/schema and since-reset completeness gauges |
 | Time Machine | `time_machine_destination_configured` | Whether a destination is configured; no destination identifier is labeled |
 | Time Machine | `time_machine_backup_running` | Current tmutil running state |
-| Time Machine | `time_machine_latest_backup_available`, `time_machine_latest_backup_timestamp_seconds` | Latest-backup availability and local-time-derived Unix timestamp |
-| Time Machine | `time_machine_exporter_collection_success` | Whether all required read-only tmutil state was collected |
+| Time Machine | `time_machine_latest_backup_available`, `time_machine_latest_backup_timestamp_seconds` | Latest completed-backup availability and Unix timestamp; `tmutil latestbackup -t` with completed `SnapshotDates` fallback |
+| Time Machine | `time_machine_exporter_collection_success` | Whether all required read-only Time Machine state was collected |
 
 `unbound_exporter`, node_exporter, blackbox_exporter, Prometheus, and Grafana expose
 additional upstream metric schemas. Those binaries are not vendored here; their live

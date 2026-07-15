@@ -4,7 +4,9 @@
 from __future__ import annotations
 
 import importlib.util
+from datetime import datetime
 from pathlib import Path
+import plistlib
 import subprocess
 import tempfile
 import time
@@ -43,6 +45,33 @@ class TimeMachineExporterTests(unittest.TestCase):
             exporter.parse_latest_backup_timestamp("2026-13-40-256199")
         )
 
+    def test_preferences_fallback_reads_only_completed_snapshot_dates(self):
+        with tempfile.TemporaryDirectory() as raw_directory:
+            preferences = Path(raw_directory) / "com.apple.TimeMachine.plist"
+            with preferences.open("wb") as handle:
+                plistlib.dump(
+                    {
+                        "Destinations": [
+                            {
+                                "ID": "private-fixture-id",
+                                "SnapshotDates": [
+                                    datetime(2026, 7, 14, 20, 0, 0),
+                                    "not-a-date",
+                                    datetime(2026, 7, 15, 1, 1, 0),
+                                ],
+                            },
+                            {"SnapshotDates": "invalid-container"},
+                        ]
+                    },
+                    handle,
+                )
+
+            timestamp = exporter.read_latest_backup_timestamp_from_preferences(
+                preferences
+            )
+
+        self.assertEqual(timestamp, 1784077260)
+
     @mock.patch.object(exporter, "run_tmutil")
     def test_unconfigured_destination_is_successful_and_skips_other_commands(
         self, run_tmutil
@@ -74,8 +103,8 @@ class TimeMachineExporterTests(unittest.TestCase):
                 [exporter.TMUTIL, "status"], stdout="{ Running = 0; }"
             ),
             completed(
-                [exporter.TMUTIL, "latestbackup"],
-                stdout="/fixture/2026-07-14-175830.backup\n",
+                [exporter.TMUTIL, "latestbackup", "-t"],
+                stdout="2026-07-14-175830\n",
             ),
         )
 
@@ -93,7 +122,7 @@ class TimeMachineExporterTests(unittest.TestCase):
         self.assertNotIn("{", rendered)
         self.assertEqual(
             [call.args for call in run_tmutil.call_args_list],
-            [("destinationinfo",), ("status",), ("latestbackup",)],
+            [("destinationinfo",), ("status",), ("latestbackup", "-t")],
         )
 
     @mock.patch.object(exporter, "run_tmutil")
@@ -110,23 +139,27 @@ class TimeMachineExporterTests(unittest.TestCase):
                 [exporter.TMUTIL, "status"], stdout="{ Running = 1; }"
             ),
             completed(
-                [exporter.TMUTIL, "latestbackup"],
+                [exporter.TMUTIL, "latestbackup", "-t"],
                 returncode=1,
                 stderr=f"cannot inspect {sensitive_fixture}",
             ),
             completed(
-                [exporter.TMUTIL, "latestbackup"],
+                [exporter.TMUTIL, "latestbackup", "-t"],
                 returncode=1,
                 stderr=f"cannot inspect {sensitive_fixture}",
             ),
             completed(
-                [exporter.TMUTIL, "latestbackup"],
+                [exporter.TMUTIL, "latestbackup", "-t"],
                 returncode=1,
                 stderr=f"cannot inspect {sensitive_fixture}",
             ),
         )
 
-        with mock.patch.object(exporter.time, "sleep") as sleep:
+        with mock.patch.object(exporter.time, "sleep") as sleep, mock.patch.object(
+            exporter,
+            "read_latest_backup_timestamp_from_preferences",
+            return_value=None,
+        ) as preferences:
             snapshot, errors = exporter.collect_snapshot()
         rendered = "\n".join(exporter.render_metrics(snapshot, now=1))
         diagnostics = "\n".join(errors)
@@ -141,16 +174,45 @@ class TimeMachineExporterTests(unittest.TestCase):
         self.assertNotIn(sensitive_fixture, rendered)
         self.assertNotIn(sensitive_fixture, diagnostics)
         self.assertEqual(sleep.call_count, 2)
+        preferences.assert_called_once_with()
+
+    @mock.patch.object(exporter, "run_tmutil")
+    def test_latest_backup_uses_preferences_when_launchd_lacks_access(
+        self, run_tmutil
+    ):
+        expected = 1784091660
+        run_tmutil.side_effect = (
+            completed([exporter.TMUTIL, "destinationinfo"], stdout="configured"),
+            completed([exporter.TMUTIL, "status"], stdout="{ Running = 0; }"),
+            completed([exporter.TMUTIL, "latestbackup", "-t"], returncode=80),
+            completed([exporter.TMUTIL, "latestbackup", "-t"], returncode=80),
+            completed([exporter.TMUTIL, "latestbackup", "-t"], returncode=80),
+        )
+
+        with mock.patch.object(exporter.time, "sleep"), mock.patch.object(
+            exporter,
+            "read_latest_backup_timestamp_from_preferences",
+            return_value=expected,
+        ) as preferences:
+            snapshot, errors = exporter.collect_snapshot()
+
+        self.assertEqual(errors, [])
+        self.assertEqual(snapshot["latest_backup_available"], 1)
+        self.assertEqual(snapshot["latest_backup_timestamp_seconds"], expected)
+        self.assertEqual(snapshot["collection_success"], 1)
+        preferences.assert_called_once_with()
 
     @mock.patch.object(exporter, "run_tmutil")
     def test_latest_backup_transient_gap_is_retried(self, run_tmutil):
         run_tmutil.side_effect = (
             completed([exporter.TMUTIL, "destinationinfo"], stdout="configured"),
             completed([exporter.TMUTIL, "status"], stdout="{ Running = 0; }"),
-            completed([exporter.TMUTIL, "latestbackup"], stdout="not ready"),
             completed(
-                [exporter.TMUTIL, "latestbackup"],
-                stdout="/fixture/2026-07-14-175830.backup",
+                [exporter.TMUTIL, "latestbackup", "-t"], stdout="not ready"
+            ),
+            completed(
+                [exporter.TMUTIL, "latestbackup", "-t"],
+                stdout="2026-07-14-175830",
             ),
         )
 
@@ -185,8 +247,8 @@ class TimeMachineExporterTests(unittest.TestCase):
             completed([exporter.TMUTIL, "destinationinfo"], stdout="configured"),
             completed([exporter.TMUTIL, "status"], stdout="{ Percent = 0.5; }"),
             completed(
-                [exporter.TMUTIL, "latestbackup"],
-                stdout="/fixture/2026-07-14-175830.backup",
+                [exporter.TMUTIL, "latestbackup", "-t"],
+                stdout="2026-07-14-175830",
             ),
         )
 
