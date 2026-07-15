@@ -24,7 +24,7 @@ Evidence is classified as:
 |---|---|---|
 | Rule evaluation | Global evaluation interval is 15 seconds; 11 recording and 39 alert rules are loaded and healthy. | Observed repository and observed live `/api/v1/rules`; all four tracked Prometheus/notifier files matched live SHA-256. |
 | Alert APIs | The notifier reads `/api/v1/alerts`, `/api/v1/rules?type=alert`, and `/api/v1/status/runtimeinfo`. Pending and firing entries are parsed independently; only firing entries are eligible to notify. | Repository implementation; isolated malformed/pending/firing tests. The live alerts API had zero active entries. |
-| Freshness | Every alert-rule group must be nonempty, healthy, and evaluated within the larger of 60 seconds or four group intervals, measured against Prometheus `serverTime`. No fixed rule-count constant is trusted. | Isolated fresh/stale/missing/unhealthy/restart tests. |
+| Freshness | Every alert-rule group must be nonempty, healthy, and evaluated within the larger of 60 seconds or four group intervals, measured against Prometheus `serverTime`. A transient evaluation-in-progress shape is rechecked for at most 21 total observations over 20 seconds, covering a complete 15-second evaluation cycle; persistent incompleteness fails closed. No fixed rule-count constant is trusted. | Isolated fresh/stale/missing/unhealthy/restart/recheck tests and post-deployment read-only sampling. |
 | Identity | Exact sorted alert labels are HMAC-SHA-256 identified with a random per-state-file salt. Label order is irrelevant; any label change creates another identity. Raw identity labels are not state keys. | Isolated ordering, changed-label, privacy, migration, and state-file assertions. |
 | State | State directory is 0700; JSON state and advisory lock are 0600. Writes use same-directory temporary files, file `fsync`, atomic replace, and directory `fsync`. Strict schema and keyed entry-integrity checks quarantine parseable structural corruption. | Repository implementation and isolated write/permission/corruption/cleanup tests; target-host validation remains required. |
 | Transition detection | New firing identities create a durable pending intent before HTTP. Known firing identities suppress repeats. Missing identities require two complete dependency-qualified polls before resolution. | Isolated fire/repeat/resolve, restart, dependency, API failure, malformed entry, and crash-window tests. |
@@ -100,6 +100,19 @@ and nonnumeric values never enter a notification.
   fresh and complete. A Prometheus restart holds resolutions for ten minutes, matching
   Prometheus's default restored-alert grace boundary.
 
+## Post-deployment validation finding
+
+The first deployed verification exposed a live timing behavior not visible in the
+initial repository/API snapshot: while a 15-second rule group was actively evaluating,
+`/api/v1/rules?type=alert` intermittently omitted `lastEvaluation` or returned a
+temporary non-OK rule health. A 30-second read-only sample alternated between complete
+and incomplete shapes while the alerts API remained valid with zero active alerts.
+Treating one such instant as the entire 120-second notifier result caused false local
+path failures, although resolutions remained safely suppressed. The notifier now
+rechecks only these structurally returned transient rule/runtime states, at one-second
+intervals, for 21 total observations over 20 seconds. Persistent incomplete evidence still fails
+closed, and Prometheus transport failures are not multiplied.
+
 ## Verified defects ordered by operational impact
 
 1. **False RESOLVED on unknown evidence.** A malformed alert was silently discarded;
@@ -147,7 +160,7 @@ and nonnumeric values never enter a notification.
 |---|---|---|
 | Prometheus transport | Connection refused, timeout, DNS/URL error, HTTP non-2xx | PASS, isolated |
 | Prometheus payload | Invalid UTF-8, malformed/truncated JSON, bad envelope/shape, malformed individual alert | PASS, fail closed; valid sibling alert retained |
-| Prometheus semantics | Pending/firing split, fresh empty list, zero firing, stale rule timestamp, unhealthy/missing rules, restart uptime, no fixed alert count | PASS, isolated |
+| Prometheus semantics | Pending/firing split, fresh empty list, zero firing, stale rule timestamp, bounded evaluation-in-progress recheck, persistently unhealthy/missing rules, restart uptime, no fixed alert count | PASS, isolated plus sanitized live timing reproduction |
 | ntfy success | HTTP 200/202 and malformed response body | PASS; 2xx is server acceptance |
 | ntfy permanent | 400/401/403/404 | PASS; one attempt, durable block, no repeated storm |
 | ntfy rate/transient | 429 with short/long `Retry-After`, 500/502/503, timeout, reset | PASS; bounded retry/deferral and ambiguity counter |

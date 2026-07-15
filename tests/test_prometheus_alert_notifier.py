@@ -160,6 +160,62 @@ class PrometheusFailureMatrixTests(unittest.TestCase):
         self.assertTrue(result.state_complete)
         self.assertFalse(result.resolutions_enabled)
 
+    def test_transient_rule_evaluation_gap_is_rechecked_before_failing_closed(self):
+        alerts = {"alerts": []}
+        runtime = {
+            "serverTime": "2026-07-15T04:00:10Z",
+            "startTime": "2026-07-15T03:00:00Z",
+        }
+        incomplete = {
+            "groups": [{
+                "interval": 15,
+                "rules": [{"type": "alerting", "health": "unknown"}],
+            }],
+        }
+        complete = {
+            "groups": [{
+                "interval": 15,
+                "lastEvaluation": "2026-07-15T04:00:05Z",
+                "rules": [{"type": "alerting", "health": "ok"}],
+            }],
+        }
+        with mock.patch.object(
+            notifier,
+            "_fetch_json",
+            side_effect=[alerts, incomplete, runtime, complete, runtime],
+        ) as fetch, mock.patch.object(notifier.time, "sleep") as sleep:
+            result = notifier.fetch_alert_snapshot()
+        self.assertTrue(result.state_complete)
+        self.assertTrue(result.resolutions_enabled)
+        self.assertEqual(fetch.call_count, 5)
+        sleep.assert_called_once_with(notifier.RULE_EVIDENCE_RECHECK_DELAY)
+
+    def test_persistent_rule_evaluation_gap_remains_bounded_and_incomplete(self):
+        alerts = {"alerts": []}
+        runtime = {
+            "serverTime": "2026-07-15T04:00:10Z",
+            "startTime": "2026-07-15T03:00:00Z",
+        }
+        incomplete = {
+            "groups": [{
+                "interval": 15,
+                "rules": [{"type": "alerting", "health": "unknown"}],
+            }],
+        }
+        responses = [alerts]
+        for _attempt in range(notifier.RULE_EVIDENCE_RECHECK_ATTEMPTS):
+            responses.extend((incomplete, runtime))
+        with mock.patch.object(
+            notifier, "_fetch_json", side_effect=responses
+        ) as fetch, mock.patch.object(notifier.time, "sleep") as sleep, \
+                contextlib.redirect_stderr(io.StringIO()):
+            result = notifier.fetch_alert_snapshot()
+        self.assertFalse(result.state_complete)
+        self.assertEqual(fetch.call_count, 1 + 2 * notifier.RULE_EVIDENCE_RECHECK_ATTEMPTS)
+        self.assertEqual(
+            sleep.call_count, notifier.RULE_EVIDENCE_RECHECK_ATTEMPTS - 1
+        )
+
     def test_unhealthy_or_missing_alert_rules_fail_closed_without_count_constant(self):
         runtime = {
             "serverTime": "2026-07-15T04:00:10Z",

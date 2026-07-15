@@ -161,7 +161,12 @@ sequenceDiagram
 
 There is no Alertmanager. `prometheus_alert_notifier.py` observes pending and firing
 alerts but publishes only firing transitions. It verifies the alerts API against fresh
-alert-rule evaluation timestamps and Prometheus runtime evidence. Exact sorted labelsets
+alert-rule evaluation timestamps and Prometheus runtime evidence. The Prometheus rules
+API can briefly omit evaluation fields while a group is actively evaluating, so a
+structurally returned but transiently incomplete rule/runtime snapshot is rechecked up
+to 21 total observations over 20 seconds, covering a complete 15-second evaluation
+cycle. Network/HTTP failure is not multiplied,
+and evidence that remains incomplete still fails closed. Exact sorted labelsets
 are identified by a per-state-file salted HMAC; raw private labels are not stored as
 keys. Each persisted transition also has a keyed integrity check, so structurally
 corrupt but parseable state is quarantined instead of rendered into a notification.

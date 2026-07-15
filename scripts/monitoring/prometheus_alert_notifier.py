@@ -59,6 +59,8 @@ METRICS_DIR = "/opt/homebrew/var/lib/node_exporter/textfile"
 TIMEOUT = 10
 UNREACHABLE_THRESHOLD = 3
 RULE_EVALUATION_MAX_AGE = 60
+RULE_EVIDENCE_RECHECK_ATTEMPTS = 21
+RULE_EVIDENCE_RECHECK_DELAY = 1
 PROMETHEUS_RESTART_RESOLUTION_GRACE = 600
 RESOLUTION_CONFIRM_POLLS = 2
 MAX_EVENTS_PER_RUN = 10
@@ -85,6 +87,11 @@ NOTIFICATION_LABEL_ALLOWLIST = (
     "job", "exported_job", "instance", "mountpoint", "task", "file",
     "rule_group", "fstype",
 )
+TRANSIENT_RULE_EVIDENCE_REASONS = {
+    "malformed rule/runtime evidence",
+    "missing rule evaluation timestamp",
+    "unhealthy alert rule evaluation",
+}
 ALERT_ENTRY_STATUSES = {
     "pending_firing", "firing_notified", "observed_baseline",
     "blocked_firing", "pending_resolved", "blocked_resolution",
@@ -359,6 +366,19 @@ def fetch_alert_snapshot():
     rules_data = _fetch_json(PROMETHEUS_RULES_URL)
     runtime_data = _fetch_json(PROMETHEUS_RUNTIME_URL)
     fresh, uptime, reason = _validate_rule_evidence(rules_data, runtime_data)
+    attempts = 1
+    while (
+        not fresh
+        and reason in TRANSIENT_RULE_EVIDENCE_REASONS
+        and rules_data is not None
+        and runtime_data is not None
+        and attempts < RULE_EVIDENCE_RECHECK_ATTEMPTS
+    ):
+        time.sleep(RULE_EVIDENCE_RECHECK_DELAY)
+        rules_data = _fetch_json(PROMETHEUS_RULES_URL)
+        runtime_data = _fetch_json(PROMETHEUS_RUNTIME_URL)
+        fresh, uptime, reason = _validate_rule_evidence(rules_data, runtime_data)
+        attempts += 1
     if invalid:
         print(f"Prometheus alerts API contained {invalid} malformed alert entr"
               f"{'y' if invalid == 1 else 'ies'}; valid firing alerts remain eligible, resolutions are held",
