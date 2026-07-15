@@ -27,6 +27,8 @@ from typing import Dict, List, Optional, Tuple, Union
 
 TMUTIL = "/usr/bin/tmutil"
 COMMAND_TIMEOUT_SECONDS = 30
+LATEST_BACKUP_ATTEMPTS = 3
+LATEST_BACKUP_RETRY_DELAY_SECONDS = 2
 
 _NO_DESTINATION_RE = re.compile(
     r"\bno\s+(?:time\s+machine\s+)?destinations?\s+(?:configured|found)\b",
@@ -108,6 +110,19 @@ def parse_latest_backup_timestamp(text: str) -> Optional[int]:
         return None
 
 
+def collect_latest_backup_timestamp() -> Optional[int]:
+    """Retry the privacy-safe latest-backup read across transient tmutil gaps."""
+    for attempt in range(LATEST_BACKUP_ATTEMPTS):
+        result = run_tmutil("latestbackup")
+        if result.returncode == 0:
+            timestamp = parse_latest_backup_timestamp(result.stdout or "")
+            if timestamp is not None:
+                return timestamp
+        if attempt + 1 < LATEST_BACKUP_ATTEMPTS:
+            time.sleep(LATEST_BACKUP_RETRY_DELAY_SECONDS)
+    return None
+
+
 def collect_snapshot() -> Tuple[Dict[str, Optional[int]], List[str]]:
     """Collect a truthful snapshot and generic, privacy-safe diagnostics.
 
@@ -149,10 +164,7 @@ def collect_snapshot() -> Tuple[Dict[str, Optional[int]], List[str]]:
         snapshot["collection_success"] = 0
         errors.append("tmutil status failed")
 
-    latest_result = run_tmutil("latestbackup")
-    latest_timestamp = None
-    if latest_result.returncode == 0:
-        latest_timestamp = parse_latest_backup_timestamp(latest_result.stdout or "")
+    latest_timestamp = collect_latest_backup_timestamp()
     if latest_timestamp is None:
         snapshot["latest_backup_available"] = 0
         snapshot["collection_success"] = 0

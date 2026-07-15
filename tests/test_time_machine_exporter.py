@@ -114,9 +114,20 @@ class TimeMachineExporterTests(unittest.TestCase):
                 returncode=1,
                 stderr=f"cannot inspect {sensitive_fixture}",
             ),
+            completed(
+                [exporter.TMUTIL, "latestbackup"],
+                returncode=1,
+                stderr=f"cannot inspect {sensitive_fixture}",
+            ),
+            completed(
+                [exporter.TMUTIL, "latestbackup"],
+                returncode=1,
+                stderr=f"cannot inspect {sensitive_fixture}",
+            ),
         )
 
-        snapshot, errors = exporter.collect_snapshot()
+        with mock.patch.object(exporter.time, "sleep") as sleep:
+            snapshot, errors = exporter.collect_snapshot()
         rendered = "\n".join(exporter.render_metrics(snapshot, now=1))
         diagnostics = "\n".join(errors)
 
@@ -129,6 +140,27 @@ class TimeMachineExporterTests(unittest.TestCase):
         self.assertNotIn("time_machine_latest_backup_timestamp_seconds ", rendered)
         self.assertNotIn(sensitive_fixture, rendered)
         self.assertNotIn(sensitive_fixture, diagnostics)
+        self.assertEqual(sleep.call_count, 2)
+
+    @mock.patch.object(exporter, "run_tmutil")
+    def test_latest_backup_transient_gap_is_retried(self, run_tmutil):
+        run_tmutil.side_effect = (
+            completed([exporter.TMUTIL, "destinationinfo"], stdout="configured"),
+            completed([exporter.TMUTIL, "status"], stdout="{ Running = 0; }"),
+            completed([exporter.TMUTIL, "latestbackup"], stdout="not ready"),
+            completed(
+                [exporter.TMUTIL, "latestbackup"],
+                stdout="/fixture/2026-07-14-175830.backup",
+            ),
+        )
+
+        with mock.patch.object(exporter.time, "sleep") as sleep:
+            snapshot, errors = exporter.collect_snapshot()
+
+        self.assertEqual(errors, [])
+        self.assertEqual(snapshot["latest_backup_available"], 1)
+        self.assertEqual(snapshot["collection_success"], 1)
+        sleep.assert_called_once_with(exporter.LATEST_BACKUP_RETRY_DELAY_SECONDS)
 
     @mock.patch.object(exporter, "run_tmutil")
     def test_unknown_destination_state_is_not_reported_as_unconfigured(
