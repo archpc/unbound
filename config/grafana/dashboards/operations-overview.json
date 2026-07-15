@@ -771,7 +771,7 @@
     {
       "id": 10,
       "title": "Latest Time Machine backup",
-      "description": "Age of the latest completed backup from the privacy-safe Time Machine collector. It uses tmutil when permitted and completed SnapshotDates otherwise. NOT CONFIGURED is explicit; missing or stale collection remains UNKNOWN. Warning at six hours and critical at 24 hours are engineering limits based on the observed hourly schedule.",
+      "description": "Age of the latest completed backup from the privacy-safe Time Machine collector. It uses tmutil when permitted and completed SnapshotDates obtained through the macOS defaults preference service otherwise. NOT CONFIGURED is explicit; missing or stale collection remains UNKNOWN. Warning at six hours and critical at 24 hours are engineering limits based on the observed hourly schedule.",
       "type": "stat",
       "datasource": {
         "type": "prometheus",

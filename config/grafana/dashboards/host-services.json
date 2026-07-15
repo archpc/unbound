@@ -388,7 +388,7 @@
     {
       "id": 6,
       "title": "Time Machine collection",
-      "description": "Whether destination, running state, and latest-completed-backup state were collected without error. The timestamp uses tmutil when permitted and completed SnapshotDates otherwise. It does not state that a backup is recent.",
+      "description": "Whether destination, running state, and latest-completed-backup state were collected without error. The timestamp uses tmutil when permitted and completed SnapshotDates obtained through the macOS defaults preference service otherwise. It does not state that a backup is recent.",
       "type": "stat",
       "datasource": {
         "type": "prometheus",

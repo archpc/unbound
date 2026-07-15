@@ -478,10 +478,18 @@ provisioned configuration/tests rather than PromQL labels.
   validation on 2026-07-15 then proved that both user and root system LaunchDaemons
   receive exit 80 from `tmutil latestbackup`, while destination and running-state reads
   succeed. The host's macOS 26.5.2 man page requires root plus Full Disk Access for that
-  command; root alone is insufficient. The newest completed `SnapshotDates` entry in
-  the world-readable Time Machine preference plist exactly matched `tmutil
-  latestbackup -t` at epoch 1784091660 across 34 recorded snapshots. The collector now
-  uses that bounded, metadata-free preference field only when `tmutil` is unavailable.
+  command; root alone is insufficient. A second privacy-safe LaunchDaemon diagnostic
+  proved that direct plist access and `plutil` are also blocked, while
+  `/usr/bin/defaults export /Library/Preferences/com.apple.TimeMachine -` succeeds. Its
+  34 completed
+  `SnapshotDates` entries had a newest epoch of 1784091660, exactly matching the
+  interactive `tmutil latestbackup -t` result. A unified-log query independently found
+  the corresponding backup-success event about five seconds later, but unified logs
+  were rejected as a production metric source because they are unstructured,
+  retention- and localization-sensitive, expensive to scan, and can contain private
+  metadata. The collector now captures the preference export only in memory, examines
+  only `Destinations[*].SnapshotDates`, and never persists, logs, or emits the raw
+  metadata.
 - Live `unbound-checkconf` and resolver/DNSSEC/RPZ canaries passed for the unchanged
   resolver configuration. This does not validate the undeployed dashboard candidate.
 

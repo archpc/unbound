@@ -363,10 +363,14 @@ root `brew services`, not hand-deployed from that snapshot.
 On macOS 26, `tmutil latestbackup` requires root plus Full Disk Access. A system
 LaunchDaemon does not gain that TCC permission merely by running as root. The Time
 Machine collector therefore falls back to the newest completed `SnapshotDates` entry
-in `/Library/Preferences/com.apple.TimeMachine.plist`, which is read without exporting
-destination metadata. A deployment MUST preflight the staged collector through a
-temporary system LaunchDaemon before the first live change; a successful interactive
-or SSH invocation is not equivalent evidence for the launchd execution domain.
+returned by `/usr/bin/defaults export /Library/Preferences/com.apple.TimeMachine -`.
+The export is captured only in process memory; the collector examines only
+`Destinations[*].SnapshotDates` and never persists, logs, or emits raw destination
+metadata. Direct file access and `plutil` are also TCC-blocked in the deployed launchd
+domain. A deployment MUST preflight the staged collector through a temporary system
+LaunchDaemon before the first live change; a successful interactive or SSH invocation
+is not equivalent evidence for the launchd execution domain. Do not print the raw
+preference export during troubleshooting.
 
 The notifier self-test MUST NOT be replaced with `--test-send` unless a real ntfy push
 is intentionally authorized. Deployment procedures MUST NOT read or print the topic.

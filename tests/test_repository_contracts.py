@@ -318,9 +318,21 @@ class RepositoryContractTests(unittest.TestCase):
         for metric in time_machine_metrics:
             self.assertIn(metric, exporter)
             self.assertIn(metric, rules)
-        self.assertIn("TIME_MACHINE_PREFERENCES", exporter)
+        self.assertIn('DEFAULTS = "/usr/bin/defaults"', exporter)
+        self.assertIn(
+            'TIME_MACHINE_PREFERENCES_DOMAIN = "/Library/Preferences/com.apple.TimeMachine"',
+            exporter,
+        )
+        self.assertIn(
+            '[DEFAULTS, "export", TIME_MACHINE_PREFERENCES_DOMAIN, "-"]', exporter
+        )
         self.assertIn('run_tmutil("latestbackup", "-t")', exporter)
         self.assertIn('destination.get("SnapshotDates", [])', exporter)
+        self.assertIn("plistlib.loads(data)", exporter)
+        self.assertNotIn(
+            '"/Library/Preferences/com.apple.TimeMachine.plist"', exporter
+        )
+        self.assertNotIn('"/usr/bin/log"', exporter)
         for metric in time_machine_metrics - {"time_machine_latest_backup_available"}:
             self.assertIn(metric, dashboards)
 

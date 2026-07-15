@@ -2,10 +2,10 @@
 """Export privacy-preserving Time Machine state for node_exporter's textfile collector.
 
 The collector invokes only read-only ``tmutil`` subcommands and, when launchd lacks
-Full Disk Access for ``tmutil latestbackup``, reads only completed ``SnapshotDates``
-from Time Machine's system preference plist.  It deliberately never copies command
-output or destination metadata into metrics or diagnostics because those sources can
-contain a backup destination path, host name, or destination identifier.
+Full Disk Access for ``tmutil latestbackup``, captures the system Time Machine
+preference domain through macOS's ``defaults`` service.  It examines only completed
+``Destinations[*].SnapshotDates`` in memory and never persists, logs, or emits the raw
+export because it can contain a backup path, host name, or destination identifier.
 
 Usage:
   time_machine_exporter.py --output /path/to/time-machine.prom
@@ -30,7 +30,8 @@ from typing import Dict, List, Optional, Tuple, Union
 
 
 TMUTIL = "/usr/bin/tmutil"
-TIME_MACHINE_PREFERENCES = "/Library/Preferences/com.apple.TimeMachine.plist"
+DEFAULTS = "/usr/bin/defaults"
+TIME_MACHINE_PREFERENCES_DOMAIN = "/Library/Preferences/com.apple.TimeMachine"
 COMMAND_TIMEOUT_SECONDS = 30
 LATEST_BACKUP_ATTEMPTS = 3
 LATEST_BACKUP_RETRY_DELAY_SECONDS = 2
@@ -115,21 +116,45 @@ def parse_latest_backup_timestamp(text: str) -> Optional[int]:
         return None
 
 
-def read_latest_backup_timestamp_from_preferences(
-    path: Union[str, os.PathLike[str]] = TIME_MACHINE_PREFERENCES,
-) -> Optional[int]:
+def run_defaults_export() -> subprocess.CompletedProcess[bytes]:
+    """Export the system Time Machine preference domain without logging its output."""
+    environment = os.environ.copy()
+    environment.update({"LANG": "C", "LC_ALL": "C"})
+    try:
+        return subprocess.run(
+            [DEFAULTS, "export", TIME_MACHINE_PREFERENCES_DOMAIN, "-"],
+            check=False,
+            capture_output=True,
+            timeout=COMMAND_TIMEOUT_SECONDS,
+            env=environment,
+        )
+    except FileNotFoundError:
+        return subprocess.CompletedProcess(
+            [DEFAULTS, "export", TIME_MACHINE_PREFERENCES_DOMAIN, "-"],
+            127,
+            stdout=b"",
+            stderr=b"",
+        )
+    except subprocess.TimeoutExpired:
+        return subprocess.CompletedProcess(
+            [DEFAULTS, "export", TIME_MACHINE_PREFERENCES_DOMAIN, "-"],
+            124,
+            stdout=b"",
+            stderr=b"",
+        )
+
+
+def parse_latest_backup_timestamp_from_preferences(data: bytes) -> Optional[int]:
     """Return the newest completed SnapshotDate without exposing destination data.
 
     macOS keeps completed backup dates inside each configured destination dictionary.
-    The file is readable by the unprivileged collector on the deployed host.  Only
-    datetime values under the bounded ``Destinations[*].SnapshotDates`` path are
+    Only datetime values under the bounded ``Destinations[*].SnapshotDates`` path are
     considered; names, URLs, mount points, and destination identifiers are ignored.
     Property-list dates are UTC, unlike the local-time text emitted by ``tmutil``.
     """
     try:
-        with Path(path).open("rb") as handle:
-            preferences = plistlib.load(handle)
-    except (OSError, plistlib.InvalidFileException):
+        preferences = plistlib.loads(data)
+    except (ValueError, plistlib.InvalidFileException):
         return None
     if not isinstance(preferences, dict):
         return None
@@ -150,6 +175,14 @@ def read_latest_backup_timestamp_from_preferences(
         return calendar.timegm(max(dates).utctimetuple())
     except (OverflowError, ValueError):
         return None
+
+
+def read_latest_backup_timestamp_from_preferences() -> Optional[int]:
+    """Read completed SnapshotDates through the launchd-safe preferences service."""
+    result = run_defaults_export()
+    if result.returncode != 0 or not result.stdout:
+        return None
+    return parse_latest_backup_timestamp_from_preferences(result.stdout)
 
 
 def collect_latest_backup_timestamp() -> Optional[int]:
@@ -289,7 +322,7 @@ def write_atomic(
 
 
 def self_test() -> bool:
-    """Exercise parsing and privacy properties without invoking tmutil."""
+    """Exercise parsing and privacy properties without invoking external commands."""
     ok = True
     if parse_backup_running("{ Running = 1; }") != 1:
         print("self-test: status parsing failed", file=sys.stderr)
@@ -303,19 +336,38 @@ def self_test() -> bool:
     if timestamp is None:
         print("self-test: latest backup timestamp parsing failed", file=sys.stderr)
         ok = False
+    preferences_timestamp = parse_latest_backup_timestamp_from_preferences(
+        plistlib.dumps(
+            {
+                "Destinations": [
+                    {
+                        "ID": "private-self-test-fixture",
+                        "SnapshotDates": [datetime(2026, 7, 15, 5, 1, 0)],
+                    }
+                ]
+            }
+        )
+    )
+    if preferences_timestamp != 1784091660:
+        print("self-test: preference timestamp parsing failed", file=sys.stderr)
+        ok = False
     rendered = "\n".join(
         render_metrics(
             {
                 "destination_configured": 1,
                 "backup_running": 0,
                 "latest_backup_available": 1,
-                "latest_backup_timestamp_seconds": timestamp,
+                "latest_backup_timestamp_seconds": preferences_timestamp,
                 "collection_success": 1,
             },
             now=0,
         )
     )
-    if "redacted" in rendered or "{" in rendered:
+    if (
+        "redacted" in rendered
+        or "private-self-test-fixture" in rendered
+        or "{" in rendered
+    ):
         print("self-test: rendered metrics contained unexpected text", file=sys.stderr)
         ok = False
     if ok:
