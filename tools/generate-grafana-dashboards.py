@@ -497,7 +497,7 @@ def overview_dashboard():
         stat(8, "Host metrics", 'up{job="node"}', grid(12, 4, 6, 3),
              "Prometheus can scrape node_exporter. This is a local observation and is not an independent witness that the Mac or LAN is externally reachable.", mappings=boolean_mappings("METRICS UP", "METRICS DOWN"), threshold_config=thresholds((1, "green"), base="red"), links=[panel_link("Host drill-down", "host-services")]),
         stat(9, "Notifier", "monitoring:notifier_local_path_healthy", grid(18, 4, 6, 3),
-             "Fresh notifier run, successful Prometheus poll, and fewer than two failed ntfy deliveries in 30 minutes. This cannot prove receipt on the phone.", mappings=boolean_mappings("LOCAL PATH OK", "FAILED / STALE"), threshold_config=thresholds((1, "green"), base="red"), links=[panel_link("Host drill-down", "host-services")]),
+             "LOCAL PATH OK requires a fresh complete run, fresh Prometheus alert/rule/runtime evidence, resolution safety after restart, durable state, a valid topic, and no current run failure. It proves neither a recent ntfy request nor phone receipt.", mappings=boolean_mappings("LOCAL PATH OK", "FAILED / STALE"), threshold_config=thresholds((1, "green"), base="red"), links=[panel_link("Host drill-down", "host-services")]),
         stat(10, "Backup age", time_machine_backup_age_state(), grid(0, 7, 6, 3),
              "Age of the latest completed backup from the privacy-safe Time Machine collector. It uses tmutil when permitted and completed SnapshotDates obtained through the macOS defaults preference service otherwise. NOT CONFIGURED is explicit; missing or stale collection remains UNKNOWN. Warning at six hours and critical at 24 hours are engineering limits based on the observed hourly schedule.", unit="s", mappings=TM_BACKUP_AGE_MAPPINGS, threshold_config=thresholds((21600, "orange"), (86400, "red"), base="green"), decimals=0, no_value="UNKNOWN / STALE", links=[panel_link("Backup drill-down", "host-services")]),
         stat(11, "Grafana", 'probe_success{job="blackbox_grafana"}', grid(6, 7, 6, 3),
@@ -615,7 +615,17 @@ def host_dashboard():
             ('time() - unbound_job_last_success_timestamp_seconds{task="alertnotify"} < bool 600', "Notifier · 2m"),
             ('time() - node_textfile_mtime_seconds{file=~".*/time-machine[.]prom"} < bool 3600', "Time Machine · 15m"),
         ], grid(16, 25, 8, 11), "Each row uses its producer cadence and matching alert-age boundary. Missing metrics remain UNKNOWN. A simultaneous loss across rows points first to node_exporter/textfile collection."),
-        timeseries(19, "Notifier delivery and state errors", [('increase(unbound_ntfy_delivery_failures_total[30m])', "delivery failures / 30m"), ('increase(unbound_ntfy_state_errors_total[30m])', "state errors / 30m")], grid(0, 33, 16, 8), "Persisted counter increases shown neutrally because the two series have different alert semantics. NtfyDeliveryFailures fires at two delivery failures in 30 minutes; even a healthy local path cannot prove phone receipt.", unit="short"),
+        timeseries(19, "Notifier delivery and state errors", [('increase(unbound_ntfy_delivery_failures_total[30m])', "server non-acceptances / 30m"), ('increase(unbound_ntfy_delivery_outcome_unknown_total[30m])', "acceptance outcome unknown / 30m"), ('increase(unbound_ntfy_state_errors_total[30m])', "state read/validation errors / 30m"), ('increase(unbound_ntfy_state_write_errors_total[30m])', "state write errors / 30m")], grid(0, 33, 16, 8), "Persisted counter increases shown neutrally because they have different semantics. NtfyDeliveryFailures fires at two logical transitions not accepted after bounded attempts; timeout/reset outcomes are separately unknown, and server acceptance never proves phone receipt.", unit="short"),
+        stat(20, "Notifier attempt age", "time() - unbound_ntfy_last_attempt_timestamp_seconds", grid(0, 41, 6, 4), "Age of the most recent notifier process run. This is process-liveness evidence only; the adjacent contract states show whether query, state processing, persistence, and topic validation succeeded.", unit="s", threshold_config=thresholds(base="blue"), decimals=0, no_value="UNKNOWN"),
+        stat(21, "Last ntfy acceptance age", "time() - unbound_ntfy_last_server_acceptance_timestamp_seconds", grid(6, 41, 6, 4), "Age of the latest HTTP request accepted by the ntfy server. It is absent before any accepted request and does not prove the phone received that request.", unit="s", threshold_config=thresholds(base="blue"), decimals=0, no_value="NEVER / UNKNOWN"),
+        stat(22, "Phone receipt", "unbound_ntfy_phone_receipt_known", grid(12, 41, 4, 4), "The local architecture has no delivery receipt from the operator device. HTTP 2xx is server acceptance only, so this remains UNKNOWN until an external/device witness exists.", mappings=[{"type": "value", "options": {"0": {"color": "gray", "index": 0, "text": "UNKNOWN"}, "1": {"color": "green", "index": 1, "text": "VERIFIED"}}}], threshold_config=thresholds((1, "green"), base="gray"), no_value="UNKNOWN"),
+        state_timeline(23, "Notifier processing contract", [
+            ("unbound_ntfy_prometheus_query_success", "Prometheus alerts API"),
+            ("unbound_ntfy_alert_state_processed", "Fresh state processed"),
+            ("unbound_ntfy_resolutions_enabled", "Resolutions enabled"),
+            ("unbound_ntfy_state_persistence_success", "Durable state"),
+            ("unbound_ntfy_topic_ready", "Topic ready"),
+        ], grid(16, 41, 8, 8), "Independent current-run gates behind monitoring:notifier_local_path_healthy. Gaps are UNKNOWN; a zero identifies the failed local stage without claiming anything about phone receipt."),
     ]
     return make_dashboard(
         "host-services",
@@ -623,7 +633,7 @@ def host_dashboard():
         "Shared host/resource failure domains, Time Machine recency, network trends, and freshness of every scheduled metric producer.",
         panels,
         tags=("host", "services", "backups", "drill-down"),
-        version=1,
+        version=2,
     )
 
 

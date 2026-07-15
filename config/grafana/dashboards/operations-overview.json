@@ -681,7 +681,7 @@
     {
       "id": 9,
       "title": "Notifier",
-      "description": "Fresh notifier run, successful Prometheus poll, and fewer than two failed ntfy deliveries in 30 minutes. This cannot prove receipt on the phone.",
+      "description": "LOCAL PATH OK requires a fresh complete run, fresh Prometheus alert/rule/runtime evidence, resolution safety after restart, durable state, a valid topic, and no current run failure. It proves neither a recent ntfy request nor phone receipt.",
       "type": "stat",
       "datasource": {
         "type": "prometheus",

@@ -46,7 +46,7 @@ class DashboardPromQLValidatorTests(unittest.TestCase):
         rules = validator.rule_queries(
             ROOT / "config" / "prometheus" / "prometheus.rules.yml"
         )
-        self.assertEqual(len(dashboards), 101)
+        self.assertEqual(len(dashboards), 111)
         self.assertEqual(len(rules), 50)
         identities = [item["identity"] for item in dashboards + rules]
         self.assertEqual(len(identities), len(set(identities)))

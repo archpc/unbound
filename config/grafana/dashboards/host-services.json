@@ -1488,7 +1488,7 @@
     {
       "id": 19,
       "title": "Notifier delivery and state errors",
-      "description": "Persisted counter increases shown neutrally because the two series have different alert semantics. NtfyDeliveryFailures fires at two delivery failures in 30 minutes; even a healthy local path cannot prove phone receipt.",
+      "description": "Persisted counter increases shown neutrally because they have different semantics. NtfyDeliveryFailures fires at two logical transitions not accepted after bounded attempts; timeout/reset outcomes are separately unknown, and server acceptance never proves phone receipt.",
       "type": "timeseries",
       "datasource": {
         "type": "prometheus",
@@ -1571,7 +1571,18 @@
           "instant": false,
           "range": true,
           "refId": "A",
-          "legendFormat": "delivery failures / 30m"
+          "legendFormat": "server non-acceptances / 30m"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "increase(unbound_ntfy_delivery_outcome_unknown_total[30m])",
+          "instant": false,
+          "range": true,
+          "refId": "B",
+          "legendFormat": "acceptance outcome unknown / 30m"
         },
         {
           "datasource": {
@@ -1581,8 +1592,363 @@
           "expr": "increase(unbound_ntfy_state_errors_total[30m])",
           "instant": false,
           "range": true,
+          "refId": "C",
+          "legendFormat": "state read/validation errors / 30m"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "increase(unbound_ntfy_state_write_errors_total[30m])",
+          "instant": false,
+          "range": true,
+          "refId": "D",
+          "legendFormat": "state write errors / 30m"
+        }
+      ]
+    },
+    {
+      "id": 20,
+      "title": "Notifier attempt age",
+      "description": "Age of the most recent notifier process run. This is process-liveness evidence only; the adjacent contract states show whether query, state processing, persistence, and topic validation succeeded.",
+      "type": "stat",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 41,
+        "w": 6,
+        "h": 4
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "noValue": "UNKNOWN",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "time() - unbound_ntfy_last_attempt_timestamp_seconds",
+          "instant": true,
+          "range": false,
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 21,
+      "title": "Last ntfy acceptance age",
+      "description": "Age of the latest HTTP request accepted by the ntfy server. It is absent before any accepted request and does not prove the phone received that request.",
+      "type": "stat",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 6,
+        "y": 41,
+        "w": 6,
+        "h": 4
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "noValue": "NEVER / UNKNOWN",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "time() - unbound_ntfy_last_server_acceptance_timestamp_seconds",
+          "instant": true,
+          "range": false,
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 22,
+      "title": "Phone receipt",
+      "description": "The local architecture has no delivery receipt from the operator device. HTTP 2xx is server acceptance only, so this remains UNKNOWN until an external/device witness exists.",
+      "type": "stat",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 41,
+        "w": 4,
+        "h": 4
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "noValue": "UNKNOWN",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "gray",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          },
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "color": "gray",
+                  "index": 0,
+                  "text": "UNKNOWN"
+                },
+                "1": {
+                  "color": "green",
+                  "index": 1,
+                  "text": "VERIFIED"
+                }
+              }
+            }
+          ]
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "unbound_ntfy_phone_receipt_known",
+          "instant": true,
+          "range": false,
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 23,
+      "title": "Notifier processing contract",
+      "description": "Independent current-run gates behind monitoring:notifier_local_path_healthy. Gaps are UNKNOWN; a zero identifies the failed local stage without claiming anything about phone receipt.",
+      "type": "state-timeline",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 41,
+        "w": 8,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "noValue": "UNKNOWN",
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "color": "red",
+                  "index": 1,
+                  "text": "FAILED"
+                },
+                "1": {
+                  "color": "green",
+                  "index": 0,
+                  "text": "HEALTHY"
+                }
+              }
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          },
+          "custom": {
+            "fillOpacity": 80,
+            "lineWidth": 0,
+            "spanNulls": false
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "alignValue": "left",
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "mergeValues": true,
+        "rowHeight": 0.9,
+        "showValue": "auto",
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "unbound_ntfy_prometheus_query_success",
+          "instant": false,
+          "range": true,
+          "refId": "A",
+          "legendFormat": "Prometheus alerts API"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "unbound_ntfy_alert_state_processed",
+          "instant": false,
+          "range": true,
           "refId": "B",
-          "legendFormat": "state errors / 30m"
+          "legendFormat": "Fresh state processed"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "unbound_ntfy_resolutions_enabled",
+          "instant": false,
+          "range": true,
+          "refId": "C",
+          "legendFormat": "Resolutions enabled"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "unbound_ntfy_state_persistence_success",
+          "instant": false,
+          "range": true,
+          "refId": "D",
+          "legendFormat": "Durable state"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "unbound_ntfy_topic_ready",
+          "instant": false,
+          "range": true,
+          "refId": "E",
+          "legendFormat": "Topic ready"
         }
       ]
     }
@@ -1608,6 +1974,6 @@
   "timezone": "browser",
   "title": "Host, Services, and Backups",
   "uid": "host-services",
-  "version": 1,
+  "version": 2,
   "weekStart": "monday"
 }

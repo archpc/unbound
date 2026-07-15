@@ -55,13 +55,20 @@ groups:
           (max(up{job="node"}) == bool 1)
             * on() ((max(node_textfile_scrape_error) or vector(1)) == bool 0)
 
-      # Local notification-path health aligns with AlertNotifierStale and
-      # NtfyDeliveryFailures. It cannot prove that the phone received a push.
+      # Local notifier readiness requires a recent complete run, fresh alert
+      # evidence, safe resolution state, durable persistence, a valid topic,
+      # and no current run failure. It cannot prove ntfy server acceptance when
+      # there was nothing to publish, and server acceptance cannot prove that
+      # the phone received a push.
       - record: monitoring:notifier_local_path_healthy
         expr: |
           (time() - max(unbound_job_last_success_timestamp_seconds{task="alertnotify"}) < bool 600)
             * on() (max(unbound_ntfy_prometheus_query_success) == bool 1)
-            * on() (sum(increase(unbound_ntfy_delivery_failures_total[30m])) < bool 2)
+            * on() (max(unbound_ntfy_alert_state_processed) == bool 1)
+            * on() (max(unbound_ntfy_resolutions_enabled) == bool 1)
+            * on() (max(unbound_ntfy_state_persistence_success) == bool 1)
+            * on() (max(unbound_ntfy_topic_ready) == bool 1)
+            * on() (max(unbound_ntfy_consecutive_failures) == bool 0)
 
       # The healthier public-recursive path is the established WAN/UDP-53
       # witness. Both expected result series must exist; a missing probe is
@@ -318,7 +325,8 @@ groups:
           (time() - unbound_job_last_success_timestamp_seconds{task="alertnotify"} > 600)
             and on() (up{job="node"} == 1)
         annotations:
-          summary: "prometheus_alert_notifier.py hasn't succeeded in >10m - phone pushes are dead"
+          summary: "prometheus_alert_notifier.py has not completed a full state-processing run in >10m"
+          description: "This proves the local notifier path is stale. It does not prove whether any earlier ntfy-accepted request reached the phone."
 
       # Same absent-series trap as clientstats below: stale-age rules cannot
       # fire when the breadcrumb series is missing entirely.
@@ -364,8 +372,8 @@ groups:
       - alert: NtfyDeliveryFailures
         expr: increase(unbound_ntfy_delivery_failures_total[30m]) >= 2
         annotations:
-          summary: "2+ failed ntfy pushes in 30m - phone alert channel broken or recently recovered"
-          description: "The 30m increase window can remain firing briefly after delivery recovers because it still contains earlier failed sends; visible on dashboard only, by nature."
+          summary: "2+ notifier transitions were not accepted by the ntfy server in 30m"
+          description: "The 30m increase window can remain firing briefly after server acceptance recovers. This local alert is circular when the failed path is the only notification transport, and HTTP acceptance never proves phone receipt."
 
       # Read-only Time Machine collector, every 900s. The mtime guard detects a
       # job that stopped rewriting; collection_success catches a fresh but failed
