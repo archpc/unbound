@@ -74,7 +74,7 @@
     },
     {
       "id": 2,
-      "title": "node_exporter",
+      "title": "Host exporter",
       "description": "Scrape health for the shared host and textfile-exporter path. If this fails, all host and custom textfile metrics disappear together.",
       "type": "stat",
       "datasource": {
@@ -157,7 +157,7 @@
     },
     {
       "id": 3,
-      "title": "Textfile collection",
+      "title": "Textfiles",
       "description": "HEALTHY requires node_exporter up and zero textfile parse errors. Missing textfile families can still require their dedicated freshness/absence checks.",
       "type": "stat",
       "datasource": {
@@ -240,7 +240,7 @@
     },
     {
       "id": 4,
-      "title": "Host uptime",
+      "title": "Uptime",
       "description": "Age of the current macOS boot. Neutral context for correlating an incident with a host reboot; no severity is implied.",
       "type": "stat",
       "datasource": {
@@ -304,7 +304,7 @@
     },
     {
       "id": 5,
-      "title": "Time Machine configured",
+      "title": "TM configured",
       "description": "Whether tmutil reports a configured destination, shown only while the collector file is fresh. Configuration is neutral context, not verified backup health.",
       "type": "stat",
       "datasource": {
@@ -387,7 +387,7 @@
     },
     {
       "id": 6,
-      "title": "Time Machine collection",
+      "title": "TM collector",
       "description": "Whether destination, running state, and latest-completed-backup state were collected without error. The timestamp uses tmutil when permitted and completed SnapshotDates obtained through the macOS defaults preference service otherwise. It does not state that a backup is recent.",
       "type": "stat",
       "datasource": {
@@ -470,7 +470,7 @@
     },
     {
       "id": 7,
-      "title": "Latest backup age",
+      "title": "Backup age",
       "description": "Age of the latest completed backup from the privacy-safe collector. NOT CONFIGURED is explicit; missing or stale collection remains UNKNOWN. Six-hour warning and 24-hour failure bounds are based on the observed hourly schedule.",
       "type": "stat",
       "datasource": {

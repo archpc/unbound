@@ -74,7 +74,7 @@
     },
     {
       "id": 2,
-      "title": "Collection coverage",
+      "title": "Collection",
       "description": "HEALTHY requires all eight expected scrape targets and every core collection path to be up. UNKNOWN means Prometheus cannot provide the canonical result.",
       "type": "stat",
       "datasource": {
@@ -84,8 +84,8 @@
       "gridPos": {
         "x": 0,
         "y": 1,
-        "w": 4,
-        "h": 4
+        "w": 6,
+        "h": 3
       },
       "fieldConfig": {
         "defaults": {
@@ -164,7 +164,7 @@
     },
     {
       "id": 3,
-      "title": "Active alerts",
+      "title": "Alerts",
       "description": "Current firing Prometheus alerts. Zero is healthy only when collection coverage is also healthy.",
       "type": "stat",
       "datasource": {
@@ -172,10 +172,10 @@
         "uid": "prometheus"
       },
       "gridPos": {
-        "x": 4,
+        "x": 6,
         "y": 1,
-        "w": 4,
-        "h": 4
+        "w": 6,
+        "h": 3
       },
       "fieldConfig": {
         "defaults": {
@@ -239,7 +239,7 @@
     },
     {
       "id": 4,
-      "title": "Unbound control",
+      "title": "Unbound",
       "description": "Whether unbound_exporter can read the Unbound control socket. This is daemon/control health, not proof that clients receive answers.",
       "type": "stat",
       "datasource": {
@@ -247,10 +247,10 @@
         "uid": "prometheus"
       },
       "gridPos": {
-        "x": 8,
+        "x": 12,
         "y": 1,
-        "w": 4,
-        "h": 4
+        "w": 6,
+        "h": 3
       },
       "fieldConfig": {
         "defaults": {
@@ -329,7 +329,7 @@
     },
     {
       "id": 5,
-      "title": "Client DNS probe",
+      "title": "DNS probe",
       "description": "Synthetic query to the LAN resolver address. It proves that Unbound answers a repeated hot name; it does not prove fresh recursion.",
       "type": "stat",
       "datasource": {
@@ -337,10 +337,10 @@
         "uid": "prometheus"
       },
       "gridPos": {
-        "x": 12,
+        "x": 18,
         "y": 1,
-        "w": 4,
-        "h": 4
+        "w": 6,
+        "h": 3
       },
       "fieldConfig": {
         "defaults": {
@@ -419,7 +419,7 @@
     },
     {
       "id": 6,
-      "title": "Best upstream path (10m)",
+      "title": "Upstream (10m)",
       "description": "Success ratio of the healthier public DNS probe path. Red matches the alert threshold below 95%; amber means partial loss; green means effectively all probes succeeded.",
       "type": "stat",
       "datasource": {
@@ -427,10 +427,10 @@
         "uid": "prometheus"
       },
       "gridPos": {
-        "x": 16,
-        "y": 1,
-        "w": 4,
-        "h": 4
+        "x": 0,
+        "y": 4,
+        "w": 6,
+        "h": 3
       },
       "fieldConfig": {
         "defaults": {
@@ -500,7 +500,7 @@
     },
     {
       "id": 7,
-      "title": "RPZ canary",
+      "title": "RPZ",
       "description": "The canary is healthy only when the configured blocked domain returns NXDOMAIN through Unbound.",
       "type": "stat",
       "datasource": {
@@ -508,10 +508,10 @@
         "uid": "prometheus"
       },
       "gridPos": {
-        "x": 20,
-        "y": 1,
-        "w": 4,
-        "h": 4
+        "x": 6,
+        "y": 4,
+        "w": 6,
+        "h": 3
       },
       "fieldConfig": {
         "defaults": {
@@ -590,7 +590,7 @@
     },
     {
       "id": 8,
-      "title": "Host metrics path",
+      "title": "Host metrics",
       "description": "Prometheus can scrape node_exporter. This is a local observation and is not an independent witness that the Mac or LAN is externally reachable.",
       "type": "stat",
       "datasource": {
@@ -598,10 +598,10 @@
         "uid": "prometheus"
       },
       "gridPos": {
-        "x": 0,
-        "y": 5,
-        "w": 4,
-        "h": 4
+        "x": 12,
+        "y": 4,
+        "w": 6,
+        "h": 3
       },
       "fieldConfig": {
         "defaults": {
@@ -680,7 +680,7 @@
     },
     {
       "id": 9,
-      "title": "Local notification path",
+      "title": "Notifier",
       "description": "Fresh notifier run, successful Prometheus poll, and fewer than two failed ntfy deliveries in 30 minutes. This cannot prove receipt on the phone.",
       "type": "stat",
       "datasource": {
@@ -688,10 +688,10 @@
         "uid": "prometheus"
       },
       "gridPos": {
-        "x": 4,
-        "y": 5,
-        "w": 4,
-        "h": 4
+        "x": 18,
+        "y": 4,
+        "w": 6,
+        "h": 3
       },
       "fieldConfig": {
         "defaults": {
@@ -770,7 +770,7 @@
     },
     {
       "id": 10,
-      "title": "Latest Time Machine backup",
+      "title": "Backup age",
       "description": "Age of the latest completed backup from the privacy-safe Time Machine collector. It uses tmutil when permitted and completed SnapshotDates obtained through the macOS defaults preference service otherwise. NOT CONFIGURED is explicit; missing or stale collection remains UNKNOWN. Warning at six hours and critical at 24 hours are engineering limits based on the observed hourly schedule.",
       "type": "stat",
       "datasource": {
@@ -778,10 +778,10 @@
         "uid": "prometheus"
       },
       "gridPos": {
-        "x": 8,
-        "y": 5,
-        "w": 4,
-        "h": 4
+        "x": 0,
+        "y": 7,
+        "w": 6,
+        "h": 3
       },
       "fieldConfig": {
         "defaults": {
@@ -860,7 +860,7 @@
     },
     {
       "id": 11,
-      "title": "Grafana health probe",
+      "title": "Grafana",
       "description": "HTTP /api/health returned 200 and reported database ok through blackbox_exporter.",
       "type": "stat",
       "datasource": {
@@ -868,10 +868,10 @@
         "uid": "prometheus"
       },
       "gridPos": {
-        "x": 12,
-        "y": 5,
-        "w": 4,
-        "h": 4
+        "x": 6,
+        "y": 7,
+        "w": 6,
+        "h": 3
       },
       "fieldConfig": {
         "defaults": {
@@ -954,10 +954,10 @@
       "description": "Static limitation, intentionally prominent rather than represented as a green metric.",
       "type": "text",
       "gridPos": {
-        "x": 16,
-        "y": 5,
-        "w": 8,
-        "h": 4
+        "x": 12,
+        "y": 7,
+        "w": 12,
+        "h": 3
       },
       "fieldConfig": {
         "defaults": {},
@@ -979,7 +979,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 9,
+        "y": 10,
         "w": 15,
         "h": 7
       },
@@ -1043,7 +1043,7 @@
       "type": "text",
       "gridPos": {
         "x": 15,
-        "y": 9,
+        "y": 10,
         "w": 9,
         "h": 7
       },
@@ -1067,7 +1067,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 16,
+        "y": 17,
         "w": 24,
         "h": 9
       },

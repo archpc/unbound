@@ -74,7 +74,7 @@
     },
     {
       "id": 2,
-      "title": "Content Cache active",
+      "title": "Cache active",
       "description": "Whether AssetCacheManagerUtil reports the enabled service active, shown only while the textfile is fresh. Intentionally disabled is neutral and distinct from enabled-but-inactive.",
       "type": "stat",
       "datasource": {
@@ -252,7 +252,7 @@
     },
     {
       "id": 4,
-      "title": "Traffic metrics",
+      "title": "Traffic data",
       "description": "Whether Apple's Metrics.db was readable and its traffic schema recognized during the latest fresh collection. It is not applicable while Content Cache is disabled.",
       "type": "stat",
       "datasource": {
@@ -341,7 +341,7 @@
     },
     {
       "id": 5,
-      "title": "Since-reset completeness",
+      "title": "Since-reset data",
       "description": "Complete only while the reset epoch lies inside Apple's documented 30-day Metrics.db retention used by this collector. It is not applicable while disabled; last-24h metrics remain independent.",
       "type": "stat",
       "datasource": {

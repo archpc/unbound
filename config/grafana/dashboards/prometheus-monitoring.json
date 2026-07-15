@@ -74,7 +74,7 @@
     },
     {
       "id": 2,
-      "title": "Expected target inventory",
+      "title": "Target inventory",
       "description": "Each provisioned job must have its exact expected target count, with eight targets total. This catches missing, duplicate, and substituted jobs that sum(1-up) cannot see.",
       "type": "stat",
       "datasource": {
@@ -225,7 +225,7 @@
     },
     {
       "id": 4,
-      "title": "Active alerts",
+      "title": "Alerts",
       "description": "Count of firing Prometheus alerts. Zero is meaningful only while Prometheus and target inventory are observable.",
       "type": "stat",
       "datasource": {
@@ -376,7 +376,7 @@
     },
     {
       "id": 6,
-      "title": "Rule evaluation failures (5m)",
+      "title": "Rule failures (5m)",
       "description": "Boolean state aligned with PrometheusRuleEvaluationFailures: any positive counter increase in the last five minutes is a failure, including extrapolated fractional increases.",
       "type": "stat",
       "datasource": {
@@ -460,7 +460,7 @@
     },
     {
       "id": 7,
-      "title": "Prometheus uptime",
+      "title": "Uptime",
       "description": "Age of the current Prometheus process. Neutral context; a restart is not itself healthy or unhealthy.",
       "type": "stat",
       "datasource": {

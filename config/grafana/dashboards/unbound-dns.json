@@ -74,7 +74,7 @@
     },
     {
       "id": 2,
-      "title": "Exporter scrape",
+      "title": "Exporter",
       "description": "Prometheus can scrape unbound_exporter. A missing result is UNKNOWN, not down or healthy.",
       "type": "stat",
       "datasource": {
@@ -157,7 +157,7 @@
     },
     {
       "id": 3,
-      "title": "Unbound control",
+      "title": "Unbound",
       "description": "unbound_exporter can read the Unbound control socket. This does not prove client reachability.",
       "type": "stat",
       "datasource": {
@@ -240,7 +240,7 @@
     },
     {
       "id": 4,
-      "title": "LAN resolver probe",
+      "title": "LAN probe",
       "description": "Unbound answered the repeated LAN synthetic query. Cache, prefetch, and serve-expired mean this is not proof of fresh recursion.",
       "type": "stat",
       "datasource": {
@@ -323,7 +323,7 @@
     },
     {
       "id": 5,
-      "title": "Best upstream path (10m)",
+      "title": "Upstream (10m)",
       "description": "The healthier of the two public-recursive UDP/53 probes. These are reachability witnesses, not Unbound's actual root/authoritative destinations.",
       "type": "stat",
       "datasource": {
@@ -397,7 +397,7 @@
     },
     {
       "id": 6,
-      "title": "RPZ canary",
+      "title": "RPZ",
       "description": "Healthy only when the documented canary name returns NXDOMAIN through Unbound.",
       "type": "stat",
       "datasource": {
@@ -480,7 +480,7 @@
     },
     {
       "id": 7,
-      "title": "Requestlist depth",
+      "title": "Requestlist",
       "description": "Current queued requests across worker threads. Red above 100 matches UnboundRequestListJammed; this is a primary upstream-failure tripwire.",
       "type": "stat",
       "datasource": {
