@@ -26,6 +26,19 @@ prove that intended files are deployed or that services are healthy.
 Target-host validation and functional canaries remain REQUIRED where the validation
 matrix specifies them.
 
+### Continuous integration
+
+`.github/workflows/validate.yml` runs the same offline entrypoint for every push and
+pull request. It uses `macos-latest` so the suite includes native `plutil`, requests only
+read access to repository contents, checks out full history, and disables persisted
+checkout credentials. CI MUST call the canonical entrypoint rather than maintain a
+second list of checks that can drift from workstation validation.
+
+The workflow has no deployment step and MUST NOT receive production credentials,
+runtime secrets, or access to the mini. A successful workflow is repository evidence
+only; target-host validators, deployment drift verification, and functional canaries
+remain separate operator actions.
+
 ## Change workflow
 
 1. Inspect `git status --short` and preserve unrelated worktree changes.
