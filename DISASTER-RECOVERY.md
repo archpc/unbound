@@ -206,7 +206,14 @@ Validate before starting:
 ```sh
 /opt/homebrew/opt/prometheus/bin/promtool check config /opt/homebrew/etc/prometheus.yml
 /opt/homebrew/opt/prometheus/bin/promtool check rules /opt/homebrew/etc/prometheus.rules.yml
-python3 -m json.tool /opt/homebrew/etc/grafana/dashboards/unbound-dns.json >/dev/null
+test "$(find /opt/homebrew/etc/grafana/dashboards -type f -name '*.json' | wc -l | tr -d ' ')" = 5
+for file in /opt/homebrew/etc/grafana/dashboards/*.json; do
+  python3 -m json.tool "$file" >/dev/null || exit 1
+done
+grep -q 'allowUiUpdates: false' \
+  /opt/homebrew/etc/grafana/provisioning/dashboards/unbound.yml
+grep -q 'path: /opt/homebrew/etc/grafana/dashboards' \
+  /opt/homebrew/etc/grafana/provisioning/dashboards/unbound.yml
 ```
 
 Install all scheduled custom code under `/usr/local/libexec/unbound-stack`, owned by
@@ -219,6 +226,7 @@ Run non-network self-tests:
 ```sh
 /usr/bin/python3 /usr/local/libexec/unbound-stack/monitoring/apple_content_cache_exporter.py --test
 /usr/bin/python3 /usr/local/libexec/unbound-stack/monitoring/unbound_client_rpz_exporter.py --test
+/usr/bin/python3 /usr/local/libexec/unbound-stack/monitoring/time_machine_exporter.py --test
 /usr/bin/python3 /usr/local/libexec/unbound-stack/monitoring/prometheus_alert_notifier.py --selftest
 ```
 
@@ -297,9 +305,10 @@ job has succeeded once; force each job individually and verify its actual output
 - [ ] `mini.lan` returns `192.168.0.100`.
 - [ ] Prometheus readiness succeeds and all eight target instances are healthy.
 - [ ] `node_textfile_scrape_error` is zero.
-- [ ] All seven dashboards exist and render through Grafana's LAN address.
+- [ ] All five dashboards exist and render through Grafana's LAN address.
 - [ ] Grafana `/api/health` reports database `ok`.
-- [ ] Every scheduled producer has seeded its expected textfile/breadcrumb.
+- [ ] Every scheduled producer has seeded its expected textfile/breadcrumb; Time Machine
+      is explicitly configured, disabled, or failed rather than inferred from a mounted volume.
 - [ ] The ntfy test notification arrives if phone alerting is required.
 - [ ] A fresh SSH session succeeds with key auth and password auth is rejected.
 - [ ] Screen Sharing is closed after any recovery use.

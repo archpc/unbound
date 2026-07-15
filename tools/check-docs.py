@@ -34,6 +34,7 @@ SHELL_FENCE_RE = re.compile(
     re.DOTALL | re.MULTILINE,
 )
 ALERT_RE = re.compile(r"^\s*- alert:\s*([A-Za-z0-9_]+)\s*$", re.MULTILINE)
+RECORD_RE = re.compile(r"^\s*- record:\s*([A-Za-z0-9_:]+)\s*$", re.MULTILINE)
 JOB_RE = re.compile(r"^\s*- job_name:\s*([A-Za-z0-9_]+)\s*$", re.MULTILINE)
 LABEL_RE = re.compile(
     r"<key>Label</key>\s*<string>([^<]+)</string>", re.MULTILINE
@@ -51,6 +52,7 @@ REPO_PATH_PREFIXES = (
 REQUIRED_CUSTOM_METRICS = {
     "unbound_job_last_success_timestamp_seconds",
     "unbound_blocklist_lines",
+    "unbound_blocklist_minimum_lines",
     "unbound_warmlist_domains",
     "unbound_roothints_records",
     "unbound_client_rpz_blocks_5m",
@@ -70,6 +72,11 @@ REQUIRED_CUSTOM_METRICS = {
     "apple_content_cache_status_ok",
     "apple_content_cache_totals_since_seconds",
     "apple_content_cache_detail_bytes",
+    "time_machine_destination_configured",
+    "time_machine_backup_running",
+    "time_machine_latest_backup_available",
+    "time_machine_latest_backup_timestamp_seconds",
+    "time_machine_exporter_collection_success",
 }
 
 SECRET_PATTERNS = {
@@ -205,6 +212,9 @@ def check_implementation_inventory(docs: dict[Path, str], errors: list[str]) -> 
     for name in sorted(set(ALERT_RE.findall(rules))):
         if f"`{name}`" not in reference:
             errors.append(f"REFERENCE.md: missing alert: {name}")
+    for name in sorted(set(RECORD_RE.findall(rules))):
+        if f"`{name}`" not in reference:
+            errors.append(f"REFERENCE.md: missing recording rule: {name}")
 
     labels: set[str] = set()
     for path in (ROOT / "launchd").glob("*.plist"):

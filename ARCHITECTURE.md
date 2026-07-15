@@ -81,8 +81,9 @@ flowchart LR
     unbound["Unbound"] -->|"root-owned control socket"| uexp["unbound_exporter<br/>127.0.0.1:9167"]
     host["macOS host"] --> node["node_exporter<br/>127.0.0.1:9100"]
     jobs["Scheduled and periodic jobs"] -->|"atomic .prom files"| textfiles["node_exporter textfile directory"]
+    timemachine["tmutil state<br/>read-only"] --> jobs
     textfiles --> node
-    blackbox["blackbox_exporter<br/>127.0.0.1:9115"] -->|"real DNS probes"| dns["Unbound and public resolvers"]
+    blackbox["blackbox_exporter<br/>127.0.0.1:9115"] -->|"DNS and HTTP probes"| dns["Unbound, public resolvers, Grafana health"]
     grafana["Grafana<br/>192.168.0.100:3000"]
     prom["Prometheus<br/>127.0.0.1 and 192.168.0.100:9090"]
 
@@ -90,13 +91,16 @@ flowchart LR
     node --> prom
     blackbox --> prom
     prom -->|"self scrape"| prom
-    grafana -->|"/metrics"| prom
+    blackbox -->|"probe Grafana /api/health"| grafana
     prom --> grafana
 ```
 
 Prometheus scrapes eight target instances across seven jobs: Unbound, Prometheus,
-node_exporter, Grafana, two upstream blackbox targets, one resolver probe, and one RPZ
-canary. The two upstream targets share one Prometheus job.
+node_exporter, two upstream blackbox targets, one resolver probe, one RPZ canary, and one
+Grafana HTTP/database probe. The two upstream targets share one Prometheus job. The
+2026-07-14 audit removed the direct Grafana `/metrics` scrape because its 5,790 samples
+per 15-second scrape were unused; the health probe answers the actual operational
+question with far lower ingestion cost.
 
 ### Active probes
 
@@ -105,6 +109,28 @@ canary. The two upstream targets share one Prometheus job.
 | `blackbox_upstream` | `dns_upstream` | `1.1.1.1`, `8.8.8.8` | UDP/53 can reach public resolvers | Unbound recursion itself is healthy |
 | `blackbox_resolver` | `dns_resolver` | `192.168.0.100` | Unbound answers a hot query | Fresh recursion works; cache and serve-expired can mask failure |
 | `blackbox_rpz_canary` | `dns_rpz_canary` | `192.168.0.100` | `google-analytics.com` is blocked as NXDOMAIN | Every client is using the mini |
+| `blackbox_grafana` | `http_grafana_health` | Grafana `/api/health` | HTTP is reachable and Grafana reports database `ok` | Dashboard rendering or every panel query is correct |
+
+### Recording and dashboard layer
+
+Prometheus evaluates 11 canonical recording rules every 15 seconds. They own target
+inventory/collection health, notifier health, upstream success, Unbound activity/cache
+ratio, and Content Cache traffic fractions. Missing inputs remain empty except for
+counts where a successful Prometheus query and a separate inventory signal make zero
+unambiguous.
+
+Five file-provisioned Grafana dashboards consume the datasource UID `prometheus`:
+
+```text
+Operational Overview
+  -> DNS and Unbound
+  -> Host, Services, and Backups
+  -> Apple Content Cache
+  -> Prometheus Diagnostics
+```
+
+The provider rejects UI-only saves. The generator and checked-in JSON are the complete
+repository source; Grafana's database is not an authoring surface.
 
 ## Alert pipeline
 
@@ -149,7 +175,7 @@ notification limitation.
 | `local.unbound.roothints` | root | root | Executes root-owned libexec code and replaces root hints under `/opt/homebrew/etc/unbound` |
 | `local.unbound.warmboot` / `warmlist` | root | root | Executes root-owned libexec code and uses the control socket |
 | Prometheus, Grafana, node_exporter, blackbox | `localadmin` | unprivileged admin account | No control-socket access required; starts at boot without GUI login |
-| Content-cache, clientstats, alert notifier | `localadmin` | unprivileged admin account | Read-only source APIs plus textfile writes or outbound HTTPS |
+| Content-cache, clientstats, Time Machine, alert notifier | `localadmin` | unprivileged admin account | Read-only source APIs plus textfile writes or outbound HTTPS |
 
 All custom executable code is root-owned under `/usr/local/libexec/unbound-stack`, even
 when a LaunchDaemon drops to `localadmin`. Root jobs MUST NOT execute user-writable
@@ -180,9 +206,11 @@ fabricated valid values.
 | Unbound process/config | LAN DNS policy unavailable; clients may use external fallback | Resolver probe, `UnboundDown`, process state | Validate before reload; KeepAlive; warm cache after restart |
 | WAN or UDP/53 path | Cache misses stall or fail while cached answers may remain fast | Upstream probes, degraded/down alerts, request-list depth | Do not edit Unbound; troubleshoot router/modem/ISP |
 | RPZ data/update | Blocking may stop, overblock, or use stale data | Canary, size and freshness alerts | Atomic swap, rollback, allowlist first |
-| Mac mini host/power | DNS and monitoring fail together | External client test; DHCP fallback if configured | Router fallback and full rebuild documentation |
+| Mac mini host/power | DNS, exporters, Prometheus, Grafana, rules, and notifier fail together | No independent automated witness is deployed; manual external client test only | Add an external dead-man/DNS witness; router fallback and full rebuild documentation |
 | Prometheus | Dashboards and rule evaluation stop | Direct notifier unreachable path | Notifier sends a direct outage notification after repeated failures |
-| Grafana | Visualization unavailable; collection continues | `GrafanaDown` | Prometheus UI and APIs remain available |
+| Grafana | Visualization unavailable; collection continues | Blackbox `/api/health` probe and `GrafanaDown` | Prometheus UI and APIs remain available |
+| blackbox_exporter | Every DNS and Grafana synthetic result disappears together | `BlackboxExporterDown`, target history | Inspect exporter before attributing simultaneous probe loss to all targets |
+| node_exporter | Host and all eight custom textfile outputs disappear together | `NodeExporterDown`, collection coverage | Inspect shared exporter before individual producer alerts |
 | node_exporter textfiles | Job metrics missing or malformed | mtime/breadcrumb alerts, `TextfileScrapeError` | Atomic producers; missing-series alerts |
 | ntfy or notifier | Phone delivery stops | notifier metrics and dashboard-only alerts | Local Prometheus alerts remain queryable |
 | Router DHCP/client selection | Clients bypass policy or lose `.lan` | Client-side resolver inspection only | Verify router and clients; dashboards cannot prove client selection |
@@ -197,6 +225,7 @@ fabricated valid values.
 | Prometheus TSDB | 90-day runtime retention | Not tracked |
 | Grafana users/sessions/database | Runtime state | Not tracked |
 | Notifier fingerprints and counters | Runtime state | Not tracked |
+| Time Machine state and latest-backup timestamp | Recomputed every 15 minutes; destination identifiers omitted | Generated textfile, not tracked |
 | ntfy topic | Persistent secret, mode 600 | MUST NOT be tracked |
 | Root trust anchor | Managed by Unbound | Not tracked |
 

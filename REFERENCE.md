@@ -108,6 +108,7 @@ Jobs with no `UserName` run as root. `homebrew.mxcl.unbound` is managed by root
 | `local.unbound.roothints` | root | Monthly, day 1 at 03:00 | `refresh-root-hints.sh` | `/opt/homebrew/var/log/unbound-roothints.log` |
 | `local.unbound.contentcache` | `localadmin` | Every 300 s and at load | `apple_content_cache_exporter.py` | `/opt/homebrew/var/log/apple-content-cache-exporter.log` |
 | `local.unbound.clientstats` | `localadmin` | Every 120 s and at load | `unbound_client_rpz_exporter.py` | `/opt/homebrew/var/log/unbound-clientstats.log` |
+| `local.unbound.timemachine` | `localadmin` | Every 900 s and at load | `time_machine_exporter.py` | `/opt/homebrew/var/log/time-machine-exporter.log` |
 | `local.unbound.alertnotify` | `localadmin` | Every 120 s and at load | `prometheus_alert_notifier.py` | `/opt/homebrew/var/log/unbound-alertnotify.log` |
 
 Grafana's file log is `/opt/homebrew/var/log/grafana/grafana.log`; early process output
@@ -124,12 +125,29 @@ Global scrape and rule-evaluation intervals are 15 seconds.
 | `unbound` | 15 s | `127.0.0.1:9167` | Unbound control statistics |
 | `prometheus` | 15 s | `127.0.0.1:9090` | Prometheus self-monitoring |
 | `node` | 15 s | `127.0.0.1:9100` | Host and textfile metrics |
-| `grafana` | 15 s | `192.168.0.100:3000` | Grafana `/metrics` health |
 | `blackbox_upstream` | 30 s | `1.1.1.1`, `8.8.8.8` | Direct public UDP/53 path |
 | `blackbox_resolver` | 30 s | `192.168.0.100` | Hot-name Unbound response |
 | `blackbox_rpz_canary` | 30 s | `192.168.0.100` | RPZ NXDOMAIN canary |
+| `blackbox_grafana` | 30 s | `http://192.168.0.100:3000/api/health` | HTTP 200 plus Grafana database `ok` |
 
 Prometheus retains its TSDB for 90 days under `/opt/homebrew/var/prometheus`.
+
+The rules file contains 11 recording rules and 39 alerts. Recording rules evaluate at
+the global 15-second interval and are listed by exact name in the rules file.
+
+| Recording rule | Purpose | Missing-input behavior |
+|---|---|---|
+| `monitoring:target_inventory_ok` | Exact per-job and total target cardinality | Missing jobs become explicit mismatch |
+| `monitoring:targets_down` | Down targets only when inventory is exact | Empty while inventory is mismatched |
+| `monitoring:active_alerts` | Current firing-alert count | Zero only while Prometheus evaluates the rule |
+| `monitoring:collection_path_healthy` | Core scrape and inventory health | Empty if the canonical inputs disappear |
+| `monitoring:textfile_path_healthy` | node_exporter plus textfile parse health | Empty if node scrape state disappears |
+| `monitoring:notifier_local_path_healthy` | Fresh poll and delivery-path health | Empty if any required notifier input disappears |
+| `dns:upstream_best_success_ratio_10m` | Better of two public probe paths | Empty unless both result series exist |
+| `unbound:cache_hit_ratio_15m` | Hit ratio above one cache lookup/s | Empty during low traffic or missing input |
+| `apple_content_cache:local_hit_ratio_24h` | Local-cache bytes / all client bytes | Empty at zero traffic or unavailable source |
+| `apple_content_cache:origin_fraction_24h` | Origin bytes / all client bytes | Empty at zero traffic or unavailable source |
+| `apple_content_cache:other_source_fraction_24h` | Parent-plus-peer bytes / all client bytes | Empty at zero traffic or unavailable source |
 
 ## Alerts
 
@@ -140,6 +158,13 @@ Prometheus because the delivery path is the failed component.
 
 | Group | Alert | Trigger summary | Hold |
 |---|---|---|---:|
+| monitoring | `PrometheusTargetInventoryMismatch` | Per-job cardinalities or eight-target total differ from provisioning | 5 m |
+| monitoring | `NodeExporterDown` | Shared host/textfile exporter target is down | 5 m |
+| monitoring | `BlackboxExporterDown` | One or more blackbox scrape paths are down | 5 m |
+| monitoring | `BlackboxProbeResultInventoryMismatch` | Probe result series differ from the four configured jobs | 5 m |
+| monitoring | `PrometheusConfigReloadFailed` | Last Prometheus reload failed | 5 m |
+| monitoring | `PrometheusSelfScrapeDown` | Prometheus cannot scrape its own endpoint | 5 m |
+| monitoring | `PrometheusRuleEvaluationFailures` | Rule evaluation failures increased in five minutes | none |
 | automation | `BlocklistUpdateStale` | Blocklist success older than 26 h | none |
 | automation | `BlocklistBreadcrumbAbsent` | Blocklist breadcrumb absent | 15 m |
 | automation | `WarmlistMineStale` | Warm-list success older than 26 h | none |
@@ -148,7 +173,8 @@ Prometheus because the delivery path is the failed component.
 | automation | `RootHintsBreadcrumbAbsent` | Root-hints breadcrumb absent | 15 m |
 | automation | `WarmbootDidNotRun` | Warmboot timestamp predates boot | 15 m |
 | automation | `WarmbootBreadcrumbAbsent` | Warmboot breadcrumb absent | 15 m |
-| automation | `BlocklistSuspiciouslySmall` | Any emitted blocklist has fewer than 100k lines | none |
+| automation | `BlocklistSuspiciouslySmall` | Deployed list is below its selected source floor | none |
+| automation | `BlocklistMinimumMetricAbsent` | Source-floor metric is absent | 15 m |
 | automation | `ContentCacheExporterStale` | Content-cache textfile older than 15 m | none |
 | automation | `ContentCacheTextfileMissing` | Content-cache textfile series absent | 15 m |
 | automation | `TextfileScrapeError` | node_exporter reports a textfile parse error | none |
@@ -157,6 +183,8 @@ Prometheus because the delivery path is the failed component.
 | automation | `ClientStatsStale` | Clientstats success older than 15 m | none |
 | automation | `ClientStatsBreadcrumbAbsent` | Clientstats breadcrumb absent | 15 m |
 | automation | `NtfyDeliveryFailures` | At least two failed pushes in 30 m | none |
+| automation | `TimeMachineMonitoringUnhealthy` | Collector file/metric is stale, absent, or failed | 15 m |
+| automation | `TimeMachineBackupStaleOrMissing` | Configured destination has no backup newer than 6 h | 30 m |
 | host | `DiskAlmostFull` | Any APFS/HFS filesystem has less than 10% free | 30 m |
 | host | `RootDiskFreePredictedLow` | Root predicted below 10 GiB free in seven days | 30 m |
 | host | `RootDiskFreePredictedCritical` | Root predicted below 5 GiB free in 24 h | 15 m |
@@ -164,7 +192,7 @@ Prometheus because the delivery path is the failed component.
 | probes | `UpstreamDNSPathDegraded` | Even the healthier public probe is below 95% success over 10 m | 5 m |
 | probes | `ResolverNotAnswering` | Resolver probe fails | 5 m |
 | probes | `RPZCanaryNotBlocking` | RPZ canary does not return NXDOMAIN | 30 m |
-| probes | `GrafanaDown` | Grafana scrape fails | 5 m |
+| probes | `GrafanaDown` | Grafana `/api/health` HTTP/database probe fails | 5 m |
 | unbound | `UnboundExporterDown` | Exporter target is down | 5 m |
 | unbound | `UnboundDown` | Exporter cannot query Unbound | 2 m |
 | unbound | `UnboundRequestListJammed` | Request-list depth exceeds 100 | 10 m |
@@ -175,7 +203,7 @@ Prometheus because the delivery path is the failed component.
 | Producer | Metric family | Semantics |
 |---|---|---|
 | All scheduled jobs except content cache | `unbound_job_last_success_timestamp_seconds{task=...}` | Unix timestamp of last successful complete run |
-| Blocklist updater | `unbound_blocklist_lines` | Current generated blocklist line count |
+| Blocklist updater | `unbound_blocklist_lines`, `unbound_blocklist_minimum_lines` | Current line count and the selected source's validation floor |
 | Warm-list builder | `unbound_warmlist_domains{kind=...}` | Personal and curated domain counts |
 | Root-hints updater | `unbound_roothints_records` | Count of root-server records |
 | Clientstats | `unbound_client_rpz_blocks_5m{client=...}` | Rolling five-minute RPZ blocks per permitted client |
@@ -198,6 +226,10 @@ Prometheus because the delivery path is the failed component.
 | Content cache | `apple_content_cache_cache_to_client_bytes_total`, `apple_content_cache_origin_to_client_bytes_total`, `apple_content_cache_total_to_client_bytes_total` | Authoritative Metrics.db client traffic since reset; omitted when the reset exceeds Apple's guaranteed 30-day retention |
 | Content cache | `apple_content_cache_cache_to_client_last_24h_bytes`, `apple_content_cache_origin_to_client_last_24h_bytes`, `apple_content_cache_total_to_client_last_24h_bytes` | Rolling 24-hour Metrics.db client traffic gauges |
 | Content cache | `apple_content_cache_traffic_metrics_available`, `apple_content_cache_since_reset_traffic_complete` | Metrics.db readability/schema and since-reset completeness gauges |
+| Time Machine | `time_machine_destination_configured` | Whether a destination is configured; no destination identifier is labeled |
+| Time Machine | `time_machine_backup_running` | Current tmutil running state |
+| Time Machine | `time_machine_latest_backup_available`, `time_machine_latest_backup_timestamp_seconds` | Latest-backup availability and local-time-derived Unix timestamp |
+| Time Machine | `time_machine_exporter_collection_success` | Whether all required read-only tmutil state was collected |
 
 `unbound_exporter`, node_exporter, blackbox_exporter, Prometheus, and Grafana expose
 additional upstream metric schemas. Those binaries are not vendored here; their live
@@ -207,16 +239,15 @@ additional upstream metric schemas. Those binaries are not vendored here; their 
 
 | File | UID | Title | Panels | Refresh | Default range |
 |---|---|---|---:|---:|---:|
-| `apple-content-cache.json` | `apple-content-cache` | Apple Content Cache | 21 | 1 m | 6 h |
-| `network-tailscale.json` | `network-tailscale` | Network / Tailscale | 6 | 30 s | 6 h |
-| `prometheus-monitoring.json` | `prometheus-monitoring` | Prometheus / Monitoring | 9 | 30 s | 6 h |
-| `services.json` | `services` | Services | 9 | 30 s | 6 h |
-| `storage-backups.json` | `storage-backups` | Storage / Backups | 11 | 30 s | 7 d |
-| `system-stats.json` | `system-stats` | System Stats | 10 | 30 s | 6 h |
-| `unbound-dns.json` | `unbound-dns` | Unbound DNS | 29 | 30 s | 6 h |
+| `operations-overview.json` | `operations-overview` | Operational Overview | 15 | 30 s | 6 h |
+| `unbound-dns.json` | `unbound-dns` | DNS and Unbound | 20 | 30 s | 6 h |
+| `host-services.json` | `host-services` | Host, Services, and Backups | 19 | 30 s | 6 h |
+| `apple-content-cache.json` | `apple-content-cache` | Apple Content Cache | 15 | 5 m | 24 h |
+| `prometheus-monitoring.json` | `prometheus-monitoring` | Prometheus Diagnostics | 14 | 30 s | 6 h |
 
-All dashboard files are immutable in the UI (`editable: false`) and reference the
-Prometheus datasource by UID `prometheus`.
+The five dashboards contain 83 panel objects, including 14 open row headers and 69
+data/text panels. All are immutable in the UI (`editable: false`), the provider rejects
+UI saves, and every query references the Prometheus datasource UID `prometheus`.
 
 ## Runtime data and sensitive state
 

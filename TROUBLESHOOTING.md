@@ -191,10 +191,14 @@ Verification:
 ```sh
 launchctl print system/local.unbound.grafana | grep -E 'state|runs|last exit'
 curl -s http://192.168.0.100:3000/api/health
+curl -sG --data-urlencode 'query=probe_success{job="blackbox_grafana"}' \
+  http://127.0.0.1:9090/api/v1/query
 tail -100 /opt/homebrew/var/log/grafana/grafana.log
 ```
 
-Expected result: running job and database `ok`.
+Expected result: running job, database `ok`, and probe value `1`. A missing probe result
+with blackbox scrape targets down is a blackbox-exporter fault, not evidence that Grafana
+itself failed.
 
 Smallest safe fix: after a Homebrew upgrade, authorize the resolved new Cellar binary
 in the macOS application firewall, then test again. Restart Grafana only when process or
@@ -260,3 +264,40 @@ the topic into a command line.
 
 Escalation criteria: repeated delivery failures, missing secret file, corrupted state,
 or a healthy ntfy push that never reaches the subscribed device.
+
+## Time Machine is stale or unknown
+
+| Field | Value |
+|---|---|
+| Symptom | `TimeMachineMonitoringUnhealthy` or `TimeMachineBackupStaleOrMissing` fires; dashboard shows UNKNOWN or old backup age |
+| Signal | Collector mtime, privacy-preserving `time_machine_*` gauges, launchd exit, and direct read-only `tmutil` disagree |
+| Noise | A periodic job is normally not running; an unconfigured destination is disabled, not a collector failure |
+| Likely causes | No configured destination, target unavailable, Full Disk Access/TCC denial under launchd, failed backup, stale collector, or changed tmutil output |
+| Execution | Mini; initial checks read-only |
+| Privilege/state | `localadmin`; kickstart is state-changing and requires explicit intent |
+
+Verification:
+
+```sh
+launchctl print system/local.unbound.timemachine | grep -E 'state|runs|last exit'
+curl -s http://127.0.0.1:9100/metrics | grep -E '^time_machine_|time-machine.prom'
+tmutil status
+tmutil latestbackup
+tail -100 /opt/homebrew/var/log/time-machine-exporter.log
+```
+
+Do not paste `tmutil destinationinfo` or `latestbackup` output into reports: it can contain
+private destination identifiers and paths. Expected metric behavior is:
+
+- no destination: `destination_configured 0`, collection success `1`, no timestamp;
+- configured and readable: collection success `1`, availability `1`, and a timestamp;
+- configured but unreadable/failed parsing: collection success `0`, availability `0` or
+  omitted state, and a generic log error with no path.
+
+Smallest safe fix: resolve the evidenced destination/TCC/backup failure, then kickstart
+only `local.unbound.timemachine` if a fresh sample is required. Do not delete the
+textfile to make the alert disappear.
+
+Escalation criteria: `tmutil` succeeds interactively but the real LaunchDaemon fails,
+the latest backup remains over six hours old under the documented hourly schedule, or
+the collector would need to expose a private path to diagnose the issue.

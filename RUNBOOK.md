@@ -55,7 +55,9 @@ dig @127.0.0.1 +time=2 +tries=1 dnssec-failed.org A | grep 'status:'
 dig @127.0.0.1 +time=2 +tries=1 mini.lan A +short
 curl -s http://127.0.0.1:9090/api/v1/targets | grep -o '"health":"up"' | wc -l
 curl -s http://127.0.0.1:9090/api/v1/alerts
+curl -sG --data-urlencode 'query=monitoring:collection_path_healthy' http://127.0.0.1:9090/api/v1/query
 curl -s http://127.0.0.1:9100/metrics | grep '^node_textfile_scrape_error'
+curl -s http://127.0.0.1:9100/metrics | grep '^time_machine_'
 ```
 
 | Check | Expected result |
@@ -66,7 +68,9 @@ curl -s http://127.0.0.1:9100/metrics | grep '^node_textfile_scrape_error'
 | `mini.lan` | `192.168.0.100` |
 | Healthy target count | `8` |
 | Alerts API | Empty `alerts` array |
+| Canonical collection path | One sample with value `1` |
 | Textfile collector | `node_textfile_scrape_error 0` |
+| Time Machine | Fresh collection success; destination/backup state interpreted separately |
 
 An alert during an intentional maintenance window is not automatically a defect. The
 operator SHOULD confirm that it matches the change and resolves afterward.
@@ -88,7 +92,9 @@ launchctl print system/local.unbound.<name> | grep -E 'state|runs|last exit'
 ```
 
 Periodic jobs are not expected to remain running. Their freshness is represented by
-textfile timestamps and corresponding alerts.
+textfile timestamps and corresponding alerts. `local.unbound.timemachine` normally runs
+at load and every 900 seconds; an unconfigured destination is a valid disabled state,
+not proof of a healthy backup.
 
 ## Allow a domain blocked by RPZ
 

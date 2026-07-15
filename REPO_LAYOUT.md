@@ -73,6 +73,8 @@ metadata mismatch as drift.
 | `config/unbound/dns-warm-domains.txt` | `/usr/local/share/unbound-stack/dns-warm-domains.txt` |
 | `config/prometheus/*` | Product-native paths under `/opt/homebrew/etc` |
 | `config/grafana/**` | Product-native paths under `/opt/homebrew/etc/grafana` |
+| `tools/generate-grafana-dashboards.py` | Local deterministic builder; no runtime destination |
+| `tools/validate-dashboard-promql.py` | Optional read-only live validator; no runtime destination |
 | `scripts/dns/*` | `/usr/local/libexec/unbound-stack/dns/` |
 | `scripts/monitoring/*` | `/usr/local/libexec/unbound-stack/monitoring/` |
 | `scripts/maintenance/screenshare.sh` | `/usr/local/sbin/screenshare` |
@@ -97,7 +99,7 @@ Use the manifest for individual filenames; wildcard rows above are summaries onl
 
 ## Shared textfile contract
 
-The seven producers write one stable `.prom` file each. Writes MUST use a same-directory
+The eight producers write one stable `.prom` file each. Writes MUST use a same-directory
 temporary file followed by atomic replacement. Producers sharing
 `unbound_job_last_success_timestamp_seconds{task="<name>"}` MUST emit one `TYPE`
 declaration and MUST NOT emit conflicting `HELP` declarations. The group-writable
@@ -107,8 +109,10 @@ metrics, not fabricated valid values.
 ## Stable interfaces
 
 Launchd labels, schedules, Prometheus job and metric names, dashboard UIDs, RPZ zone
-names, textfile names, and the Unbound control socket remain stable. A change to any of
-these interfaces requires an explicit behavioral migration and acceptance test.
+names, textfile names, and the Unbound control socket are behavioral interfaces. A
+change to any of them requires an explicit migration and acceptance test; the monitoring
+redesign documented in `docs/monitoring-dashboard-audit-2026-07-14.md` is such a
+migration.
 
 ## Local validation
 

@@ -54,7 +54,7 @@ used for repository synchronization.
 | Blocklist selector | One line; value supported by `update-blocklist.sh` | Run updater with the selected source | Updater reloads `hagezi.rpz` |
 | Prometheus config | YAML parse; `promtool check config` when available | `/opt/homebrew/opt/prometheus/bin/promtool check config <file>` | `pkill -HUP -x prometheus` |
 | Prometheus rules | YAML parse; `promtool check rules` when available | `/opt/homebrew/opt/prometheus/bin/promtool check rules <file>` | `pkill -HUP -x prometheus` |
-| Blackbox config | YAML parse; `promtool check config` through full Prometheus config where applicable | Start or query blackbox after replacement | Restart blackbox exporter |
+| Blackbox config | Structural/YAML validation where available | `/usr/local/sbin/blackbox_exporter --config.file=<staged-file> --config.check` | Restart blackbox only after the staged check passes |
 | Grafana config | Review INI syntax and paths | Start Grafana and query LAN `/api/health` | Restart Grafana |
 | Grafana dashboard | `python3 -m json.tool <file>` | Same parser on staged file | File provider scans every 30s; no restart |
 | LaunchDaemon | `plutil -lint <file>` | `plutil -lint <staged-file>` | bootout/bootstrap or kickstart as appropriate |
@@ -131,6 +131,37 @@ only when the changed setting cannot reload. After restart, warm the cache.
 The SOA serial MUST increase whenever the allowlist content changes. Deploy the staged
 file, validate the full Unbound configuration, then reload only `hagezi.allow`.
 
+## Deploy Blackbox Exporter configuration
+
+| Field | Value |
+|---|---|
+| Execution location | Workstation and mini |
+| Privilege | `localadmin` for config; `sudo` for the system LaunchDaemon |
+| State | State-changing probe configuration and exporter restart |
+| Success | Staged `--config.check` passes, exporter health returns success, and configured probe canaries return expected results |
+| Failure | Config check error, LaunchDaemon failure, exporter health failure, or probe regression |
+
+```sh
+# Workstation
+scp config/prometheus/blackbox.yml \
+  localadmin@192.168.0.100:~/blackbox.yml.stage
+
+# Mini: validate before replacing or restarting anything
+/usr/local/sbin/blackbox_exporter \
+  --config.file="$HOME/blackbox.yml.stage" --config.check
+cp /opt/homebrew/etc/blackbox.yml "$HOME/blackbox.yml.rollback"
+install -m 0644 "$HOME/blackbox.yml.stage" /opt/homebrew/etc/blackbox.yml
+sudo launchctl bootout system/local.unbound.blackbox
+sudo launchctl bootstrap system \
+  /Library/LaunchDaemons/local.unbound.blackbox.plist
+curl -fsS http://127.0.0.1:9115/-/healthy >/dev/null
+```
+
+After the matching Prometheus scrape job is deployed and reloaded, require the resolver,
+RPZ, upstream, and Grafana `probe_success` series to be present. Restore
+`$HOME/blackbox.yml.rollback`, repeat `--config.check`, and restart the same LaunchDaemon
+to roll back. Never restart blackbox after a failed staged check.
+
 ## Deploy Prometheus configuration or rules
 
 | Field | Value |
@@ -163,29 +194,119 @@ curl -sG --data-urlencode 'query=prometheus_config_last_reload_successful' \
 The returned sample value MUST be `1`. A rule change SHOULD also be confirmed through
 `/api/v1/rules`.
 
-## Deploy a Grafana dashboard
+## Deploy the Grafana dashboard set
 
 | Field | Value |
 |---|---|
 | Execution location | Workstation and mini |
 | Privilege | `localadmin`; dashboard directory is owned for unprivileged deployment |
-| State | State-changing visualization only |
-| Success | JSON parses, checksum matches, Grafana health is `ok`, provisioner loads the updated UID |
-| Failure | JSON error, checksum mismatch, Grafana database error, or old dashboard remains after two scan intervals |
+| State | State-changing visualization; removes four obsolete provisioned resources after an on-host backup |
+| Success | Generator/checks pass, all five JSON files parse, checksum matches, obsolete watched files are absent, Grafana health is `ok`, and all five UIDs load |
+| Failure | Generator drift, JSON error, checksum mismatch, Grafana database error, missing new UID, or obsolete UID remains after two scan intervals |
+
+> **Warning:** moving the four obsolete JSON files out of Grafana's watched directory
+> removes those dashboards from the UI. The procedure first copies every watched JSON
+> file to a timestamped mode-0700 backup and moves retired files into that backup. Do
+> not run the retirement step until the new rules, scrape job, and metric producers are
+> available, or the new dashboards will correctly display UNKNOWN.
 
 ```sh
-# Workstation: validate and stage
-python3 -m json.tool config/grafana/dashboards/<name>.json >/dev/null
-scp config/grafana/dashboards/<name>.json localadmin@192.168.0.100:~/<name>.json.stage
+# Workstation: regenerate, validate, and stage the complete set
+python3 tools/generate-grafana-dashboards.py --check
+for file in config/grafana/dashboards/*.json; do
+  python3 -m json.tool "$file" >/dev/null
+done
+(cd config/grafana/dashboards && shasum -a 256 *.json) \
+  > grafana-dashboard-SHA256SUMS.stage
+ssh localadmin@192.168.0.100 \
+  'test ! -e ~/grafana-dashboard-stage && mkdir -m 700 ~/grafana-dashboard-stage'
+scp config/grafana/dashboards/*.json \
+  localadmin@192.168.0.100:~/grafana-dashboard-stage/
+scp grafana-dashboard-SHA256SUMS.stage \
+  config/grafana/provisioning/dashboards/unbound.yml \
+  localadmin@192.168.0.100:~/
 
-# Mini: validate staged content, then replace
-python3 -m json.tool ~/<name>.json.stage >/dev/null
-cp ~/<name>.json.stage /opt/homebrew/etc/grafana/dashboards/<name>.json
-curl -s http://192.168.0.100:3000/api/health
+# Mini: validate staged content and prove the exact five-file inventory
+for file in ~/grafana-dashboard-stage/*.json; do
+  python3 -m json.tool "$file" >/dev/null || exit 1
+done
+test "$(find ~/grafana-dashboard-stage -type f -name '*.json' | wc -l | tr -d ' ')" = 5
+(cd ~/grafana-dashboard-stage && \
+  shasum -a 256 -c ~/grafana-dashboard-SHA256SUMS.stage)
+ruby -e '
+require "yaml"
+document = YAML.safe_load(File.read(ARGV.fetch(0)), aliases: false)
+provider = document.fetch("providers").fetch(0)
+abort unless provider.fetch("type") == "file"
+abort unless provider.fetch("allowUiUpdates") == false
+abort unless provider.fetch("disableDeletion") == false
+abort unless provider.fetch("options").fetch("path") == "/opt/homebrew/etc/grafana/dashboards"
+' ~/unbound.yml
+
+# Mini: preserve the inherited definitions, install the new set, then retire
+# only the four explicitly named obsolete watched files.
+backup="$HOME/grafana-dashboard-backup-$(date +%Y%m%d-%H%M%S)"
+mkdir -m 700 "$backup" "$backup/retired"
+cp /opt/homebrew/etc/grafana/dashboards/*.json "$backup"/
+cp /opt/homebrew/etc/grafana/provisioning/dashboards/unbound.yml \
+  "$backup/unbound-provider.yml"
+install -m 0644 ~/grafana-dashboard-stage/*.json \
+  /opt/homebrew/etc/grafana/dashboards/
+for name in network-tailscale services storage-backups system-stats; do
+  test ! -e "/opt/homebrew/etc/grafana/dashboards/$name.json" || \
+    mv "/opt/homebrew/etc/grafana/dashboards/$name.json" "$backup/retired/"
+done
+(cd /opt/homebrew/etc/grafana/dashboards && \
+  shasum -a 256 -c ~/grafana-dashboard-SHA256SUMS.stage)
+
+# Wait for two 30-second scans, then verify health and exact dashboard UIDs.
+curl -fsS http://192.168.0.100:3000/api/health | \
+  python3 -c 'import json,sys; assert json.load(sys.stdin).get("database") == "ok"'
+uids="$(/usr/bin/sqlite3 -readonly /opt/homebrew/var/lib/grafana/grafana.db \
+  'select uid from dashboard where is_folder=0 order by uid;')"
+expected="$(printf '%s\n' apple-content-cache host-services operations-overview \
+  prometheus-monitoring unbound-dns)"
+test "$uids" = "$expected"
 ```
 
-The provider scans every 30 seconds. Grafana MUST NOT be restarted merely to load a
-dashboard. Dashboard UIDs MUST remain stable. See [DASHBOARDS.md](DASHBOARDS.md).
+The provider scans every 30 seconds. Grafana MUST NOT be restarted merely to load JSON.
+The accompanying `allowUiUpdates: false` provider change is read at process startup.
+After the JSON set is healthy, install the already staged and structurally checked
+provider, then perform one controlled Grafana restart using its LaunchDaemon procedure:
+
+```sh
+install -m 0644 ~/unbound.yml \
+  /opt/homebrew/etc/grafana/provisioning/dashboards/unbound.yml
+sudo launchctl kickstart -k system/local.unbound.grafana
+curl -fsS http://192.168.0.100:3000/api/health | \
+  python3 -c 'import json,sys; assert json.load(sys.stdin).get("database") == "ok"'
+```
+
+The expected API health response contains HTTP 200 and database `ok`; repeat the UID
+query above. Use the actual service label and domain from
+[REFERENCE.md](REFERENCE.md#services-and-scheduled-jobs) if they differ from this
+example. See [DASHBOARDS.md](DASHBOARDS.md).
+
+### Roll back the Grafana dashboard set
+
+Use the exact `$backup` directory printed/recorded during deployment. This removes the
+new files, restores every inherited watched JSON, and restores the previous provider:
+
+```sh
+for name in operations-overview host-services; do
+  rm -f "/opt/homebrew/etc/grafana/dashboards/$name.json"
+done
+cp "$backup"/*.json /opt/homebrew/etc/grafana/dashboards/
+cp "$backup/retired"/*.json /opt/homebrew/etc/grafana/dashboards/ 2>/dev/null || true
+cp "$backup/unbound-provider.yml" \
+  /opt/homebrew/etc/grafana/provisioning/dashboards/unbound.yml
+sudo launchctl kickstart -k system/local.unbound.grafana
+curl -fsS http://192.168.0.100:3000/api/health | \
+  python3 -c 'import json,sys; assert json.load(sys.stdin).get("database") == "ok"'
+```
+
+Wait two provider scans and verify the inherited seven UIDs. Rollback does not touch
+Grafana's database history, Prometheus TSDB data, or any monitoring history.
 
 ## Deploy a LaunchDaemon
 
@@ -231,6 +352,7 @@ root `brew services`, not hand-deployed from that snapshot.
 |---|---|---|---|
 | `scripts/monitoring/apple_content_cache_exporter.py` | `/usr/local/libexec/unbound-stack/monitoring/apple_content_cache_exporter.py` | `--test` | `local.unbound.contentcache` |
 | `scripts/monitoring/unbound_client_rpz_exporter.py` | `/usr/local/libexec/unbound-stack/monitoring/unbound_client_rpz_exporter.py` | `--test` | `local.unbound.clientstats` |
+| `scripts/monitoring/time_machine_exporter.py` | `/usr/local/libexec/unbound-stack/monitoring/time_machine_exporter.py` | `--test` | `local.unbound.timemachine` |
 | `scripts/monitoring/prometheus_alert_notifier.py` | `/usr/local/libexec/unbound-stack/monitoring/prometheus_alert_notifier.py` | `--selftest` | `local.unbound.alertnotify` |
 
 The notifier self-test MUST NOT be replaced with `--test-send` unless a real ntfy push
