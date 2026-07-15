@@ -233,16 +233,16 @@ class PythonCollectorTests(unittest.TestCase):
         dashboard = json.loads(
             (ROOT / "config/grafana/dashboards/apple-content-cache.json").read_text()
         )
-        panels = {panel["title"]: panel for panel in dashboard["panels"]}
-        since = panels["Cache Hit Ratio — Since Reset"]
-        last_24h = panels["Cache Hit Ratio — Last 24h"]
-        origin = panels["Origin Pass-Through — Last 24h"]
-        self.assertIn("cache_to_client_bytes_total", since["targets"][0]["expr"])
-        self.assertIn("origin_to_client_bytes_total", since["targets"][0]["expr"])
-        self.assertIn("cache_to_client_last_24h_bytes", last_24h["targets"][0]["expr"])
-        self.assertIn("origin_to_client_last_24h_bytes", last_24h["targets"][0]["expr"])
-        self.assertIn("total_to_client_last_24h_bytes", origin["targets"][0]["expr"])
         dashboard_text = json.dumps(dashboard)
+        rules = (ROOT / "config/prometheus/prometheus.rules.yml").read_text()
+        self.assertIn("apple_content_cache:local_hit_ratio_24h", dashboard_text)
+        self.assertIn("apple_content_cache:origin_fraction_24h", dashboard_text)
+        self.assertIn("apple_content_cache:other_source_fraction_24h", dashboard_text)
+        self.assertIn("apple_content_cache_total_to_client_last_24h_bytes", dashboard_text)
+        self.assertIn("apple-content-cache", dashboard_text)
+        self.assertIn("apple_content_cache_cache_to_client_last_24h_bytes", rules)
+        self.assertIn("apple_content_cache_origin_to_client_last_24h_bytes", rules)
+        self.assertIn("apple_content_cache_total_to_client_last_24h_bytes > 0", rules)
         self.assertNotIn(
             "returned_to_clients_bytes_total / clamp_min(apple_content_cache_stored_from_origin",
             dashboard_text,
@@ -600,6 +600,7 @@ cp "$FIXTURE_RPZ" "$out"
             self.assertEqual(succeeded.returncode, 0, succeeded.stderr)
             rendered = prom.read_text()
             self.assertIn("unbound_blocklist_lines 2", rendered)
+            self.assertIn("unbound_blocklist_minimum_lines 1", rendered)
             self.assertNotIn("slot=", rendered)
             self.assertNotIn('task="blocklist"} 77', rendered)
             self.assertFalse(any(metrics.glob("*.prom.*")))
@@ -799,47 +800,37 @@ fi
     def test_upstream_degradation_is_visible_and_alerted(self):
         rules = (ROOT / "config/prometheus/prometheus.rules.yml").read_text()
         dashboard = (ROOT / "config/grafana/dashboards/unbound-dns.json").read_text()
-        expression = (
-            'max(avg_over_time(probe_success{job="blackbox_upstream"}[10m])) < 0.95'
-        )
         self.assertIn("UpstreamDNSPathDegraded", rules)
-        self.assertIn(expression, rules)
-        self.assertIn("Upstream success (10m)", dashboard)
         self.assertIn(
-            'avg_over_time(probe_success{job=\\"blackbox_upstream\\"}[10m])',
-            dashboard,
+            "dns:upstream_best_success_ratio_10m < 0.95", rules
         )
+        self.assertIn(
+            'max(avg_over_time(probe_success{job="blackbox_upstream"}[10m]))',
+            rules,
+        )
+        self.assertIn("Best upstream path (10m)", dashboard)
+        self.assertIn("dns:upstream_best_success_ratio_10m", dashboard)
 
-    def test_dns_probe_dashboard_separates_success_from_latency(self):
+    def test_dns_dashboard_separates_path_state_from_histogram_latency(self):
         dashboard = json.loads(
             (ROOT / "config/grafana/dashboards/unbound-dns.json").read_text()
         )
         panels = {panel["id"]: panel for panel in dashboard["panels"]}
 
-        success = panels[13]
-        self.assertEqual(success["title"], "DNS probe success")
+        success = panels[8]
+        self.assertEqual(success["title"], "DNS path history")
         self.assertEqual(success["type"], "state-timeline")
-        self.assertEqual(success["fieldConfig"]["defaults"]["unit"], "percentunit")
-        self.assertEqual(success["fieldConfig"]["defaults"]["min"], 0)
-        self.assertEqual(success["fieldConfig"]["defaults"]["max"], 1)
-        self.assertEqual(
-            [target["legendFormat"] for target in success["targets"]],
-            [
-                "Resolver · 192.168.0.100",
-                "RPZ canary · 192.168.0.100",
-                "Cloudflare · 1.1.1.1",
-                "Google · 8.8.8.8",
-            ],
+        self.assertEqual(success["fieldConfig"]["defaults"]["unit"], "none")
+        self.assertEqual(len(success["targets"]), 5)
+        self.assertTrue(
+            all("probe_duration_seconds" not in item["expr"] for item in success["targets"])
         )
-        self.assertEqual(len(success["targets"]), 4)
 
-        latency = panels[14]
-        self.assertEqual(latency["title"], "Successful probe latency")
-        self.assertEqual(
-            latency["targets"][0]["expr"],
-            'probe_duration_seconds{job=~"blackbox_.*"} and on (job, instance) '
-            '(probe_success{job=~"blackbox_.*"} == 1)',
-        )
+        latency = panels[13]
+        self.assertEqual(latency["title"], "Answer latency distribution")
+        expressions = [item["expr"] for item in latency["targets"]]
+        self.assertTrue(all("histogram_quantile" in item for item in expressions))
+        self.assertTrue(all("sum by (le)" in item for item in expressions))
 
 
 if __name__ == "__main__":

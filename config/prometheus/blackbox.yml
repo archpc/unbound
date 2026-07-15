@@ -6,6 +6,20 @@
 # privileges), listening on 127.0.0.1:9115.
 
 modules:
+  # Grafana health without ingesting Grafana's high-volume /metrics output.
+  # /api/health is deliberately unauthenticated and reports both HTTP and
+  # database state. The body check prevents a generic HTTP 200 from being
+  # mistaken for a functioning dashboard database.
+  http_grafana_health:
+    prober: http
+    timeout: 5s
+    http:
+      method: GET
+      preferred_ip_protocol: "ip4"
+      valid_status_codes: [200]
+      fail_if_body_not_matches_regexp:
+        - '"database"\s*:\s*"ok"'
+
   # Ask a public resolver directly, bypassing unbound entirely: is the raw
   # upstream path on port 53 alive? Both 1.1.1.1 and 8.8.8.8 failing at once
   # is the exact 2026-07-01 incident signature, seen from outside.

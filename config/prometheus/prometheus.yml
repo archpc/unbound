@@ -29,13 +29,6 @@ scrape_configs:
     static_configs:
       - targets: ["127.0.0.1:9100"]
 
-  # Grafana's own health - without this, a dead/firewalled Grafana is
-  # invisible to the monitoring stack it fronts. /metrics is unauthenticated
-  # by Grafana default (verified live 2026-07-05).
-  - job_name: grafana
-    static_configs:
-      - targets: ["192.168.0.100:3000"]
-
   # blackbox DNS probes - outside-in checks. Every blackbox_* job probes
   # THROUGH the exporter on 127.0.0.1:9115: the relabeling turns each listed
   # target into the ?target= parameter and keeps it as the instance label.
@@ -83,6 +76,24 @@ scrape_configs:
     scrape_interval: 30s
     static_configs:
       - targets: ["192.168.0.100"]
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: 127.0.0.1:9115
+
+  # Grafana health through its small JSON health endpoint. This replaces a
+  # direct /metrics scrape that produced 5,790 unused samples every 15s in the
+  # 2026-07-14 audit. The probe requires HTTP 200 and database="ok".
+  - job_name: blackbox_grafana
+    metrics_path: /probe
+    params:
+      module: [http_grafana_health]
+    scrape_interval: 30s
+    static_configs:
+      - targets: ["http://192.168.0.100:3000/api/health"]
     relabel_configs:
       - source_labels: [__address__]
         target_label: __param_target

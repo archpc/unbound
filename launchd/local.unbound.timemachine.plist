@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!-- Read-only Time Machine state collection. This is a localadmin-owned
+         system daemon because the Mac has no persistent GUI login session.
+         The script emits no destination paths, identifiers, or labels. -->
+    <key>Label</key>
+    <string>local.unbound.timemachine</string>
+    <key>UserName</key>
+    <string>localadmin</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/usr/bin/python3</string>
+        <string>/usr/local/libexec/unbound-stack/monitoring/time_machine_exporter.py</string>
+        <string>--output</string>
+        <string>/opt/homebrew/var/lib/node_exporter/textfile/time-machine.prom</string>
+    </array>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>StartInterval</key>
+    <integer>900</integer>
+    <key>StandardOutPath</key>
+    <string>/opt/homebrew/var/log/time-machine-exporter.log</string>
+    <key>StandardErrorPath</key>
+    <string>/opt/homebrew/var/log/time-machine-exporter.log</string>
+</dict>
+</plist>

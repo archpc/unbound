@@ -3,7 +3,8 @@
 <plist version="1.0">
 <dict>
     <!-- Per-client RPZ block stats from unbound's rpz-log lines in the
-         unified log (`log show --info` - readable by localadmin, no sudo).
+         unified log (`log show` with the info flag; readable by localadmin,
+         no sudo).
          System daemon with UserName for the same reason as contentcache:
          auto-login is OFF, so per-user jobs can't load over SSH. 120s
          interval against the script's rolling 5m window keeps the gauges

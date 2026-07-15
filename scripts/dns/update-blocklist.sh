@@ -118,5 +118,7 @@ if [ -w "$METRICS_DIR" ]; then
         printf 'unbound_job_last_success_timestamp_seconds{task="blocklist"} %s\n' "$(date +%s)"
         echo '# TYPE unbound_blocklist_lines gauge'
         printf 'unbound_blocklist_lines %s\n' "$(wc -l < "$DEST" | tr -d ' ')"
+        echo '# TYPE unbound_blocklist_minimum_lines gauge'
+        printf 'unbound_blocklist_minimum_lines %s\n' "$MIN_LINES"
     } > "$METRICS_TMP" && mv "$METRICS_TMP" "$PROM"
 fi

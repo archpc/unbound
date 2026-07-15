@@ -9,6 +9,184 @@
 #   curl -s http://127.0.0.1:9167/metrics | /usr/bin/grep -E 'unbound_(up|cache_hits|request_list)'
 
 groups:
+  # Canonical dashboard expressions. Evaluated at the global 15s interval.
+  # Aggregations intentionally drop source labels only where the dashboard asks
+  # a stack-wide question. Unless a rule explicitly uses `or vector(0)`, missing
+  # input remains an empty result so Grafana renders UNKNOWN rather than green.
+  - name: dashboard-recording
+    interval: 15s
+    rules:
+      # Expected inventory is the exact cardinality of each repository-defined
+      # job plus eight total targets. `or vector(0)` makes a missing job an
+      # explicit mismatch instead of an empty result.
+      - record: monitoring:target_inventory_ok
+        expr: |
+          (((count(up{job="unbound"}) or vector(0)) == bool 1)
+            * on() ((count(up{job="prometheus"}) or vector(0)) == bool 1)
+            * on() ((count(up{job="node"}) or vector(0)) == bool 1)
+            * on() ((count(up{job="blackbox_upstream"}) or vector(0)) == bool 2)
+            * on() ((count(up{job="blackbox_resolver"}) or vector(0)) == bool 1)
+            * on() ((count(up{job="blackbox_rpz_canary"}) or vector(0)) == bool 1)
+            * on() ((count(up{job="blackbox_grafana"}) or vector(0)) == bool 1)
+            * on() ((count(up) or vector(0)) == bool 8))
+
+      # A successful query plus an empty down-set legitimately means zero down;
+      # the separate inventory rule prevents that zero from hiding removed jobs.
+      - record: monitoring:targets_down
+        expr: |
+          (count(up == 0) or vector(0))
+            and on() (monitoring:target_inventory_ok == 1)
+
+      - record: monitoring:active_alerts
+        expr: count(ALERTS{alertstate="firing"}) or vector(0)
+
+      # Core collection health: Prometheus, node, Unbound, and every blackbox
+      # scrape must be up, and the full inventory must still be present.
+      - record: monitoring:collection_path_healthy
+        expr: |
+          min(up{job=~"unbound|prometheus|node|blackbox_.*"})
+            * on() monitoring:target_inventory_ok
+
+      # node_exporter is the shared path for every custom textfile producer.
+      # Missing node_textfile_scrape_error is treated as failed only while the
+      # represented node target supplies the left-hand state.
+      - record: monitoring:textfile_path_healthy
+        expr: |
+          (max(up{job="node"}) == bool 1)
+            * on() ((max(node_textfile_scrape_error) or vector(1)) == bool 0)
+
+      # Local notification-path health aligns with AlertNotifierStale and
+      # NtfyDeliveryFailures. It cannot prove that the phone received a push.
+      - record: monitoring:notifier_local_path_healthy
+        expr: |
+          (time() - max(unbound_job_last_success_timestamp_seconds{task="alertnotify"}) < bool 600)
+            * on() (max(unbound_ntfy_prometheus_query_success) == bool 1)
+            * on() (sum(increase(unbound_ntfy_delivery_failures_total[30m])) < bool 2)
+
+      # The healthier public-recursive path is the established WAN/UDP-53
+      # witness. Both expected result series must exist; a missing probe is
+      # unknown, not permission to call the surviving path representative.
+      - record: dns:upstream_best_success_ratio_10m
+        expr: |
+          max(avg_over_time(probe_success{job="blackbox_upstream"}[10m]))
+            and on() (count(probe_success{job="blackbox_upstream"}) == 2)
+
+      # Empty under <=1 cache lookup/s, by design: idle traffic is not a 0%
+      # hit ratio. Worker-thread labels are summed before the ratio is formed.
+      - record: unbound:cache_hit_ratio_15m
+        expr: |
+          (
+            sum(rate(unbound_cache_hits_total[15m]))
+              / (
+                sum(rate(unbound_cache_hits_total[15m]))
+                  + sum(rate(unbound_cache_misses_total[15m]))
+              )
+          )
+          and on() (
+            sum(rate(unbound_cache_hits_total[15m]))
+              + sum(rate(unbound_cache_misses_total[15m])) > 1
+          )
+
+      # Apple Metrics.db supplies additive local-cache, origin, parent, and
+      # peer bytes. Ratios are absent on zero traffic or unavailable source data.
+      - record: apple_content_cache:local_hit_ratio_24h
+        expr: |
+          (
+            apple_content_cache_cache_to_client_last_24h_bytes
+              / apple_content_cache_total_to_client_last_24h_bytes
+          )
+          and on() (apple_content_cache_total_to_client_last_24h_bytes > 0)
+          and on() (apple_content_cache_traffic_metrics_available == 1)
+
+      - record: apple_content_cache:origin_fraction_24h
+        expr: |
+          (
+            apple_content_cache_origin_to_client_last_24h_bytes
+              / apple_content_cache_total_to_client_last_24h_bytes
+          )
+          and on() (apple_content_cache_total_to_client_last_24h_bytes > 0)
+          and on() (apple_content_cache_traffic_metrics_available == 1)
+
+      - record: apple_content_cache:other_source_fraction_24h
+        expr: |
+          (
+            clamp_min(
+              apple_content_cache_total_to_client_last_24h_bytes
+                - apple_content_cache_cache_to_client_last_24h_bytes
+                - apple_content_cache_origin_to_client_last_24h_bytes,
+              0
+            ) / apple_content_cache_total_to_client_last_24h_bytes
+          )
+          and on() (apple_content_cache_total_to_client_last_24h_bytes > 0)
+          and on() (apple_content_cache_traffic_metrics_available == 1)
+
+  # Failures in the monitoring paths themselves. These alerts prevent a
+  # vanished exporter or target definition from masquerading as healthy data.
+  - name: monitoring
+    rules:
+      - alert: PrometheusTargetInventoryMismatch
+        expr: monitoring:target_inventory_ok == 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Prometheus target inventory differs from the provisioned job cardinalities"
+          description: "An expected job may be missing or duplicated, or an unexpected job may exist, even when every represented target is healthy."
+
+      - alert: NodeExporterDown
+        expr: up{job="node"} == 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "node_exporter is down - host and every textfile metric share this failure"
+
+      - alert: BlackboxExporterDown
+        expr: min(up{job=~"blackbox_.*"}) == 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "one or more blackbox scrape paths are down"
+          description: "Correlated missing probe_success series can be an exporter failure rather than simultaneous DNS/Grafana failures."
+
+      - alert: BlackboxProbeResultInventoryMismatch
+        expr: |
+          ((count(probe_success{job="blackbox_upstream"}) or vector(0)) != 2)
+          or ((count(probe_success{job="blackbox_resolver"}) or vector(0)) != 1)
+          or ((count(probe_success{job="blackbox_rpz_canary"}) or vector(0)) != 1)
+          or ((count(probe_success{job="blackbox_grafana"}) or vector(0)) != 1)
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Blackbox probe result-series inventory differs from configuration"
+          description: "A missing probe_success series is unknown monitoring state, not a successful or failed target result."
+
+      - alert: PrometheusConfigReloadFailed
+        expr: prometheus_config_last_reload_successful == 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Prometheus reports that its most recent configuration reload failed"
+
+      - alert: PrometheusSelfScrapeDown
+        expr: up{job="prometheus"} == 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Prometheus cannot scrape its own metrics endpoint"
+          description: "This catches self-scrape/configuration failure; a fully stopped Prometheus still requires an independent external witness."
+
+      - alert: PrometheusRuleEvaluationFailures
+        expr: increase(prometheus_rule_evaluation_failures_total[5m]) > 0
+        labels:
+          severity: warning
+        annotations:
+          summary: "Prometheus rule evaluation failures occurred in the last five minutes"
+
   # Watches the launchd automation itself, via success breadcrumbs each
   # script drops into node_exporter's textfile directory
   # (/opt/homebrew/var/lib/node_exporter/textfile). A stale timestamp means
@@ -19,12 +197,16 @@ groups:
     rules:
       # daily 03:30 job; 26h = one missed run plus slack
       - alert: BlocklistUpdateStale
-        expr: time() - unbound_job_last_success_timestamp_seconds{task="blocklist"} > 93600
+        expr: |
+          (time() - unbound_job_last_success_timestamp_seconds{task="blocklist"} > 93600)
+            and on() (up{job="node"} == 1)
         annotations:
           summary: "update-blocklist.sh hasn't succeeded in >26h"
 
       - alert: BlocklistBreadcrumbAbsent
-        expr: absent(unbound_job_last_success_timestamp_seconds{task="blocklist"})
+        expr: |
+          absent(unbound_job_last_success_timestamp_seconds{task="blocklist"})
+            and on() (up{job="node"} == 1)
         for: 15m
         annotations:
           summary: "blocklist job breadcrumb metric is missing entirely"
@@ -32,12 +214,16 @@ groups:
 
       # daily 23:30 job
       - alert: WarmlistMineStale
-        expr: time() - unbound_job_last_success_timestamp_seconds{task="warmlist"} > 93600
+        expr: |
+          (time() - unbound_job_last_success_timestamp_seconds{task="warmlist"} > 93600)
+            and on() (up{job="node"} == 1)
         annotations:
           summary: "build-warm-list.sh hasn't succeeded in >26h"
 
       - alert: WarmlistBreadcrumbAbsent
-        expr: absent(unbound_job_last_success_timestamp_seconds{task="warmlist"})
+        expr: |
+          absent(unbound_job_last_success_timestamp_seconds{task="warmlist"})
+            and on() (up{job="node"} == 1)
         for: 15m
         annotations:
           summary: "warmlist job breadcrumb metric is missing entirely"
@@ -45,12 +231,16 @@ groups:
 
       # monthly job (1st, 03:00); 34d = one missed month plus slack
       - alert: RootHintsRefreshStale
-        expr: time() - unbound_job_last_success_timestamp_seconds{task="roothints"} > 2937600
+        expr: |
+          (time() - unbound_job_last_success_timestamp_seconds{task="roothints"} > 2937600)
+            and on() (up{job="node"} == 1)
         annotations:
           summary: "unbound-refresh-hints hasn't succeeded in >34 days"
 
       - alert: RootHintsBreadcrumbAbsent
-        expr: absent(unbound_job_last_success_timestamp_seconds{task="roothints"})
+        expr: |
+          absent(unbound_job_last_success_timestamp_seconds{task="roothints"})
+            and on() (up{job="node"} == 1)
         for: 15m
         annotations:
           summary: "roothints job breadcrumb metric is missing entirely"
@@ -61,36 +251,53 @@ groups:
       # warmup itself) time to finish before this counts as a failure.
       - alert: WarmbootDidNotRun
         expr: |
-          (scalar(node_boot_time_seconds)
-            - unbound_job_last_success_timestamp_seconds{task="warmboot"}) > 0
+          ((scalar(node_boot_time_seconds)
+            - unbound_job_last_success_timestamp_seconds{task="warmboot"}) > 0)
+            and on() (up{job="node"} == 1)
         for: 15m
         annotations:
           summary: "warm-at-boot.sh has not succeeded since the last reboot"
 
       - alert: WarmbootBreadcrumbAbsent
-        expr: absent(unbound_job_last_success_timestamp_seconds{task="warmboot"})
+        expr: |
+          absent(unbound_job_last_success_timestamp_seconds{task="warmboot"})
+            and on() (up{job="node"} == 1)
         for: 15m
         annotations:
           summary: "warmboot job breadcrumb metric is missing entirely"
           description: "Stale-age rules cannot detect an absent series. This may mean the job never seeded, the textfile was deleted, or node_exporter rejected the breadcrumb sample."
 
-      # mirrors the >100k-lines floor update-blocklist.sh enforces on download
+      # Mirrors the selected source's own validated floor. The producer emits
+      # both values from the same successful update, avoiding a universal 100k
+      # assumption that was wrong for the supported oisd-small source.
       - alert: BlocklistSuspiciouslySmall
-        expr: unbound_blocklist_lines < 100000
+        expr: unbound_blocklist_lines < unbound_blocklist_minimum_lines
         annotations:
-          summary: "deployed blocklist under 100k lines - truncated or wrong file?"
+          summary: "deployed blocklist is smaller than the selected source's validated floor"
+
+      - alert: BlocklistMinimumMetricAbsent
+        expr: |
+          absent(unbound_blocklist_minimum_lines)
+            and on() (up{job="node"} == 1)
+        for: 15m
+        annotations:
+          summary: "blocklist source-floor metric is absent - re-seed the updated blocklist producer"
 
       # A dead contentcache job is otherwise INVISIBLE: node_exporter keeps
       # serving the last .prom file forever, so every gauge looks alive.
       # The file's own mtime is the only honest freshness signal.
       # Job runs every 300s; 900s = three missed runs.
       - alert: ContentCacheExporterStale
-        expr: time() - node_textfile_mtime_seconds{file=~".*apple-content-cache.prom"} > 900
+        expr: |
+          (time() - node_textfile_mtime_seconds{file="/opt/homebrew/var/lib/node_exporter/textfile/apple-content-cache.prom"} > 900)
+            and on() (up{job="node"} == 1)
         annotations:
           summary: "apple-content-cache.prom not rewritten in >15m - contentcache job dead?"
 
       - alert: ContentCacheTextfileMissing
-        expr: absent(node_textfile_mtime_seconds{file="/opt/homebrew/var/lib/node_exporter/textfile/apple-content-cache.prom"})
+        expr: |
+          absent(node_textfile_mtime_seconds{file="/opt/homebrew/var/lib/node_exporter/textfile/apple-content-cache.prom"})
+            and on() (up{job="node"} == 1)
         for: 15m
         annotations:
           summary: "Apple Content Cache textfile metric is missing entirely"
@@ -107,14 +314,18 @@ groups:
       # phone (it's the thing that pushes) - it only shows here and on the
       # dashboard. Runs every 120s; 600s = five missed runs.
       - alert: AlertNotifierStale
-        expr: time() - unbound_job_last_success_timestamp_seconds{task="alertnotify"} > 600
+        expr: |
+          (time() - unbound_job_last_success_timestamp_seconds{task="alertnotify"} > 600)
+            and on() (up{job="node"} == 1)
         annotations:
           summary: "prometheus_alert_notifier.py hasn't succeeded in >10m - phone pushes are dead"
 
       # Same absent-series trap as clientstats below: stale-age rules cannot
       # fire when the breadcrumb series is missing entirely.
       - alert: AlertNotifierBreadcrumbAbsent
-        expr: absent(unbound_job_last_success_timestamp_seconds{task="alertnotify"})
+        expr: |
+          absent(unbound_job_last_success_timestamp_seconds{task="alertnotify"})
+            and on() (up{job="node"} == 1)
         for: 15m
         annotations:
           summary: "alertnotify breadcrumb metric absent - missing .prom sample or textfile merge rejection"
@@ -128,7 +339,9 @@ groups:
       # breadcrumb going stale is the one signal that catches a dead job, a
       # broken log-show parse, AND a rejected-sample regression alike.
       - alert: ClientStatsStale
-        expr: time() - unbound_job_last_success_timestamp_seconds{task="clientstats"} > 900
+        expr: |
+          (time() - unbound_job_last_success_timestamp_seconds{task="clientstats"} > 900)
+            and on() (up{job="node"} == 1)
         annotations:
           summary: "unbound_client_rpz_exporter.py breadcrumb stale >15m - job dead or its samples rejected by node_exporter"
 
@@ -137,7 +350,9 @@ groups:
       # rejected-at-merge cases for the newest job. for: 15m rides out
       # node_exporter restarts.
       - alert: ClientStatsBreadcrumbAbsent
-        expr: absent(unbound_job_last_success_timestamp_seconds{task="clientstats"})
+        expr: |
+          absent(unbound_job_last_success_timestamp_seconds{task="clientstats"})
+            and on() (up{job="node"} == 1)
         for: 15m
         annotations:
           summary: "clientstats breadcrumb metric absent - job never seeded, .prom file gone, or sample rejected in the textfile merge"
@@ -151,6 +366,48 @@ groups:
         annotations:
           summary: "2+ failed ntfy pushes in 30m - phone alert channel broken or recently recovered"
           description: "The 30m increase window can remain firing briefly after delivery recovers because it still contains earlier failed sends; visible on dashboard only, by nature."
+
+      # Read-only tmutil collector, every 900s. The mtime guard detects a job
+      # that stopped rewriting; collection_success catches a fresh but failed
+      # tmutil read. Unconfigured Time Machine is reported as disabled, not bad.
+      - alert: TimeMachineMonitoringUnhealthy
+        expr: |
+          (up{job="node"} == 1)
+          and on() (
+            (time() - node_textfile_mtime_seconds{file=~".*/time-machine\\.prom"} > 3600)
+            or absent(node_textfile_mtime_seconds{file=~".*/time-machine\\.prom"})
+            or (time_machine_exporter_collection_success == 0)
+            or absent(time_machine_exporter_collection_success)
+            or absent(time_machine_destination_configured)
+            or absent(time_machine_backup_running)
+            or absent(time_machine_latest_backup_available)
+            or (
+              (time_machine_destination_configured == 1)
+              and on() (time_machine_latest_backup_available == 1)
+              and on() absent(time_machine_latest_backup_timestamp_seconds)
+            )
+          )
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Time Machine monitoring is stale, missing, or failed"
+
+      # The observed schedule was hourly on 2026-07-14. Six hours is an
+      # engineering warning boundary; the dashboard escalates visual severity
+      # again at 24 hours. No alert fires when no destination is configured.
+      - alert: TimeMachineBackupStaleOrMissing
+        expr: |
+          (time_machine_destination_configured == 1)
+          and on() (
+            (time_machine_latest_backup_available == 0)
+            or (time() - time_machine_latest_backup_timestamp_seconds > 21600)
+          )
+        for: 30m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Time Machine has no available backup newer than six hours"
 
   - name: host
     rules:
@@ -211,7 +468,9 @@ groups:
       # outside-in signature of the 2026-07-01 incident. max()==0 means every
       # upstream target failed; a single one failing is their outage, not ours.
       - alert: UpstreamDNSPathDown
-        expr: max(probe_success{job="blackbox_upstream"}) == 0
+        expr: |
+          (max(probe_success{job="blackbox_upstream"}) == 0)
+            and on() (count(probe_success{job="blackbox_upstream"}) == 2)
         for: 5m
         annotations:
           summary: "1.1.1.1 AND 8.8.8.8 unreachable on :53 - upstream path dead (2026-07-01 signature)"
@@ -220,7 +479,7 @@ groups:
       # isolated outage. max() selects the healthier target; if even that
       # target is below 95% over 10m, both observed upstream paths are degraded.
       - alert: UpstreamDNSPathDegraded
-        expr: max(avg_over_time(probe_success{job="blackbox_upstream"}[10m])) < 0.95
+        expr: dns:upstream_best_success_ratio_10m < 0.95
         for: 5m
         annotations:
           summary: "both upstream DNS probe paths are below 95% success over 10m"
@@ -250,10 +509,10 @@ groups:
       # Grafana down/firewalled (classic cause: brew upgrade changed the
       # Cellar path and invalidated the socketfilterfw allow).
       - alert: GrafanaDown
-        expr: up{job="grafana"} == 0
+        expr: probe_success{job="blackbox_grafana"} == 0
         for: 5m
         annotations:
-          summary: "Grafana unreachable on :3000 - dead, or firewall allow lost after brew upgrade"
+          summary: "Grafana /api/health failed HTTP or database validation"
 
   - name: unbound
     rules:
@@ -267,7 +526,12 @@ groups:
       # Exporter is up but unbound-control is not answering. Expected for the
       # first ~10s of boot (known opendirectoryd race); 2m of it is real.
       - alert: UnboundDown
-        expr: unbound_up == 0
+        expr: |
+          (unbound_up == 0)
+          or (
+            absent(unbound_up)
+            and on() (up{job="unbound"} == 1)
+          )
         for: 2m
         annotations:
           summary: "unbound-control not answering the exporter"
@@ -286,12 +550,7 @@ groups:
       # sum() across threads: the counters are per-thread (verified live
       # 2026-07-04), and without it this would fire once per thread.
       - alert: UnboundCacheHitRateLow
-        expr: |
-          (
-            sum(rate(unbound_cache_hits_total[15m]))
-              / (sum(rate(unbound_cache_hits_total[15m])) + sum(rate(unbound_cache_misses_total[15m])))
-          ) < 0.5
-          and (sum(rate(unbound_cache_hits_total[15m])) + sum(rate(unbound_cache_misses_total[15m]))) > 1
+        expr: unbound:cache_hit_ratio_15m < 0.5
         for: 30m
         annotations:
           summary: "cache hit rate below 50% for 30m under real load"

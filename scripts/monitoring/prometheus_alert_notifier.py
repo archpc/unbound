@@ -2,7 +2,7 @@
 """
 prometheus_alert_notifier.py - push Prometheus alerts to a phone via ntfy.
 
-Why this instead of Alertmanager: at 16 rules on one box, Alertmanager plus a
+Why this instead of Alertmanager: on one box, Alertmanager plus a
 webhook->ntfy bridge is two more daemons and a config surface for grouping/
 silencing features this setup doesn't need. This is one stdlib-only script:
 poll /api/v1/alerts, push NEW firing alerts (and their resolutions) to an
