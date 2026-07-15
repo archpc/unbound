@@ -356,6 +356,15 @@ class RepositoryContractTests(unittest.TestCase):
         self.assertIn("allowUiUpdates: false", provider)
         self.assertNotIn("allowUiUpdates: true", provider)
 
+    def test_grafana_deployment_uses_unified_storage_uid_verification(self):
+        deployment = (ROOT / "DEPLOYMENT.md").read_text(encoding="utf-8")
+        self.assertIn('"group"="dashboard.grafana.app"', deployment)
+        self.assertIn('resource="dashboards"', deployment)
+        self.assertNotIn(
+            "select uid from dashboard where is_folder=0 order by uid;",
+            deployment,
+        )
+
     def test_active_sources_do_not_reference_retired_repository_paths(self):
         manifest = load_manifest()
         active_files = {

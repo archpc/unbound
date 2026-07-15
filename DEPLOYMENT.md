@@ -260,10 +260,12 @@ done
   shasum -a 256 -c ~/grafana-dashboard-SHA256SUMS.stage)
 
 # Wait for two 30-second scans, then verify health and exact dashboard UIDs.
+# Grafana 13 stores dashboards in unified storage; the legacy dashboard table is
+# empty even while the dashboards are healthy and visible.
 curl -fsS http://192.168.0.100:3000/api/health | \
   python3 -c 'import json,sys; assert json.load(sys.stdin).get("database") == "ok"'
 uids="$(/usr/bin/sqlite3 -readonly /opt/homebrew/var/lib/grafana/grafana.db \
-  'select uid from dashboard where is_folder=0 order by uid;')"
+  'select name from resource where "group"="dashboard.grafana.app" and resource="dashboards" order by name;')"
 expected="$(printf '%s\n' apple-content-cache host-services operations-overview \
   prometheus-monitoring unbound-dns)"
 test "$uids" = "$expected"
@@ -282,8 +284,11 @@ curl -fsS http://192.168.0.100:3000/api/health | \
   python3 -c 'import json,sys; assert json.load(sys.stdin).get("database") == "ok"'
 ```
 
-The expected API health response contains HTTP 200 and database `ok`; repeat the UID
-query above. Use the actual service label and domain from
+The expected API health response contains HTTP 200 and database `ok`; repeat the
+unified-storage UID query above. On a deliberately supported pre-unified-storage
+Grafana release, use its legacy `dashboard.uid` table only after confirming that
+version and storage mode; an empty legacy table is not evidence that Grafana 13 lost
+its dashboards. Use the actual service label and domain from
 [REFERENCE.md](REFERENCE.md#services-and-scheduled-jobs) if they differ from this
 example. See [DASHBOARDS.md](DASHBOARDS.md).
 
