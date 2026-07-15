@@ -2,22 +2,120 @@
   "annotations": {
     "list": []
   },
+  "description": "Freshness-gated service state, capacity, and source-complete traffic composition. Zero traffic, unavailable Metrics.db data, and incomplete since-reset history remain distinct.",
   "editable": false,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 1,
-  "links": [],
+  "id": null,
+  "links": [
+    {
+      "asDropdown": false,
+      "icon": "external link",
+      "includeVars": true,
+      "keepTime": true,
+      "tags": [],
+      "targetBlank": false,
+      "title": "Operational Overview",
+      "tooltip": "",
+      "type": "link",
+      "url": "/d/operations-overview?${__url_time_range}"
+    },
+    {
+      "asDropdown": false,
+      "icon": "external link",
+      "includeVars": true,
+      "keepTime": true,
+      "tags": [],
+      "targetBlank": false,
+      "title": "DNS and Unbound",
+      "tooltip": "",
+      "type": "link",
+      "url": "/d/unbound-dns?${__url_time_range}"
+    },
+    {
+      "asDropdown": false,
+      "icon": "external link",
+      "includeVars": true,
+      "keepTime": true,
+      "tags": [],
+      "targetBlank": false,
+      "title": "Host, Services, and Backups",
+      "tooltip": "",
+      "type": "link",
+      "url": "/d/host-services?${__url_time_range}"
+    },
+    {
+      "asDropdown": false,
+      "icon": "external link",
+      "includeVars": true,
+      "keepTime": true,
+      "tags": [],
+      "targetBlank": false,
+      "title": "Prometheus Diagnostics",
+      "tooltip": "",
+      "type": "link",
+      "url": "/d/prometheus-monitoring?${__url_time_range}"
+    }
+  ],
+  "liveNow": false,
   "panels": [
     {
+      "id": 1,
+      "title": "Current service and data trust",
+      "type": "row",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "id": 2,
+      "title": "Content Cache active",
+      "description": "Whether AssetCacheManagerUtil reports the enabled service active, shown only while the textfile is fresh. Intentionally disabled is neutral and distinct from enabled-but-inactive.",
+      "type": "stat",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
+      "gridPos": {
+        "x": 0,
+        "y": 1,
+        "w": 5,
+        "h": 4
+      },
       "fieldConfig": {
         "defaults": {
           "unit": "none",
+          "noValue": "UNKNOWN",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          },
           "mappings": [
             {
+              "type": "value",
               "options": {
+                "-1": {
+                  "color": "gray",
+                  "index": 0,
+                  "text": "DISABLED"
+                },
                 "0": {
                   "color": "red",
                   "index": 1,
@@ -25,13 +123,66 @@
                 },
                 "1": {
                   "color": "green",
-                  "index": 0,
+                  "index": 2,
                   "text": "ACTIVE"
                 }
-              },
-              "type": "value"
+              }
             }
           ],
+          "min": -1
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "(((apple_content_cache_active) and on() (apple_content_cache_activated == 1)) or on() ((apple_content_cache_activated == 0) - 1)) and on() (time() - node_textfile_mtime_seconds{file=~\".*/apple-content-cache[.]prom\"} < 900)",
+          "instant": true,
+          "range": false,
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Cache status",
+      "description": "Whether AssetCacheManagerUtil reported CacheStatus OK while enabled. Disabled is neutral; missing/stale collection remains UNKNOWN.",
+      "type": "stat",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 5,
+        "y": 1,
+        "w": 5,
+        "h": 4
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "noValue": "UNKNOWN",
+          "color": {
+            "mode": "thresholds"
+          },
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -44,124 +195,16 @@
                 "value": 1
               }
             ]
-          }
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 4,
-        "w": 6,
-        "x": 0,
-        "y": 0
-      },
-      "id": 1,
-      "options": {
-        "colorMode": "background",
-        "graphMode": "none",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        }
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
           },
-          "expr": "apple_content_cache_active",
-          "refId": "A"
-        }
-      ],
-      "title": "Content Cache Active",
-      "type": "stat"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "none",
           "mappings": [
             {
+              "type": "value",
               "options": {
-                "0": {
-                  "color": "red",
-                  "index": 1,
+                "-1": {
+                  "color": "gray",
+                  "index": 0,
                   "text": "DISABLED"
                 },
-                "1": {
-                  "color": "green",
-                  "index": 0,
-                  "text": "ENABLED"
-                }
-              },
-              "type": "value"
-            }
-          ],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "red",
-                "value": null
-              },
-              {
-                "color": "green",
-                "value": 1
-              }
-            ]
-          }
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 4,
-        "w": 6,
-        "x": 6,
-        "y": 0
-      },
-      "id": 2,
-      "options": {
-        "colorMode": "background",
-        "graphMode": "none",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        }
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "apple_content_cache_activated",
-          "refId": "A"
-        }
-      ],
-      "title": "Content Cache Activated",
-      "type": "stat"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "none",
-          "mappings": [
-            {
-              "options": {
                 "0": {
                   "color": "red",
                   "index": 1,
@@ -169,13 +212,66 @@
                 },
                 "1": {
                   "color": "green",
-                  "index": 0,
+                  "index": 2,
                   "text": "OK"
                 }
-              },
-              "type": "value"
+              }
             }
           ],
+          "min": -1
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "(((apple_content_cache_status_ok) and on() (apple_content_cache_activated == 1)) or on() ((apple_content_cache_activated == 0) - 1)) and on() (time() - node_textfile_mtime_seconds{file=~\".*/apple-content-cache[.]prom\"} < 900)",
+          "instant": true,
+          "range": false,
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Traffic metrics",
+      "description": "Whether Apple's Metrics.db was readable and its traffic schema recognized during the latest fresh collection. It is not applicable while Content Cache is disabled.",
+      "type": "stat",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 10,
+        "y": 1,
+        "w": 5,
+        "h": 4
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "noValue": "UNKNOWN",
+          "color": {
+            "mode": "thresholds"
+          },
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -188,78 +284,47 @@
                 "value": 1
               }
             ]
-          }
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 4,
-        "w": 6,
-        "x": 12,
-        "y": 0
-      },
-      "id": 3,
-      "options": {
-        "colorMode": "background",
-        "graphMode": "none",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        }
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
           },
-          "expr": "apple_content_cache_status_ok",
-          "refId": "A"
-        }
-      ],
-      "title": "Cache Status",
-      "type": "stat"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "-1": {
+                  "color": "gray",
+                  "index": 0,
+                  "text": "N/A — DISABLED"
+                },
+                "0": {
+                  "color": "red",
+                  "index": 1,
+                  "text": "UNAVAILABLE"
+                },
+                "1": {
+                  "color": "green",
+                  "index": 2,
+                  "text": "AVAILABLE"
+                }
               }
-            ]
-          }
+            }
+          ],
+          "min": -1
         },
         "overrides": []
       },
-      "gridPos": {
-        "h": 4,
-        "w": 6,
-        "x": 18,
-        "y": 0
-      },
-      "id": 4,
       "options": {
         "colorMode": "value",
         "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
         "reduceOptions": {
           "calcs": [
             "lastNotNull"
           ],
           "fields": "",
           "values": false
-        }
+        },
+        "textMode": "auto",
+        "wideLayout": true
       },
       "targets": [
         {
@@ -267,156 +332,88 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "apple_content_cache_registration_status",
+          "expr": "(((apple_content_cache_traffic_metrics_available) and on() (apple_content_cache_activated == 1)) or on() ((apple_content_cache_activated == 0) - 1)) and on() (time() - node_textfile_mtime_seconds{file=~\".*/apple-content-cache[.]prom\"} < 900)",
+          "instant": true,
+          "range": false,
           "refId": "A"
         }
-      ],
-      "title": "Registration Status",
-      "type": "stat"
+      ]
     },
     {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "bytes",
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              }
-            ]
-          }
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 4,
-        "w": 6,
-        "x": 0,
-        "y": 4
-      },
       "id": 5,
-      "options": {
-        "colorMode": "value",
-        "graphMode": "none",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        }
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "apple_content_cache_used_bytes",
-          "refId": "A"
-        }
-      ],
-      "title": "Cache Used",
-      "type": "stat"
-    },
-    {
+      "title": "Since-reset completeness",
+      "description": "Complete only while the reset epoch lies inside Apple's documented 30-day Metrics.db retention used by this collector. It is not applicable while disabled; last-24h metrics remain independent.",
+      "type": "stat",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "bytes",
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              }
-            ]
-          }
-        },
-        "overrides": []
       },
       "gridPos": {
-        "h": 4,
-        "w": 6,
-        "x": 6,
-        "y": 4
-      },
-      "id": 6,
-      "options": {
-        "colorMode": "value",
-        "graphMode": "none",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        }
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "apple_content_cache_actual_used_bytes",
-          "refId": "A"
-        }
-      ],
-      "title": "Actual Cache Used",
-      "type": "stat"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
+        "x": 15,
+        "y": 1,
+        "w": 5,
+        "h": 4
       },
       "fieldConfig": {
         "defaults": {
-          "unit": "bytes",
+          "unit": "none",
+          "noValue": "UNKNOWN",
+          "color": {
+            "mode": "thresholds"
+          },
           "thresholds": {
             "mode": "absolute",
             "steps": [
               {
-                "color": "red",
+                "color": "orange",
                 "value": null
               },
               {
                 "color": "green",
-                "value": 20000000000.0
+                "value": 1
               }
             ]
-          }
+          },
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "-1": {
+                  "color": "gray",
+                  "index": 0,
+                  "text": "N/A — DISABLED"
+                },
+                "0": {
+                  "color": "orange",
+                  "index": 1,
+                  "text": "INCOMPLETE"
+                },
+                "1": {
+                  "color": "green",
+                  "index": 2,
+                  "text": "COMPLETE"
+                }
+              }
+            }
+          ],
+          "min": -1
         },
         "overrides": []
       },
-      "gridPos": {
-        "h": 4,
-        "w": 6,
-        "x": 12,
-        "y": 4
-      },
-      "id": 7,
       "options": {
         "colorMode": "value",
         "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
         "reduceOptions": {
           "calcs": [
             "lastNotNull"
           ],
           "fields": "",
           "values": false
-        }
+        },
+        "textMode": "auto",
+        "wideLayout": true
       },
       "targets": [
         {
@@ -424,21 +421,35 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "apple_content_cache_free_bytes",
+          "expr": "(((apple_content_cache_since_reset_traffic_complete) and on() (apple_content_cache_activated == 1)) or on() ((apple_content_cache_activated == 0) - 1)) and on() (time() - node_textfile_mtime_seconds{file=~\".*/apple-content-cache[.]prom\"} < 900)",
+          "instant": true,
+          "range": false,
           "refId": "A"
         }
-      ],
-      "title": "Cache Free",
-      "type": "stat"
+      ]
     },
     {
+      "id": 6,
+      "title": "Exporter age",
+      "description": "Collector runs every five minutes. Amber at 10 minutes; red at 15 minutes matches ContentCacheExporterStale.",
+      "type": "stat",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
+      "gridPos": {
+        "x": 20,
+        "y": 1,
+        "w": 4,
+        "h": 4
+      },
       "fieldConfig": {
         "defaults": {
-          "unit": "percentunit",
+          "unit": "s",
+          "noValue": "UNKNOWN",
+          "color": {
+            "mode": "thresholds"
+          },
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -448,36 +459,33 @@
               },
               {
                 "color": "orange",
-                "value": 0.8
+                "value": 600
               },
               {
                 "color": "red",
-                "value": 0.95
+                "value": 900
               }
             ]
           },
-          "min": 0,
-          "max": 1
+          "mappings": [],
+          "decimals": 0
         },
         "overrides": []
       },
-      "gridPos": {
-        "h": 4,
-        "w": 6,
-        "x": 18,
-        "y": 4
-      },
-      "id": 8,
       "options": {
         "colorMode": "value",
-        "graphMode": "area",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
         "reduceOptions": {
           "calcs": [
             "lastNotNull"
           ],
           "fields": "",
           "values": false
-        }
+        },
+        "textMode": "auto",
+        "wideLayout": true
       },
       "targets": [
         {
@@ -485,164 +493,181 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "apple_content_cache_used_bytes / clamp_min(apple_content_cache_limit_bytes, 1)",
+          "expr": "time() - node_textfile_mtime_seconds{file=~\".*/apple-content-cache[.]prom\"}",
+          "instant": true,
+          "range": false,
           "refId": "A"
         }
-      ],
-      "title": "Cache Usage",
-      "type": "stat"
+      ]
     },
     {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "unit": "bytes"
-        },
-        "overrides": []
-      },
+      "id": 7,
+      "title": "Capacity",
+      "type": "row",
+      "collapsed": false,
       "gridPos": {
-        "h": 8,
-        "w": 12,
         "x": 0,
-        "y": 8
+        "y": 5,
+        "w": 24,
+        "h": 1
       },
+      "panels": []
+    },
+    {
       "id": 9,
-      "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "apple_content_cache_used_bytes",
-          "refId": "A",
-          "legendFormat": "used"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "apple_content_cache_free_bytes",
-          "refId": "B",
-          "legendFormat": "free"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "apple_content_cache_limit_bytes",
-          "refId": "C",
-          "legendFormat": "limit"
-        }
-      ],
-      "title": "Cache Used / Free / Limit",
-      "type": "timeseries"
-    },
-    {
+      "title": "Cache capacity",
+      "description": "Freshness-gated capacity gauges. A collector outage creates a gap instead of a flat, stale line.",
+      "type": "timeseries",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "unit": "bytes"
-        },
-        "overrides": []
-      },
       "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 8
-      },
-      "id": 10,
-      "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "apple_content_cache_personal_used_bytes",
-          "refId": "A",
-          "legendFormat": "used"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "apple_content_cache_personal_free_bytes",
-          "refId": "B",
-          "legendFormat": "free"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "apple_content_cache_personal_limit_bytes",
-          "refId": "C",
-          "legendFormat": "limit"
-        }
-      ],
-      "title": "Personal (iCloud) Cache Used / Free / Limit",
-      "type": "timeseries"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "unit": "bytes"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
         "x": 0,
-        "y": 16
+        "y": 6,
+        "w": 14,
+        "h": 8
       },
-      "id": 11,
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 8,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
       "options": {
-        "displayMode": "gradient",
+        "legend": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "(apple_content_cache_actual_used_bytes) and on() (time() - node_textfile_mtime_seconds{file=~\".*/apple-content-cache[.]prom\"} < 900)",
+          "instant": false,
+          "range": true,
+          "refId": "A",
+          "legendFormat": "actual used"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "(apple_content_cache_free_bytes) and on() (time() - node_textfile_mtime_seconds{file=~\".*/apple-content-cache[.]prom\"} < 900)",
+          "instant": false,
+          "range": true,
+          "refId": "B",
+          "legendFormat": "free"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "(apple_content_cache_limit_bytes) and on() (time() - node_textfile_mtime_seconds{file=~\".*/apple-content-cache[.]prom\"} < 900)",
+          "instant": false,
+          "range": true,
+          "refId": "C",
+          "legendFormat": "configured limit"
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "title": "Current cache categories",
+      "description": "Instant category ranking. Categories missing from the latest fresh source disappear rather than persisting through a range reducer.",
+      "type": "bargauge",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 14,
+        "y": 6,
+        "w": 10,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "noValue": "NO FRESH CATEGORY DATA",
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "min": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "displayMode": "basic",
+        "minVizHeight": 10,
+        "minVizWidth": 0,
+        "namePlacement": "auto",
         "orientation": "horizontal",
         "reduceOptions": {
           "calcs": [
@@ -650,7 +675,10 @@
           ],
           "fields": "",
           "values": false
-        }
+        },
+        "showUnfilled": true,
+        "sizing": "auto",
+        "valueMode": "color"
       },
       "targets": [
         {
@@ -658,112 +686,76 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "apple_content_cache_detail_bytes",
+          "expr": "(apple_content_cache_detail_bytes) and on() (time() - node_textfile_mtime_seconds{file=~\".*/apple-content-cache[.]prom\"} < 900)",
+          "instant": true,
+          "range": false,
           "refId": "A",
           "legendFormat": "{{category}}"
         }
-      ],
-      "title": "Cache Details by Category",
-      "type": "bargauge"
+      ]
     },
     {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "percentunit",
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "orange",
-                "value": 0.5
-              },
-              {
-                "color": "red",
-                "value": 0.9
-              }
-            ]
-          },
-          "min": 0,
-          "max": 1
-        },
-        "overrides": []
-      },
+      "id": 11,
+      "title": "Traffic composition (rolling 24h)",
+      "type": "row",
+      "collapsed": false,
       "gridPos": {
-        "h": 4,
-        "w": 12,
-        "x": 12,
-        "y": 16
+        "x": 0,
+        "y": 14,
+        "w": 24,
+        "h": 1
       },
+      "panels": []
+    },
+    {
       "id": 12,
-      "options": {
-        "colorMode": "value",
-        "graphMode": "area",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        }
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "apple_content_cache_max_pressure_last_1h_ratio",
-          "refId": "A"
-        }
-      ],
-      "title": "Max Cache Pressure (last 1h)",
-      "type": "stat"
-    },
-    {
+      "title": "All client traffic",
+      "description": "All bytes Apple recorded as served to clients from local cache, origin, parent, or peer in its rolling 24-hour window.",
+      "type": "stat",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
+      "gridPos": {
+        "x": 0,
+        "y": 15,
+        "w": 6,
+        "h": 5
+      },
       "fieldConfig": {
         "defaults": {
           "unit": "bytes",
+          "noValue": "NO FRESH DATA",
+          "color": {
+            "mode": "thresholds"
+          },
           "thresholds": {
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "blue",
                 "value": null
               }
             ]
-          }
+          },
+          "mappings": []
         },
         "overrides": []
       },
-      "gridPos": {
-        "h": 4,
-        "w": 6,
-        "x": 0,
-        "y": 24
-      },
-      "id": 17,
       "options": {
         "colorMode": "value",
         "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
         "reduceOptions": {
           "calcs": [
             "lastNotNull"
           ],
           "fields": "",
           "values": false
-        }
+        },
+        "textMode": "auto",
+        "wideLayout": true
       },
       "targets": [
         {
@@ -771,295 +763,65 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "apple_content_cache_returned_to_clients_bytes_total",
+          "expr": "(apple_content_cache_total_to_client_last_24h_bytes) and on() (time() - node_textfile_mtime_seconds{file=~\".*/apple-content-cache[.]prom\"} < 900)",
+          "instant": true,
+          "range": false,
           "refId": "A"
         }
-      ],
-      "title": "Returned to Clients \u2014 Since Reset",
-      "type": "stat"
+      ]
     },
     {
+      "id": 13,
+      "title": "Local cache share",
+      "description": "Local-cache bytes divided by all client bytes. Parent and peer traffic remain in the denominator. If no ratio is present, the adjacent total and Traffic metrics state distinguish zero traffic from unavailable/stale collection.",
+      "type": "stat",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "bytes",
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              }
-            ]
-          }
-        },
-        "overrides": []
-      },
       "gridPos": {
-        "h": 4,
-        "w": 6,
         "x": 6,
-        "y": 24
-      },
-      "id": 18,
-      "options": {
-        "colorMode": "value",
-        "graphMode": "none",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        }
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "apple_content_cache_stored_from_origin_bytes_total",
-          "refId": "A"
-        }
-      ],
-      "title": "Stored from Origin \u2014 Since Reset",
-      "type": "stat"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
+        "y": 15,
+        "w": 6,
+        "h": 5
       },
       "fieldConfig": {
         "defaults": {
           "unit": "percentunit",
-          "min": 0,
-          "max": 1,
+          "noValue": "NO RATIO — CHECK TRAFFIC STATE",
+          "color": {
+            "mode": "thresholds"
+          },
           "thresholds": {
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "blue",
                 "value": null
               }
             ]
-          }
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 4,
-        "w": 6,
-        "x": 12,
-        "y": 24
-      },
-      "id": 19,
-      "options": {
-        "colorMode": "value",
-        "graphMode": "area",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        }
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
           },
-          "expr": "apple_content_cache_cache_to_client_bytes_total / clamp_min(apple_content_cache_cache_to_client_bytes_total + apple_content_cache_origin_to_client_bytes_total, 1)",
-          "refId": "A"
-        }
-      ],
-      "title": "Cache Hit Ratio \u2014 Since Reset",
-      "type": "stat",
-      "description": "Authoritative Apple Metrics.db bytes served from cache divided by bytes served from cache plus origin. A first-time cache fill should be near 0%; a repeated identical download should be high. The panel has no data when the reset is older than Apple's guaranteed 30-day metrics retention."
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "s",
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              }
-            ]
-          }
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 4,
-        "w": 6,
-        "x": 18,
-        "y": 24
-      },
-      "id": 20,
-      "options": {
-        "colorMode": "value",
-        "graphMode": "none",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        }
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "time() - apple_content_cache_totals_since_seconds",
-          "refId": "A"
-        }
-      ],
-      "title": "Counter Age / Since Reset",
-      "type": "stat",
-      "description": "How long the TotalBytes* counters have been accumulating (AssetCacheManagerUtil resets them when the service restarts). Sanity-check the 24h panels against this: if age < 24h, those panels cover less history than their title implies."
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "unit": "bytes"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 8,
-        "x": 0,
-        "y": 28
-      },
-      "id": 21,
-      "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "increase(apple_content_cache_returned_to_clients_bytes_total[24h])",
-          "refId": "A",
-          "legendFormat": "returned to clients"
-        }
-      ],
-      "title": "Returned to Clients \u2014 Last 24h",
-      "type": "timeseries"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "unit": "bytes"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 8,
-        "x": 8,
-        "y": 28
-      },
-      "id": 22,
-      "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "increase(apple_content_cache_stored_from_origin_bytes_total[24h])",
-          "refId": "A",
-          "legendFormat": "stored from origin"
-        }
-      ],
-      "title": "Stored from Origin \u2014 Last 24h",
-      "type": "timeseries"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "unit": "percentunit",
+          "mappings": [],
+          "decimals": 1,
           "min": 0,
           "max": 1
         },
         "overrides": []
       },
-      "gridPos": {
-        "h": 8,
-        "w": 8,
-        "x": 16,
-        "y": 28
-      },
-      "id": 23,
       "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
         },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
+        "textMode": "auto",
+        "wideLayout": true
       },
       "targets": [
         {
@@ -1067,88 +829,215 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "apple_content_cache_cache_to_client_last_24h_bytes / clamp_min(apple_content_cache_cache_to_client_last_24h_bytes + apple_content_cache_origin_to_client_last_24h_bytes, 1)",
-          "refId": "A",
-          "legendFormat": "cache hit ratio"
+          "expr": "(apple_content_cache:local_hit_ratio_24h) and on() (time() - node_textfile_mtime_seconds{file=~\".*/apple-content-cache[.]prom\"} < 900)",
+          "instant": true,
+          "range": false,
+          "refId": "A"
         }
-      ],
-      "title": "Cache Hit Ratio \u2014 Last 24h",
-      "type": "timeseries",
-      "description": "Authoritative Apple Metrics.db bytes served from cache divided by bytes served from cache plus origin over the rolling last 24 hours. A first-time cache fill should be near 0%; a repeated identical download should be high. Zero traffic displays 0%."
+      ]
     },
     {
+      "id": 14,
+      "title": "Origin share",
+      "description": "Origin-to-client bytes divided by all client bytes. If no ratio is present, the adjacent total and Traffic metrics state distinguish zero traffic from unavailable/stale collection.",
+      "type": "stat",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 15,
+        "w": 6,
+        "h": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "noValue": "NO RATIO — CHECK TRAFFIC STATE",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "decimals": 1,
+          "min": 0,
+          "max": 1
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "(apple_content_cache:origin_fraction_24h) and on() (time() - node_textfile_mtime_seconds{file=~\".*/apple-content-cache[.]prom\"} < 900)",
+          "instant": true,
+          "range": false,
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 15,
+      "title": "Other-source share",
+      "description": "Parent- and peer-sourced bytes inferred as total minus local-cache minus origin, divided by all client bytes. Use the adjacent traffic state to classify a missing ratio.",
+      "type": "stat",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 18,
+        "y": 15,
+        "w": 6,
+        "h": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "noValue": "NO RATIO — CHECK TRAFFIC STATE",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [],
+          "decimals": 1,
+          "min": 0,
+          "max": 1
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "(apple_content_cache:other_source_fraction_24h) and on() (time() - node_textfile_mtime_seconds{file=~\".*/apple-content-cache[.]prom\"} < 900)",
+          "instant": true,
+          "range": false,
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 16,
+      "title": "Traffic bytes by source",
+      "description": "Additive rolling-24h source components. Stacking is valid because the three series form the displayed total.",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 20,
+        "w": 24,
+        "h": 8
       },
       "fieldConfig": {
         "defaults": {
           "unit": "bytes",
           "color": {
-            "mode": "fixed",
-            "fixedColor": "text"
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 8,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "normal"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
           }
         },
         "overrides": []
       },
-      "gridPos": {
-        "h": 4,
-        "w": 12,
-        "x": 0,
-        "y": 36
-      },
-      "id": 24,
       "options": {
-        "colorMode": "value",
-        "graphMode": "area",
-        "reduceOptions": {
+        "legend": {
           "calcs": [
             "lastNotNull"
           ],
-          "fields": "",
-          "values": false
-        }
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "apple_content_cache_cache_to_client_bytes_total",
-          "refId": "A"
-        }
-      ],
-      "title": "WAN Bytes Saved \u2014 Since Reset",
-      "type": "stat",
-      "description": "Bytes Apple records as served from this cache to clients. These bytes did not need to be fetched from the internet for that client request. Omitted when the reset is older than Apple's guaranteed 30-day metrics retention."
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "unit": "percentunit",
-          "min": 0,
-          "max": 1
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 4,
-        "w": 12,
-        "x": 12,
-        "y": 36
-      },
-      "id": 25,
-      "options": {
-        "legend": {
-          "displayMode": "list",
+          "displayMode": "table",
           "placement": "bottom",
           "showLegend": true
         },
@@ -1163,21 +1052,43 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "apple_content_cache_origin_to_client_last_24h_bytes / clamp_min(apple_content_cache_total_to_client_last_24h_bytes, 1)",
+          "expr": "(apple_content_cache_cache_to_client_last_24h_bytes) and on() (time() - node_textfile_mtime_seconds{file=~\".*/apple-content-cache[.]prom\"} < 900)",
+          "instant": false,
+          "range": true,
           "refId": "A",
-          "legendFormat": "origin pass-through ratio"
+          "legendFormat": "local cache"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "(apple_content_cache_origin_to_client_last_24h_bytes) and on() (time() - node_textfile_mtime_seconds{file=~\".*/apple-content-cache[.]prom\"} < 900)",
+          "instant": false,
+          "range": true,
+          "refId": "B",
+          "legendFormat": "origin"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "(clamp_min(apple_content_cache_total_to_client_last_24h_bytes - apple_content_cache_cache_to_client_last_24h_bytes - apple_content_cache_origin_to_client_last_24h_bytes, 0)) and on() (time() - node_textfile_mtime_seconds{file=~\".*/apple-content-cache[.]prom\"} < 900)",
+          "instant": false,
+          "range": true,
+          "refId": "C",
+          "legendFormat": "parent + peer"
         }
-      ],
-      "title": "Origin Pass-Through \u2014 Last 24h",
-      "type": "timeseries",
-      "description": "Bytes fetched from the internet and passed through to clients divided by all bytes served to clients from cache, origin, parent, or peer during the rolling last 24 hours. Zero traffic displays 0%."
+      ]
     }
   ],
-  "refresh": "1m",
+  "refresh": "5m",
   "schemaVersion": 39,
   "tags": [
     "apple",
     "content-cache",
+    "drill-down",
     "mac-mini",
     "homelab"
   ],
@@ -1185,13 +1096,13 @@
     "list": []
   },
   "time": {
-    "from": "now-6h",
+    "from": "now-24h",
     "to": "now"
   },
   "timepicker": {},
   "timezone": "browser",
   "title": "Apple Content Cache",
   "uid": "apple-content-cache",
-  "version": 7,
-  "weekStart": ""
+  "version": 8,
+  "weekStart": "monday"
 }

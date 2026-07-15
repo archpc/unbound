@@ -261,6 +261,13 @@
     },
     {
       "category": "script",
+      "source": "scripts/monitoring/time_machine_exporter.py",
+      "destination": "/usr/local/libexec/unbound-stack/monitoring/time_machine_exporter.py",
+      "required": true,
+      "compare": "sha256"
+    },
+    {
+      "category": "script",
       "source": "scripts/monitoring/unbound_client_rpz_exporter.py",
       "destination": "/usr/local/libexec/unbound-stack/monitoring/unbound_client_rpz_exporter.py",
       "required": true,
@@ -361,6 +368,13 @@
     },
     {
       "category": "plist",
+      "source": "launchd/local.unbound.timemachine.plist",
+      "destination": "/Library/LaunchDaemons/local.unbound.timemachine.plist",
+      "required": true,
+      "compare": "sha256"
+    },
+    {
+      "category": "plist",
       "source": "launchd/local.unbound.exporter.plist",
       "destination": "/Library/LaunchDaemons/local.unbound.exporter.plist",
       "required": true,
@@ -418,8 +432,15 @@
     },
     {
       "category": "dashboard",
-      "source": "config/grafana/dashboards/network-tailscale.json",
-      "destination": "/opt/homebrew/etc/grafana/dashboards/network-tailscale.json",
+      "source": "config/grafana/dashboards/host-services.json",
+      "destination": "/opt/homebrew/etc/grafana/dashboards/host-services.json",
+      "required": true,
+      "compare": "sha256"
+    },
+    {
+      "category": "dashboard",
+      "source": "config/grafana/dashboards/operations-overview.json",
+      "destination": "/opt/homebrew/etc/grafana/dashboards/operations-overview.json",
       "required": true,
       "compare": "sha256"
     },
@@ -427,27 +448,6 @@
       "category": "dashboard",
       "source": "config/grafana/dashboards/prometheus-monitoring.json",
       "destination": "/opt/homebrew/etc/grafana/dashboards/prometheus-monitoring.json",
-      "required": true,
-      "compare": "sha256"
-    },
-    {
-      "category": "dashboard",
-      "source": "config/grafana/dashboards/services.json",
-      "destination": "/opt/homebrew/etc/grafana/dashboards/services.json",
-      "required": true,
-      "compare": "sha256"
-    },
-    {
-      "category": "dashboard",
-      "source": "config/grafana/dashboards/storage-backups.json",
-      "destination": "/opt/homebrew/etc/grafana/dashboards/storage-backups.json",
-      "required": true,
-      "compare": "sha256"
-    },
-    {
-      "category": "dashboard",
-      "source": "config/grafana/dashboards/system-stats.json",
-      "destination": "/opt/homebrew/etc/grafana/dashboards/system-stats.json",
       "required": true,
       "compare": "sha256"
     },
@@ -518,6 +518,15 @@
       "category": "textfile",
       "source": "scripts/monitoring/apple_content_cache_exporter.py",
       "destination": "/opt/homebrew/var/lib/node_exporter/textfile/apple-content-cache.prom",
+      "required": true,
+      "compare": "existence",
+      "metadata": {"owner": "localadmin", "group": "admin", "mode": "0644"}
+    },
+    {
+      "name": "Time Machine metrics",
+      "category": "textfile",
+      "source": "scripts/monitoring/time_machine_exporter.py",
+      "destination": "/opt/homebrew/var/lib/node_exporter/textfile/time-machine.prom",
       "required": true,
       "compare": "existence",
       "metadata": {"owner": "localadmin", "group": "admin", "mode": "0644"}

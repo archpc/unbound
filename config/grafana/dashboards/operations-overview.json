@@ -1,0 +1,1258 @@
+{
+  "annotations": {
+    "list": []
+  },
+  "description": "Incident-first view: current service and monitoring health, active alerts, correlated failure history, and the shortest path to the next diagnostic view. Local green state does not prove external reachability.",
+  "editable": false,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [
+    {
+      "asDropdown": false,
+      "icon": "external link",
+      "includeVars": true,
+      "keepTime": true,
+      "tags": [],
+      "targetBlank": false,
+      "title": "DNS and Unbound",
+      "tooltip": "",
+      "type": "link",
+      "url": "/d/unbound-dns?${__url_time_range}"
+    },
+    {
+      "asDropdown": false,
+      "icon": "external link",
+      "includeVars": true,
+      "keepTime": true,
+      "tags": [],
+      "targetBlank": false,
+      "title": "Host, Services, and Backups",
+      "tooltip": "",
+      "type": "link",
+      "url": "/d/host-services?${__url_time_range}"
+    },
+    {
+      "asDropdown": false,
+      "icon": "external link",
+      "includeVars": true,
+      "keepTime": true,
+      "tags": [],
+      "targetBlank": false,
+      "title": "Apple Content Cache",
+      "tooltip": "",
+      "type": "link",
+      "url": "/d/apple-content-cache?${__url_time_range}"
+    },
+    {
+      "asDropdown": false,
+      "icon": "external link",
+      "includeVars": true,
+      "keepTime": true,
+      "tags": [],
+      "targetBlank": false,
+      "title": "Prometheus Diagnostics",
+      "tooltip": "",
+      "type": "link",
+      "url": "/d/prometheus-monitoring?${__url_time_range}"
+    }
+  ],
+  "liveNow": false,
+  "panels": [
+    {
+      "id": 1,
+      "title": "Current health",
+      "type": "row",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "id": 2,
+      "title": "Collection coverage",
+      "description": "HEALTHY requires all eight expected scrape targets and every core collection path to be up. UNKNOWN means Prometheus cannot provide the canonical result.",
+      "type": "stat",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 1,
+        "w": 4,
+        "h": 4
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "noValue": "UNKNOWN",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          },
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "color": "red",
+                  "index": 1,
+                  "text": "FAILED"
+                },
+                "1": {
+                  "color": "green",
+                  "index": 0,
+                  "text": "HEALTHY"
+                }
+              }
+            }
+          ]
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "monitoring:collection_path_healthy",
+          "instant": true,
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "links": [
+        {
+          "targetBlank": false,
+          "title": "Prometheus diagnostics",
+          "url": "/d/prometheus-monitoring?${__url_time_range}"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Active alerts",
+      "description": "Current firing Prometheus alerts. Zero is healthy only when collection coverage is also healthy.",
+      "type": "stat",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 4,
+        "y": 1,
+        "w": 4,
+        "h": 4
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "noValue": "UNKNOWN",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          },
+          "mappings": [],
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "monitoring:active_alerts",
+          "instant": true,
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "links": [
+        {
+          "title": "Open Prometheus alerts",
+          "url": "http://192.168.0.100:9090/alerts",
+          "targetBlank": true
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Unbound control",
+      "description": "Whether unbound_exporter can read the Unbound control socket. This is daemon/control health, not proof that clients receive answers.",
+      "type": "stat",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 8,
+        "y": 1,
+        "w": 4,
+        "h": 4
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "noValue": "UNKNOWN",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          },
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "color": "red",
+                  "index": 1,
+                  "text": "CONTROL FAILED"
+                },
+                "1": {
+                  "color": "green",
+                  "index": 0,
+                  "text": "CONTROL OK"
+                }
+              }
+            }
+          ]
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "unbound_up",
+          "instant": true,
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "links": [
+        {
+          "targetBlank": false,
+          "title": "DNS drill-down",
+          "url": "/d/unbound-dns?${__url_time_range}"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "title": "Client DNS probe",
+      "description": "Synthetic query to the LAN resolver address. It proves that Unbound answers a repeated hot name; it does not prove fresh recursion.",
+      "type": "stat",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 1,
+        "w": 4,
+        "h": 4
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "noValue": "UNKNOWN",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          },
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "color": "red",
+                  "index": 1,
+                  "text": "NO ANSWER"
+                },
+                "1": {
+                  "color": "green",
+                  "index": 0,
+                  "text": "ANSWERING"
+                }
+              }
+            }
+          ]
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "probe_success{job=\"blackbox_resolver\"}",
+          "instant": true,
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "links": [
+        {
+          "targetBlank": false,
+          "title": "DNS drill-down",
+          "url": "/d/unbound-dns?${__url_time_range}"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "title": "Best upstream path (10m)",
+      "description": "Success ratio of the healthier public DNS probe path. Red matches the alert threshold below 95%; amber means partial loss; green means effectively all probes succeeded.",
+      "type": "stat",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 1,
+        "w": 4,
+        "h": 4
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "noValue": "UNKNOWN",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 0.95
+              },
+              {
+                "color": "green",
+                "value": 0.999
+              }
+            ]
+          },
+          "mappings": [],
+          "decimals": 1,
+          "min": 0,
+          "max": 1
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "dns:upstream_best_success_ratio_10m",
+          "instant": true,
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "links": [
+        {
+          "targetBlank": false,
+          "title": "DNS drill-down",
+          "url": "/d/unbound-dns?${__url_time_range}"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "title": "RPZ canary",
+      "description": "The canary is healthy only when the configured blocked domain returns NXDOMAIN through Unbound.",
+      "type": "stat",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 20,
+        "y": 1,
+        "w": 4,
+        "h": 4
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "noValue": "UNKNOWN",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          },
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "color": "red",
+                  "index": 1,
+                  "text": "NOT BLOCKING"
+                },
+                "1": {
+                  "color": "green",
+                  "index": 0,
+                  "text": "BLOCKING"
+                }
+              }
+            }
+          ]
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "probe_success{job=\"blackbox_rpz_canary\"}",
+          "instant": true,
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "links": [
+        {
+          "targetBlank": false,
+          "title": "DNS drill-down",
+          "url": "/d/unbound-dns?${__url_time_range}"
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "title": "Host metrics path",
+      "description": "Prometheus can scrape node_exporter. This is a local observation and is not an independent witness that the Mac or LAN is externally reachable.",
+      "type": "stat",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 5,
+        "w": 4,
+        "h": 4
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "noValue": "UNKNOWN",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          },
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "color": "red",
+                  "index": 1,
+                  "text": "METRICS DOWN"
+                },
+                "1": {
+                  "color": "green",
+                  "index": 0,
+                  "text": "METRICS UP"
+                }
+              }
+            }
+          ]
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "up{job=\"node\"}",
+          "instant": true,
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "links": [
+        {
+          "targetBlank": false,
+          "title": "Host drill-down",
+          "url": "/d/host-services?${__url_time_range}"
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "title": "Local notification path",
+      "description": "Fresh notifier run, successful Prometheus poll, and fewer than two failed ntfy deliveries in 30 minutes. This cannot prove receipt on the phone.",
+      "type": "stat",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 4,
+        "y": 5,
+        "w": 4,
+        "h": 4
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "noValue": "UNKNOWN",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          },
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "color": "red",
+                  "index": 1,
+                  "text": "FAILED / STALE"
+                },
+                "1": {
+                  "color": "green",
+                  "index": 0,
+                  "text": "LOCAL PATH OK"
+                }
+              }
+            }
+          ]
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "monitoring:notifier_local_path_healthy",
+          "instant": true,
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "links": [
+        {
+          "targetBlank": false,
+          "title": "Host drill-down",
+          "url": "/d/host-services?${__url_time_range}"
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "title": "Latest Time Machine backup",
+      "description": "Age of the latest backup reported by tmutil. NOT CONFIGURED is explicit; missing or stale collection remains UNKNOWN. Warning at six hours and critical at 24 hours are engineering limits based on the observed hourly schedule.",
+      "type": "stat",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 8,
+        "y": 5,
+        "w": 4,
+        "h": 4
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "noValue": "UNKNOWN / STALE",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 21600
+              },
+              {
+                "color": "red",
+                "value": 86400
+              }
+            ]
+          },
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "-1": {
+                  "color": "gray",
+                  "index": 0,
+                  "text": "NOT CONFIGURED"
+                }
+              }
+            }
+          ],
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "(time() - time_machine_latest_backup_timestamp_seconds) and on() (time() - node_textfile_mtime_seconds{file=~\".*/time-machine[.]prom\"} < 3600) or on() (((time_machine_destination_configured == 0) - 1) and on() (time() - node_textfile_mtime_seconds{file=~\".*/time-machine[.]prom\"} < 3600))",
+          "instant": true,
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "links": [
+        {
+          "targetBlank": false,
+          "title": "Backup drill-down",
+          "url": "/d/host-services?${__url_time_range}"
+        }
+      ]
+    },
+    {
+      "id": 11,
+      "title": "Grafana health probe",
+      "description": "HTTP /api/health returned 200 and reported database ok through blackbox_exporter.",
+      "type": "stat",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 5,
+        "w": 4,
+        "h": 4
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "noValue": "UNKNOWN",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          },
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "color": "red",
+                  "index": 1,
+                  "text": "FAILED"
+                },
+                "1": {
+                  "color": "green",
+                  "index": 0,
+                  "text": "HTTP + DB OK"
+                }
+              }
+            }
+          ]
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "probe_success{job=\"blackbox_grafana\"}",
+          "instant": true,
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "links": [
+        {
+          "targetBlank": false,
+          "title": "Prometheus diagnostics",
+          "url": "/d/prometheus-monitoring?${__url_time_range}"
+        }
+      ]
+    },
+    {
+      "id": 12,
+      "title": "Independent outage witness",
+      "description": "Static limitation, intentionally prominent rather than represented as a green metric.",
+      "type": "text",
+      "gridPos": {
+        "x": 16,
+        "y": 5,
+        "w": 8,
+        "h": 4
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {
+        "content": "### NOT DEPLOYED\nNo observer exists outside the Mac mini and residential network. A host, LAN, power, or Prometheus loss can remove DNS, dashboards, rule evaluation, and notifications together. Deploy a small external DNS/dead-man witness before treating green local panels as proof of external reachability.",
+        "mode": "markdown"
+      }
+    },
+    {
+      "id": 13,
+      "title": "Active or pending alerts",
+      "description": "Every current alert labelset, retaining affected job, instance, mountpoint, and other rule labels when present. Empty means no alert series; confirm Collection coverage before interpreting that as healthy.",
+      "type": "table",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 9,
+        "w": 15,
+        "h": 7
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "noValue": "NO ACTIVE ALERTS",
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "enablePagination": true,
+          "show": false
+        },
+        "showHeader": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "ALERTS{alertstate=~\"pending|firing\"}",
+          "instant": true,
+          "range": false,
+          "refId": "A",
+          "format": "table"
+        }
+      ],
+      "links": [
+        {
+          "title": "Open Prometheus alerts",
+          "url": "http://192.168.0.100:9090/alerts",
+          "targetBlank": true
+        }
+      ]
+    },
+    {
+      "id": 14,
+      "title": "What to inspect next",
+      "description": "Incident routing based on independently observed paths.",
+      "type": "text",
+      "gridPos": {
+        "x": 15,
+        "y": 9,
+        "w": 9,
+        "h": 7
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {
+        "content": "- **Collection coverage failed:** open Prometheus Diagnostics and identify the missing/down job.\n- **Control failed, probe answering:** inspect unbound_exporter and the control socket.\n- **Control OK, probe failed:** inspect Unbound listeners, firewall, and blackbox exporter.\n- **Both upstream paths degraded:** inspect WAN/UDP 53 before cache behavior.\n- **RPZ failed:** inspect the blocklist breadcrumb, source floor, and Unbound RPZ load.\n- **Notification failed:** inspect the notifier log and local Prometheus alerts; phone receipt remains unverified.",
+        "mode": "markdown"
+      }
+    },
+    {
+      "id": 15,
+      "title": "Health history",
+      "description": "Discrete states retain gaps: gray/UNKNOWN is not converted to green or zero. Correlated row changes help locate whether a failure began in the service, exporter, probe path, or monitoring stack.",
+      "type": "state-timeline",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 16,
+        "w": 24,
+        "h": 9
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "noValue": "UNKNOWN",
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "color": "red",
+                  "index": 1,
+                  "text": "FAILED"
+                },
+                "1": {
+                  "color": "green",
+                  "index": 0,
+                  "text": "HEALTHY"
+                }
+              }
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          },
+          "custom": {
+            "fillOpacity": 80,
+            "lineWidth": 0,
+            "spanNulls": false
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "alignValue": "left",
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "mergeValues": true,
+        "rowHeight": 0.9,
+        "showValue": "auto",
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "monitoring:target_inventory_ok",
+          "instant": false,
+          "range": true,
+          "refId": "A",
+          "legendFormat": "Expected target inventory"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "up{job=\"node\"}",
+          "instant": false,
+          "range": true,
+          "refId": "B",
+          "legendFormat": "node_exporter"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "up{job=\"unbound\"}",
+          "instant": false,
+          "range": true,
+          "refId": "C",
+          "legendFormat": "unbound_exporter scrape"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "unbound_up",
+          "instant": false,
+          "range": true,
+          "refId": "D",
+          "legendFormat": "Unbound control"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "probe_success{job=\"blackbox_resolver\"}",
+          "instant": false,
+          "range": true,
+          "refId": "E",
+          "legendFormat": "LAN resolver probe"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "probe_success{job=\"blackbox_rpz_canary\"}",
+          "instant": false,
+          "range": true,
+          "refId": "F",
+          "legendFormat": "RPZ canary"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "probe_success{job=\"blackbox_upstream\"}",
+          "instant": false,
+          "range": true,
+          "refId": "G",
+          "legendFormat": "Upstream · {{instance}}"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "probe_success{job=\"blackbox_grafana\"}",
+          "instant": false,
+          "range": true,
+          "refId": "H",
+          "legendFormat": "Grafana HTTP + DB"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "monitoring:notifier_local_path_healthy",
+          "instant": false,
+          "range": true,
+          "refId": "I",
+          "legendFormat": "Local notifier path"
+        }
+      ]
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 39,
+  "tags": [
+    "operations",
+    "incident-response",
+    "mac-mini",
+    "homelab"
+  ],
+  "templating": {
+    "list": []
+  },
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "Operational Overview",
+  "uid": "operations-overview",
+  "version": 1,
+  "weekStart": "monday"
+}

@@ -2,108 +2,98 @@
   "annotations": {
     "list": []
   },
+  "description": "Resolver drill-down: independent health paths, traffic, response behavior, cache pressure, and explicitly sampled client/RPZ attribution.",
   "editable": false,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 1,
-  "links": [],
-  "panels": [
+  "id": null,
+  "links": [
     {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "none",
-          "mappings": [
-            {
-              "options": {
-                "0": {
-                  "color": "red",
-                  "index": 1,
-                  "text": "DOWN"
-                },
-                "1": {
-                  "color": "green",
-                  "index": 0,
-                  "text": "UP"
-                }
-              },
-              "type": "value"
-            }
-          ],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "red",
-                "value": null
-              },
-              {
-                "color": "green",
-                "value": 1
-              }
-            ]
-          }
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 4,
-        "w": 6,
-        "x": 0,
-        "y": 0
-      },
-      "id": 1,
-      "options": {
-        "colorMode": "background",
-        "graphMode": "none",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        }
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "unbound_up",
-          "refId": "A"
-        }
-      ],
-      "title": "Resolver",
-      "type": "stat"
+      "asDropdown": false,
+      "icon": "external link",
+      "includeVars": true,
+      "keepTime": true,
+      "tags": [],
+      "targetBlank": false,
+      "title": "Operational Overview",
+      "tooltip": "",
+      "type": "link",
+      "url": "/d/operations-overview?${__url_time_range}"
     },
     {
+      "asDropdown": false,
+      "icon": "external link",
+      "includeVars": true,
+      "keepTime": true,
+      "tags": [],
+      "targetBlank": false,
+      "title": "Host, Services, and Backups",
+      "tooltip": "",
+      "type": "link",
+      "url": "/d/host-services?${__url_time_range}"
+    },
+    {
+      "asDropdown": false,
+      "icon": "external link",
+      "includeVars": true,
+      "keepTime": true,
+      "tags": [],
+      "targetBlank": false,
+      "title": "Apple Content Cache",
+      "tooltip": "",
+      "type": "link",
+      "url": "/d/apple-content-cache?${__url_time_range}"
+    },
+    {
+      "asDropdown": false,
+      "icon": "external link",
+      "includeVars": true,
+      "keepTime": true,
+      "tags": [],
+      "targetBlank": false,
+      "title": "Prometheus Diagnostics",
+      "tooltip": "",
+      "type": "link",
+      "url": "/d/prometheus-monitoring?${__url_time_range}"
+    }
+  ],
+  "liveNow": false,
+  "panels": [
+    {
+      "id": 1,
+      "title": "Resolver and path health",
+      "type": "row",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "id": 2,
+      "title": "Exporter scrape",
+      "description": "Prometheus can scrape unbound_exporter. A missing result is UNKNOWN, not down or healthy.",
+      "type": "stat",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
+      "gridPos": {
+        "x": 0,
+        "y": 1,
+        "w": 4,
+        "h": 4
+      },
       "fieldConfig": {
         "defaults": {
           "unit": "none",
-          "mappings": [
-            {
-              "options": {
-                "0": {
-                  "color": "red",
-                  "index": 1,
-                  "text": "DOWN"
-                },
-                "1": {
-                  "color": "green",
-                  "index": 0,
-                  "text": "UP"
-                }
-              },
-              "type": "value"
-            }
-          ],
+          "noValue": "UNKNOWN",
+          "color": {
+            "mode": "thresholds"
+          },
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -116,27 +106,41 @@
                 "value": 1
               }
             ]
-          }
+          },
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "color": "red",
+                  "index": 1,
+                  "text": "DOWN"
+                },
+                "1": {
+                  "color": "green",
+                  "index": 0,
+                  "text": "SCRAPING"
+                }
+              }
+            }
+          ]
         },
         "overrides": []
       },
-      "gridPos": {
-        "h": 4,
-        "w": 6,
-        "x": 6,
-        "y": 0
-      },
-      "id": 2,
       "options": {
-        "colorMode": "background",
+        "colorMode": "value",
         "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
         "reduceOptions": {
           "calcs": [
             "lastNotNull"
           ],
           "fields": "",
           "values": false
-        }
+        },
+        "textMode": "auto",
+        "wideLayout": true
       },
       "targets": [
         {
@@ -145,21 +149,200 @@
             "uid": "prometheus"
           },
           "expr": "up{job=\"unbound\"}",
+          "instant": true,
+          "range": false,
           "refId": "A"
         }
-      ],
-      "title": "Exporter scrape",
-      "type": "stat"
+      ]
     },
     {
+      "id": 3,
+      "title": "Unbound control",
+      "description": "unbound_exporter can read the Unbound control socket. This does not prove client reachability.",
+      "type": "stat",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
+      "gridPos": {
+        "x": 4,
+        "y": 1,
+        "w": 4,
+        "h": 4
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "noValue": "UNKNOWN",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          },
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "color": "red",
+                  "index": 1,
+                  "text": "CONTROL FAILED"
+                },
+                "1": {
+                  "color": "green",
+                  "index": 0,
+                  "text": "CONTROL OK"
+                }
+              }
+            }
+          ]
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "unbound_up",
+          "instant": true,
+          "range": false,
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "LAN resolver probe",
+      "description": "Unbound answered the repeated LAN synthetic query. Cache, prefetch, and serve-expired mean this is not proof of fresh recursion.",
+      "type": "stat",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 8,
+        "y": 1,
+        "w": 4,
+        "h": 4
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "noValue": "UNKNOWN",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          },
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "color": "red",
+                  "index": 1,
+                  "text": "NO ANSWER"
+                },
+                "1": {
+                  "color": "green",
+                  "index": 0,
+                  "text": "ANSWERING"
+                }
+              }
+            }
+          ]
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "probe_success{job=\"blackbox_resolver\"}",
+          "instant": true,
+          "range": false,
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "title": "Best upstream path (10m)",
+      "description": "The healthier of the two public-recursive UDP/53 probes. These are reachability witnesses, not Unbound's actual root/authoritative destinations.",
+      "type": "stat",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 1,
+        "w": 4,
+        "h": 4
+      },
       "fieldConfig": {
         "defaults": {
           "unit": "percentunit",
-          "mappings": [],
+          "noValue": "UNKNOWN",
+          "color": {
+            "mode": "thresholds"
+          },
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -173,30 +356,31 @@
               },
               {
                 "color": "green",
-                "value": 0.99
+                "value": 0.999
               }
             ]
-          }
+          },
+          "mappings": [],
+          "decimals": 1,
+          "min": 0,
+          "max": 1
         },
         "overrides": []
       },
-      "gridPos": {
-        "h": 4,
-        "w": 6,
-        "x": 12,
-        "y": 0
-      },
-      "id": 3,
       "options": {
-        "colorMode": "background",
+        "colorMode": "value",
         "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
         "reduceOptions": {
           "calcs": [
             "lastNotNull"
           ],
           "fields": "",
           "values": false
-        }
+        },
+        "textMode": "auto",
+        "wideLayout": true
       },
       "targets": [
         {
@@ -204,25 +388,51 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "avg_over_time(probe_success{job=\"blackbox_upstream\"}[10m])",
-          "legendFormat": "{{instance}}",
+          "expr": "dns:upstream_best_success_ratio_10m",
+          "instant": true,
+          "range": false,
           "refId": "A"
         }
-      ],
-      "title": "Upstream success (10m)",
-      "description": "Recent DNS-probe success for each public target. Below 95% on both paths for 5m fires UpstreamDNSPathDegraded; complete failure for 5m still fires UpstreamDNSPathDown.",
-      "type": "stat"
+      ]
     },
     {
+      "id": 6,
+      "title": "RPZ canary",
+      "description": "Healthy only when the documented canary name returns NXDOMAIN through Unbound.",
+      "type": "stat",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
+      "gridPos": {
+        "x": 16,
+        "y": 1,
+        "w": 4,
+        "h": 4
+      },
       "fieldConfig": {
         "defaults": {
           "unit": "none",
+          "noValue": "UNKNOWN",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          },
           "mappings": [
             {
+              "type": "value",
               "options": {
                 "0": {
                   "color": "red",
@@ -234,8 +444,145 @@
                   "index": 0,
                   "text": "BLOCKING"
                 }
+              }
+            }
+          ]
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "probe_success{job=\"blackbox_rpz_canary\"}",
+          "instant": true,
+          "range": false,
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "title": "Requestlist depth",
+      "description": "Current queued requests across worker threads. Red above 100 matches UnboundRequestListJammed; this is a primary upstream-failure tripwire.",
+      "type": "stat",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 20,
+        "y": 1,
+        "w": 4,
+        "h": 4
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "UNKNOWN",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
               },
-              "type": "value"
+              {
+                "color": "red",
+                "value": 101
+              }
+            ]
+          },
+          "mappings": [],
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum(unbound_request_list_current_all)",
+          "instant": true,
+          "range": false,
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "title": "DNS path history",
+      "description": "Compare independent paths. A blackbox exporter failure makes every probe row UNKNOWN; use Prometheus Diagnostics to distinguish exporter loss from simultaneous target failures.",
+      "type": "state-timeline",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 5,
+        "w": 24,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "noValue": "UNKNOWN",
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "color": "red",
+                  "index": 1,
+                  "text": "FAILED"
+                },
+                "1": {
+                  "color": "green",
+                  "index": 0,
+                  "text": "HEALTHY"
+                }
+              }
             }
           ],
           "thresholds": {
@@ -250,486 +597,15 @@
                 "value": 1
               }
             ]
-          }
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 4,
-        "w": 6,
-        "x": 18,
-        "y": 0
-      },
-      "id": 4,
-      "options": {
-        "colorMode": "background",
-        "graphMode": "none",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        }
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "probe_success{job=\"blackbox_rpz_canary\"}",
-          "refId": "A"
-        }
-      ],
-      "title": "RPZ canary (google-analytics.com)",
-      "type": "stat",
-      "description": "Green BLOCKING = the canary domain returns NXDOMAIN through the full RPZ path (allowlist evaluated first, blocklist forced-nxdomain). NOT BLOCKING for 30m fires RPZCanaryNotBlocking - usually a bad nightly blocklist update or zone misload."
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "color": {
-            "mode": "fixed",
-            "fixedColor": "text"
-          }
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 4,
-        "w": 6,
-        "x": 0,
-        "y": 4
-      },
-      "id": 5,
-      "options": {
-        "colorMode": "value",
-        "graphMode": "area",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        }
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "sum(increase(unbound_queries_total[24h]))",
-          "refId": "A"
-        }
-      ],
-      "title": "DNS queries (24h)",
-      "type": "stat"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "color": {
-            "mode": "fixed",
-            "fixedColor": "text"
-          }
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 4,
-        "w": 6,
-        "x": 6,
-        "y": 4
-      },
-      "id": 6,
-      "options": {
-        "colorMode": "value",
-        "graphMode": "area",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        }
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "sum(increase(unbound_rpz_action_count[24h]))",
-          "refId": "A"
-        }
-      ],
-      "title": "Ads/trackers blocked (24h)",
-      "type": "stat"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "red",
-                "value": 1
-              }
-            ]
-          }
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 4,
-        "w": 6,
-        "x": 12,
-        "y": 4
-      },
-      "id": 7,
-      "options": {
-        "colorMode": "value",
-        "graphMode": "area",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        }
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "sum(increase(unbound_answer_rcodes_total{rcode=\"SERVFAIL\"}[24h]))",
-          "refId": "A"
-        }
-      ],
-      "title": "SERVFAIL (24h)",
-      "type": "stat"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "s",
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              }
-            ]
-          }
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 4,
-        "w": 6,
-        "x": 18,
-        "y": 4
-      },
-      "id": 8,
-      "options": {
-        "colorMode": "value",
-        "graphMode": "none",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        }
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "unbound_time_up_seconds_total",
-          "refId": "A"
-        }
-      ],
-      "title": "Unbound uptime (drop = cache lost)",
-      "type": "stat"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "unit": "reqps"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 0,
-        "y": 8
-      },
-      "id": 9,
-      "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "sum(rate(unbound_queries_total[5m]))",
-          "refId": "A",
-          "legendFormat": "queries/s"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "sum(rate(unbound_rpz_action_count[5m]))",
-          "refId": "B",
-          "legendFormat": "blocked/s"
-        }
-      ],
-      "title": "Query and RPZ block rate",
-      "type": "timeseries"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "unit": "percentunit",
-          "min": 0,
-          "max": 1
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 8
-      },
-      "id": 10,
-      "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "sum(rate(unbound_cache_hits_total[5m])) / clamp_min(sum(rate(unbound_cache_hits_total[5m])) + sum(rate(unbound_cache_misses_total[5m])), 1) and (sum(rate(unbound_cache_hits_total[5m])) + sum(rate(unbound_cache_misses_total[5m]))) > 0",
-          "refId": "A",
-          "legendFormat": "cache hit rate"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "sum(rate(unbound_rpz_action_count[5m])) / clamp_min(sum(rate(unbound_queries_total[5m])), 1) and sum(rate(unbound_queries_total[5m])) > 0",
-          "refId": "B",
-          "legendFormat": "blocked fraction"
-        }
-      ],
-      "title": "Cache hit rate and blocked fraction",
-      "type": "timeseries",
-      "description": "Gaps = no traffic in the window (idle LAN), not a broken cache. Healthy steady-state hit rate on this network: ~80-90%. Sustained <50% under real load fires UnboundCacheHitRateLow."
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "unit": "reqps"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 0,
-        "y": 16
-      },
-      "id": 11,
-      "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "sum by (rcode) (rate(unbound_answer_rcodes_total[5m]))",
-          "refId": "A",
-          "legendFormat": "{{rcode}}"
-        }
-      ],
-      "title": "Answers by rcode (NXDOMAIN and SERVFAIL rates live here)",
-      "type": "timeseries"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "unit": "reqps"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 16
-      },
-      "id": 12,
-      "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "sum by (type) (rate(unbound_query_types_total[5m]))",
-          "refId": "A",
-          "legendFormat": "{{type}}"
-        }
-      ],
-      "title": "Queries by record type",
-      "type": "timeseries"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "thresholds"
           },
           "custom": {
-            "fillOpacity": 70,
+            "fillOpacity": 80,
             "lineWidth": 0,
             "spanNulls": false
-          },
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "red",
-                "value": null
-              },
-              {
-                "color": "green",
-                "value": 1
-              }
-            ]
-          },
-          "unit": "percentunit",
-          "min": 0,
-          "max": 1
+          }
         },
         "overrides": []
       },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 0,
-        "y": 24
-      },
-      "id": 13,
       "options": {
         "alignValue": "left",
         "legend": {
@@ -751,112 +627,138 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "probe_success{job=\"blackbox_resolver\", instance=\"192.168.0.100\"}",
+          "expr": "up{job=\"unbound\"}",
+          "instant": false,
+          "range": true,
           "refId": "A",
-          "legendFormat": "Resolver · 192.168.0.100"
+          "legendFormat": "unbound_exporter"
         },
         {
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "probe_success{job=\"blackbox_rpz_canary\", instance=\"192.168.0.100\"}",
+          "expr": "unbound_up",
+          "instant": false,
+          "range": true,
           "refId": "B",
-          "legendFormat": "RPZ canary · 192.168.0.100"
+          "legendFormat": "Unbound control"
         },
         {
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "probe_success{job=\"blackbox_upstream\", instance=\"1.1.1.1\"}",
+          "expr": "probe_success{job=\"blackbox_resolver\"}",
+          "instant": false,
+          "range": true,
           "refId": "C",
-          "legendFormat": "Cloudflare · 1.1.1.1"
+          "legendFormat": "LAN resolver"
         },
         {
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "probe_success{job=\"blackbox_upstream\", instance=\"8.8.8.8\"}",
+          "expr": "probe_success{job=\"blackbox_rpz_canary\"}",
+          "instant": false,
+          "range": true,
           "refId": "D",
-          "legendFormat": "Google · 8.8.8.8"
-        }
-      ],
-      "title": "DNS probe success",
-      "description": "Each target has its own percentage row. Aligned failures in the 1.1.1.1 and 8.8.8.8 rows expose paired upstream-path loss without combining unrelated probes.",
-      "type": "state-timeline"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "unit": "s"
+          "legendFormat": "RPZ canary"
         },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 24
-      },
-      "id": 14,
-      "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
-      },
-      "targets": [
         {
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "probe_duration_seconds{job=~\"blackbox_.*\"} and on (job, instance) (probe_success{job=~\"blackbox_.*\"} == 1)",
-          "refId": "A",
-          "legendFormat": "{{job}} {{instance}}"
+          "expr": "probe_success{job=\"blackbox_upstream\"}",
+          "instant": false,
+          "range": true,
+          "refId": "E",
+          "legendFormat": "Upstream · {{instance}}"
         }
-      ],
-      "title": "Successful probe latency",
-      "description": "Shows duration only when the corresponding probe succeeded. Failed probes and their timeout duration are intentionally omitted; use DNS probe success for failures.",
-      "type": "timeseries"
+      ]
     },
     {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "unit": "s"
-        },
-        "overrides": []
-      },
+      "id": 9,
+      "title": "Traffic and latency",
+      "type": "row",
+      "collapsed": false,
       "gridPos": {
-        "h": 8,
-        "w": 12,
         "x": 0,
-        "y": 32
+        "y": 13,
+        "w": 24,
+        "h": 1
       },
-      "id": 15,
+      "panels": []
+    },
+    {
+      "id": 10,
+      "title": "Query and RPZ action rates",
+      "description": "Counter rates use Grafana's scrape-aware interval. Global RPZ actions can include internal Unbound activity and are not presented as client block totals.",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 14,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 8,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
       "options": {
         "legend": {
+          "calcs": [],
           "displayMode": "list",
           "placement": "bottom",
           "showLegend": true
@@ -872,363 +774,379 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "histogram_quantile(0.5, sum(rate(unbound_response_time_seconds_bucket[5m])) by (le))",
+          "expr": "sum(rate(unbound_queries_total[$__rate_interval]))",
+          "instant": false,
+          "range": true,
           "refId": "A",
-          "legendFormat": "median"
+          "legendFormat": "queries/s"
         },
         {
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "histogram_quantile(0.95, sum(rate(unbound_response_time_seconds_bucket[5m])) by (le))",
+          "expr": "sum(rate(unbound_rpz_action_count[$__rate_interval]))",
+          "instant": false,
+          "range": true,
+          "refId": "B",
+          "legendFormat": "RPZ actions/s"
+        }
+      ]
+    },
+    {
+      "id": 11,
+      "title": "Answers by response code",
+      "description": "Per-second answer rate by DNS response code using Grafana's scrape-aware rate interval. SERVFAIL remains a rate/trend, not an arbitrary red count.",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 14,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 8,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum by (rcode) (rate(unbound_answer_rcodes_total[$__rate_interval]))",
+          "instant": false,
+          "range": true,
+          "refId": "A",
+          "legendFormat": "{{rcode}}"
+        }
+      ]
+    },
+    {
+      "id": 13,
+      "title": "Answer latency distribution",
+      "description": "Histogram quantiles are valid for this singleton exporter: bucket rates use Grafana's scrape-aware interval and are summed only by le before histogram_quantile.",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 22,
+        "w": 24,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 8,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "histogram_quantile(0.50, sum by (le) (rate(unbound_response_time_seconds_bucket[$__rate_interval])))",
+          "instant": false,
+          "range": true,
+          "refId": "A",
+          "legendFormat": "p50"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(unbound_response_time_seconds_bucket[$__rate_interval])))",
+          "instant": false,
+          "range": true,
           "refId": "B",
           "legendFormat": "p95"
         }
-      ],
-      "title": "Answer latency (all answers)",
-      "type": "timeseries"
+      ]
     },
     {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "unit": "s"
-        },
-        "overrides": []
-      },
+      "id": 14,
+      "title": "Cache behavior and pressure",
+      "type": "row",
+      "collapsed": false,
       "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 32
-      },
-      "id": 16,
-      "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "unbound_recursion_time_seconds_avg",
-          "refId": "A",
-          "legendFormat": "avg"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "unbound_recursion_time_seconds_median",
-          "refId": "B",
-          "legendFormat": "median"
-        }
-      ],
-      "title": "Recursion time (cache misses only)",
-      "type": "timeseries"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "unit": "short"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
         "x": 0,
-        "y": 40
+        "y": 30,
+        "w": 24,
+        "h": 1
       },
-      "id": 17,
-      "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "unbound_msg_cache_count",
-          "refId": "A",
-          "legendFormat": "msg entries"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "unbound_rrset_cache_count",
-          "refId": "B",
-          "legendFormat": "rrset entries"
-        }
-      ],
-      "title": "Cache entries (watch warmboot refill after reboots)",
-      "type": "timeseries"
+      "panels": []
     },
     {
+      "id": 15,
+      "title": "Cache hit ratio (15m, under load)",
+      "description": "Canonical ratio used by the alert. LOW TRAFFIC is an explicit neutral state at one lookup/s or less while the exporter is healthy; missing input remains UNKNOWN. Red below 50% matches UnboundCacheHitRateLow before its 30-minute hold.",
+      "type": "stat",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "unit": "bytes"
-        },
-        "overrides": []
-      },
       "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 40
-      },
-      "id": 18,
-      "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "unbound_memory_caches_bytes",
-          "refId": "A",
-          "legendFormat": "{{cache}}"
-        }
-      ],
-      "title": "Cache memory",
-      "type": "timeseries"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "unit": "reqps"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
         "x": 0,
-        "y": 48
-      },
-      "id": 19,
-      "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "sum(rate(unbound_prefetches_total[5m]))",
-          "refId": "A",
-          "legendFormat": "prefetches/s"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "sum(rate(unbound_expired_total[5m]))",
-          "refId": "B",
-          "legendFormat": "served-expired/s"
-        }
-      ],
-      "title": "Cache edge behavior: prefetch vs serve-expired",
-      "description": "Shows Unbound cache refresh behavior around TTL expiration. Prefetch refreshes hot records before expiry; serve-expired answers from expired cache while refreshing.",
-      "type": "timeseries"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
+        "y": 31,
+        "w": 6,
+        "h": 5
       },
       "fieldConfig": {
         "defaults": {
           "unit": "percentunit",
-          "min": 0,
-          "max": 1,
+          "noValue": "UNKNOWN",
+          "color": {
+            "mode": "thresholds"
+          },
           "thresholds": {
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "red",
                 "value": null
               },
               {
-                "color": "orange",
+                "color": "green",
                 "value": 0.5
               }
             ]
+          },
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "-1": {
+                  "color": "gray",
+                  "index": 0,
+                  "text": "LOW TRAFFIC"
+                }
+              }
+            }
+          ],
+          "decimals": 1,
+          "min": -1,
+          "max": 1
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "unbound:cache_hit_ratio_15m or on() (((((sum(rate(unbound_cache_hits_total[15m])) + sum(rate(unbound_cache_misses_total[15m]))) <= 1) * 0) - 1) and on() (up{job=\"unbound\"} == 1))",
+          "instant": true,
+          "range": false,
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 16,
+      "title": "Cache hit and miss rates",
+      "description": "Counter rates summed across Unbound worker threads before comparison, using Grafana's scrape-aware rate interval.",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 6,
+        "y": 31,
+        "w": 9,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 8,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
           }
         },
         "overrides": []
       },
-      "gridPos": {
-        "h": 4,
-        "w": 6,
-        "x": 0,
-        "y": 56
-      },
-      "id": 26,
-      "options": {
-        "colorMode": "value",
-        "graphMode": "area",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        }
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "sum(rate(unbound_expired_total[5m]))\n/\nclamp_min(\n  sum(rate(unbound_prefetches_total[5m])) + sum(rate(unbound_expired_total[5m])),\n  0.001\n)",
-          "refId": "A"
-        }
-      ],
-      "title": "Served-expired share",
-      "description": "Share of cache refresh edge events that were served from expired cache instead of prefetched before expiry. High values are not automatically bad unless paired with high traffic, latency, SERVFAIL, or probe failures.",
-      "type": "stat"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "fixed",
-            "fixedColor": "text"
-          },
-          "unit": "reqps"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 4,
-        "w": 6,
-        "x": 6,
-        "y": 56
-      },
-      "id": 27,
-      "options": {
-        "colorMode": "value",
-        "graphMode": "area",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        }
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "sum(rate(unbound_prefetches_total[5m])) + sum(rate(unbound_expired_total[5m]))",
-          "refId": "A"
-        }
-      ],
-      "title": "Cache refresh edge events/s",
-      "description": "Combined rate of Unbound prefetches and served-expired answers. Use this with served-expired share to tell whether the ratio matters.",
-      "type": "stat"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "unit": "reqps"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 48
-      },
-      "id": 20,
       "options": {
         "legend": {
+          "calcs": [],
           "displayMode": "list",
           "placement": "bottom",
           "showLegend": true
@@ -1244,93 +1162,92 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum(rate(unbound_answers_secure_total[5m]))",
+          "expr": "sum(rate(unbound_cache_hits_total[$__rate_interval]))",
+          "instant": false,
+          "range": true,
           "refId": "A",
-          "legendFormat": "secure/s"
+          "legendFormat": "hits/s"
         },
         {
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum(rate(unbound_answers_bogus[5m]))",
+          "expr": "sum(rate(unbound_cache_misses_total[$__rate_interval]))",
+          "instant": false,
+          "range": true,
           "refId": "B",
-          "legendFormat": "bogus/s (tampering tell)"
+          "legendFormat": "misses/s"
         }
-      ],
-      "title": "DNSSEC validation outcomes",
-      "type": "timeseries"
+      ]
     },
     {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "unit": "short"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 0,
-        "y": 60
-      },
-      "id": 21,
-      "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "sum(unbound_request_list_current_all)",
-          "refId": "A",
-          "legendFormat": "requestlist depth"
-        }
-      ],
-      "title": "Requestlist depth (Jul-1 tripwire - should hug zero)",
+      "id": 17,
+      "title": "Requestlist and cache edge-event rates",
+      "description": "Comparable counter event rates using Grafana's scrape-aware interval. Current requestlist depth is shown separately in the health row.",
       "type": "timeseries",
-      "description": "Queries parked waiting on upstream recursion. Hugs zero on a healthy resolver. A sustained climb is THE early signature of a dead upstream path (2026-07-01 incident) while serve-expired masks it from clients."
-    },
-    {
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
+      "gridPos": {
+        "x": 15,
+        "y": 31,
+        "w": 9,
+        "h": 8
+      },
       "fieldConfig": {
         "defaults": {
+          "unit": "ops",
           "color": {
             "mode": "palette-classic"
           },
-          "unit": "reqps"
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 8,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          }
         },
         "overrides": []
       },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 60
-      },
-      "id": 22,
       "options": {
         "legend": {
+          "calcs": [],
           "displayMode": "list",
           "placement": "bottom",
           "showLegend": true
@@ -1346,31 +1263,71 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum(rate(unbound_request_list_exceeded_total[5m]))",
+          "expr": "sum(rate(unbound_request_list_exceeded_total[$__rate_interval]))",
+          "instant": false,
+          "range": true,
           "refId": "A",
-          "legendFormat": "exceeded/s (dropped: list full)"
+          "legendFormat": "requestlist exceeded/s"
         },
         {
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum(rate(unbound_request_list_overwritten_total[5m]))",
+          "expr": "sum(rate(unbound_request_list_overwritten_total[$__rate_interval]))",
+          "instant": false,
+          "range": true,
           "refId": "B",
-          "legendFormat": "overwritten/s"
+          "legendFormat": "requestlist overwritten/s"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum(rate(unbound_expired_total[$__rate_interval]))",
+          "instant": false,
+          "range": true,
+          "refId": "C",
+          "legendFormat": "served-expired/s"
         }
-      ],
-      "title": "Requestlist pressure (flatlines unless overloaded/jammed)",
-      "type": "timeseries"
+      ]
     },
     {
+      "id": 20,
+      "title": "RPZ client attribution",
+      "type": "row",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 39,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "id": 21,
+      "title": "Client collector freshness",
+      "description": "Collector runs every 120 seconds. Amber at 10 minutes; red at 15 minutes matches ClientStatsStale. This freshness panel disambiguates an empty client ranking.",
+      "type": "stat",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
+      "gridPos": {
+        "x": 0,
+        "y": 40,
+        "w": 6,
+        "h": 5
+      },
       "fieldConfig": {
         "defaults": {
-          "unit": "short",
+          "unit": "s",
+          "noValue": "UNKNOWN",
+          "color": {
+            "mode": "thresholds"
+          },
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -1380,164 +1337,155 @@
               },
               {
                 "color": "orange",
-                "value": 1000
+                "value": 600
               },
               {
                 "color": "red",
-                "value": 100000
+                "value": 900
               }
             ]
-          }
+          },
+          "mappings": [],
+          "decimals": 0
         },
         "overrides": []
       },
-      "gridPos": {
-        "h": 4,
-        "w": 8,
-        "x": 0,
-        "y": 68
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto",
+        "wideLayout": true
       },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "time() - unbound_job_last_success_timestamp_seconds{task=\"clientstats\"}",
+          "instant": true,
+          "range": false,
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 22,
+      "title": "Top RPZ-active clients (rolling 5m)",
+      "description": "Sampled top-25 log-derived gauges over a rolling five-minute window, filtered by the selected client variable. This is not a complete total and clients disappear after inactivity. Use the adjacent freshness state to distinguish no activity from missing collection.",
+      "type": "bargauge",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 6,
+        "y": 40,
+        "w": 9,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "NO CURRENT SERIES — CHECK FRESHNESS",
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "min": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "displayMode": "basic",
+        "minVizHeight": 10,
+        "minVizWidth": 0,
+        "namePlacement": "auto",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showUnfilled": true,
+        "sizing": "auto",
+        "valueMode": "color"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "(topk(10, unbound_client_rpz_blocks_5m{client=~\"${client:regex}\"})) and on() (time() - unbound_job_last_success_timestamp_seconds{task=\"clientstats\"} < 900)",
+          "instant": true,
+          "range": false,
+          "refId": "A",
+          "legendFormat": "{{client}}"
+        }
+      ]
+    },
+    {
       "id": 23,
-      "options": {
-        "colorMode": "value",
-        "graphMode": "area",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        }
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "unbound_unwanted_replies_total",
-          "refId": "A"
-        }
-      ],
-      "title": "Unwanted replies (since unbound start)",
-      "type": "stat",
-      "description": "Lifetime count since the unbound process started - resets to 0 on restart, so a low number after a reboot is meaningless. The config tripwire (unwanted-reply-threshold) trips at 10M and flushes defensively. Anything past a few thousand deserves a look."
-    },
-    {
+      "title": "Age of latest sampled RPZ action",
+      "description": "Seconds since the most recent sampled RPZ action for clients still present in the rolling five-minute collector population. Use the adjacent freshness state to distinguish no activity from missing collection.",
+      "type": "bargauge",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "color": {
-            "mode": "fixed",
-            "fixedColor": "text"
-          }
-        },
-        "overrides": []
-      },
       "gridPos": {
-        "h": 4,
-        "w": 8,
-        "x": 8,
-        "y": 68
-      },
-      "id": 24,
-      "options": {
-        "colorMode": "value",
-        "graphMode": "area",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        }
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "sum(increase(unbound_cache_hits_total[24h]))",
-          "refId": "A"
-        }
-      ],
-      "title": "Cache hits (24h)",
-      "type": "stat"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
+        "x": 15,
+        "y": 40,
+        "w": 9,
+        "h": 8
       },
       "fieldConfig": {
         "defaults": {
-          "unit": "short",
+          "unit": "s",
+          "noValue": "NO CURRENT SERIES — CHECK FRESHNESS",
           "color": {
-            "mode": "fixed",
-            "fixedColor": "text"
-          }
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "min": 0
         },
         "overrides": []
       },
-      "gridPos": {
-        "h": 4,
-        "w": 8,
-        "x": 16,
-        "y": 68
-      },
-      "id": 25,
       "options": {
-        "colorMode": "value",
-        "graphMode": "area",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        }
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "sum(increase(unbound_cache_misses_total[24h]))",
-          "refId": "A"
-        }
-      ],
-      "title": "Cache misses (24h)",
-      "type": "stat"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "unit": "short"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 0,
-        "y": 72
-      },
-      "id": 28,
-      "options": {
-        "displayMode": "gradient",
+        "displayMode": "basic",
+        "minVizHeight": 10,
+        "minVizWidth": 0,
+        "namePlacement": "auto",
         "orientation": "horizontal",
         "reduceOptions": {
           "calcs": [
@@ -1545,55 +1493,10 @@
           ],
           "fields": "",
           "values": false
-        }
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "topk(10, unbound_client_rpz_blocks_5m{client=~\"$client\"})",
-          "refId": "A",
-          "legendFormat": "{{client}}",
-          "instant": true
-        }
-      ],
-      "title": "Top RPZ block offenders (5m window)",
-      "description": "RPZ blocks per LAN client over the last 5 minutes, from unbound's rpz-log lines (rolling gauge, refreshed every 2 min by the clientstats job). Per-client BLOCK activity only - with log-queries/log-replies off, blocks are the only per-client trace unbound leaves, so there is no per-client total-query or NXDOMAIN view. Sums under-run the global RPZ rate because unbound's own prefetch/serve-expired refresh lookups carry no client address (unbound_client_rpz_unattributed_5m counts those).",
-      "type": "bargauge"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "unit": "s"
         },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 72
-      },
-      "id": 29,
-      "options": {
-        "displayMode": "gradient",
-        "orientation": "horizontal",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        }
+        "showUnfilled": true,
+        "sizing": "auto",
+        "valueMode": "color"
       },
       "targets": [
         {
@@ -1601,15 +1504,13 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sort(time() - unbound_client_last_rpz_block_seconds{client=~\"$client\"})",
+          "expr": "(sort(time() - unbound_client_last_rpz_block_seconds{client=~\"${client:regex}\"})) and on() (time() - unbound_job_last_success_timestamp_seconds{task=\"clientstats\"} < 900)",
+          "instant": true,
+          "range": false,
           "refId": "A",
-          "legendFormat": "{{client}}",
-          "instant": true
+          "legendFormat": "{{client}}"
         }
-      ],
-      "title": "Time since last RPZ block, by client",
-      "description": "Age of each client's newest RPZ block (smallest bar = blocked most recently). Blocked-traffic recency only - a client that stops appearing here may simply be hitting no blocked domains, not offline. Clients drop out entirely after 5 minutes with no blocks (rolling window).",
-      "type": "bargauge"
+      ]
     }
   ],
   "refresh": "30s",
@@ -1617,6 +1518,7 @@
   "tags": [
     "unbound",
     "dns",
+    "drill-down",
     "mac-mini",
     "homelab"
   ],
@@ -1624,16 +1526,21 @@
     "list": [
       {
         "name": "client",
-        "label": "Client",
+        "label": "RPZ-active client",
         "type": "query",
         "datasource": {
           "type": "prometheus",
           "uid": "prometheus"
         },
-        "query": "label_values(unbound_client_rpz_blocks_5m, client)",
+        "definition": "label_values(unbound_client_rpz_blocks_5m, client)",
+        "query": {
+          "query": "label_values(unbound_client_rpz_blocks_5m, client)",
+          "refId": "StandardVariableQuery"
+        },
         "refresh": 2,
         "multi": true,
         "includeAll": true,
+        "allValue": ".*",
         "current": {
           "selected": true,
           "text": [
@@ -1654,8 +1561,8 @@
   },
   "timepicker": {},
   "timezone": "browser",
-  "title": "Unbound DNS",
+  "title": "DNS and Unbound",
   "uid": "unbound-dns",
-  "version": 12,
-  "weekStart": ""
+  "version": 13,
+  "weekStart": "monday"
 }
