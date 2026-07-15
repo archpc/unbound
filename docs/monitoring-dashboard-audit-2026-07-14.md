@@ -47,11 +47,14 @@ Mac/LAN/Prometheus failure domain. The selected architecture is **Grafana plus a
 recommended independent external outage witness**. The witness is intentionally marked
 `NOT DEPLOYED`; no external service or secret was created.
 
-The candidate can become trustworthy with documented limitations after deployment and
-post-provisioning verification. The currently live inherited UI remains only partially
-trustworthy, and the candidate's responsive visual rendering remains unverified because
-it was not deployed and the live Grafana session did not provide authenticated dashboard
-access.
+The replacement is deployed from commit
+`408c825ce3af41a0dad95924a8d7cf34dbe9fa70`. Exact target-native validation passed all
+72 tests, including the 11 Bash-dependent cases unavailable on the workstation; all 151
+dashboard/rule expressions parsed and executed at every required range; and Grafana
+provisioned exactly five UIDs. Rendered QA at 1440×900 and 1024×768 found no first-screen
+title overflow, query, datasource, or transformation error after the responsive health
+rows were corrected. The result is trustworthy with the limitations documented below,
+most importantly the absence of an independent external outage witness.
 
 ## Existing architecture
 
@@ -418,7 +421,7 @@ considered one-use/unused records were deliberately not retained in the final ca
 |---|---|
 | First-screen usefulness | Decisive local state, active alerts, Time Machine, Grafana, notification path, and the missing external witness are above routine traffic |
 | Information hierarchy | Health and failure precede trends, attribution, and internals; all critical rows are open |
-| Spacing/alignment | 24-column grid, consistent 4-wide state cards and 8/12/24-wide trends; automated bounds/non-overlap checks |
+| Spacing/alignment | 24-column grid; critical state cards use responsive 6-column widths with four cards per row; trends use intentional 8/12/24-column spans; automated bounds/non-overlap checks |
 | Panel selection | Stats for current state, state timelines for discrete history, table for affected alerts, time series for trends, horizontal bars for rankings; no pie/gauge decoration |
 | Color | Green only for verified current success; amber/red have documented bounds; blue/neutral for measurements/context; gray text for disabled/unknown/low traffic |
 | Legends | Bounded dimensions only (`rcode`, job/instance, mountpoint, client, category); no full label-set time-series legends |
@@ -427,11 +430,14 @@ considered one-use/unused records were deliberately not retained in the final ca
 | Missing data | Instant current state; historical gaps; disabled/low traffic sentinels; adjacent freshness for client and Apple ratios; no `or vector(0)` in UI health paths |
 | Variables | One bounded client variable only; `${client:regex}`, multi/All `.*`; live one/multiple/All/no-match checks |
 | Navigation | Every dashboard links to the other four with time/variables preserved; important panels link to the specific drill-down or Prometheus alerts |
-| Laptop/narrow width | Grid is statically bounded and non-overlapping for the canonical 24-column layout. Actual Grafana responsive reflow at laptop and narrow viewport is not verified until provisioning |
+| Laptop/narrow width | Rendered at 1440×900 and 1024×768. All first-screen titles fit at both widths after replacing six-card micro-rows with four 6-column cards per row; no query/datasource/transformation error was visible |
 | Incident use | Correlated state history, raw alert labelsets, shared failure-domain cards, and next-action text shorten fault localization |
 
-Static JSON cannot prove font wrapping, table column behavior, theme contrast, or narrow
-responsive reflow. No attractive-screenshot claim is used as semantic evidence.
+Rendered inspection supplements, but does not replace, query evidence. The configured
+dark theme was checked at both widths; first-screen state text, alert table, navigation,
+units, colors, and wrapping remained readable. Long diagnostic titles below the first
+viewport may still ellipsize at narrow width, but their panels remain full-width enough
+to interpret and their descriptions retain the complete meaning.
 
 ## Alert alignment
 
@@ -498,11 +504,65 @@ provisioned configuration/tests rather than PromQL labels.
 | Check | Result |
 |---|---|
 | Target `promtool check rules /tmp/prometheus.rules.yml` | PASS, 50 rules: 11 records + 39 alerts |
-| Target `promtool check config /tmp/prometheus.yml` | PASS for candidate config syntax; it followed its absolute path to the live inherited 29-rule file, so the candidate rule file is covered by the separate rule check |
+| Target `promtool check config` against staged config/rule path | PASS; staged configuration loaded the staged 50-rule file |
 | Target blackbox_exporter 0.28.0 staged `--config.check` | PASS for candidate HTTP/DNS modules |
 | Target `plutil -lint` on clientstats and Time Machine plists | PASS for both |
 | Time Machine collector unit/self-test | PASS before deployment; privacy, tmutil and preference fallback parsing, missing/error, atomic replacement, and offline behavior covered |
 | Dashboard generator/inventory checks | PASS: five generated dashboards and 95 inherited inventory rows |
+
+### Deployed target-native acceptance
+
+The final exact archive and complete Git bundle were created from committed HEAD and
+expanded under the mode-0700 directory
+`/Users/localadmin/unbound-monitoring-stage-20260715-033312-feat-408c825`. The stage
+proved commit `408c825ce3af41a0dad95924a8d7cf34dbe9fa70`, tree
+`02a016fb1d1b805a6047d5124caf853de15848f4`, 113 tracked-path byte equivalence, and a
+five-file dashboard payload. The archive SHA-256 is
+`719b1a7f0b6e35f89c04f1e2fae04c9b064f602f332850ff98f6dca0b313f828`; the bundle
+SHA-256 is `b517eab22c97cc9d61bc7acad1b31d30f85711487670f1d4a124c150a352202a`.
+
+- Repository-wide unexpected-CRLF scan: PASS across 113 tracked paths.
+- Offline repository validation: PASS, including documentation, JSON/YAML, shell/zsh,
+  Python compilation, plists, deterministic generation, and full unittest discovery.
+- Tests: 72/72 PASS; all 11 Bash-dependent cases ran on macOS.
+- `promtool`: PASS, 50 rules (11 recording and 39 alerting); staged config loaded the
+  staged rule file.
+- Blackbox exporter config, all LaunchDaemon plists, Time Machine, Content Cache,
+  client/RPZ, and notifier self-tests: PASS.
+- Post-activation inventory: 8/8 active targets healthy, 5/5 synthetic results healthy,
+  five exact Grafana unified-storage UIDs, zero textfile parse errors, fresh Time Machine,
+  Content Cache and notifier paths, and passing DNS/DNSSEC/RPZ canaries.
+- Live dashboard bytes exactly match the final five-file staged manifest; owners remain
+  `localadmin:admin`, mode 0644. No service restart was needed for the final JSON-only
+  responsive correction because the provider loaded it on its 30-second scan.
+
+### Warm-list and cache-warm acceptance
+
+The private list was regenerated after all deployment, PromQL, rendered, and alert
+checks passed. Its values were never printed or copied off the Mac mini. A privacy-safe
+structural review proved 220 unique valid domains: 30 cache-derived personal entries and
+190 curated fallbacks, six comments, LF line endings, no duplicates, no IP literals,
+and no `.lan`, `.local`, `.arpa`, or MagicDNS `.ts.net` suffixes. The list is
+`localadmin:staff` mode 0600; its result directory is mode 0700; the exported
+`unbound_warmlist_domains` counts match 30/190 and its success breadcrumb is fresh.
+
+The first helper invocation stopped before generation because a staging-only typo used
+`>/usr/bin/tee` instead of `| /usr/bin/tee`; macOS blocked the attempted redirection to
+the protected executable. All three log sites were corrected, Bash syntax and the full
+staging checksum manifest passed, and the deployed helper SHA-256 became
+`86ea51eb0147f76ac8dcd5b09451650d2119724dbb91e4ea32cf4c6745837811`.
+
+Two measured warm runs then completed:
+
+| Run | Hits | Misses | Run hit rate | Message-entry delta | RRset-entry delta |
+|---|---:|---:|---:|---:|---:|
+| First | 1,410 | 383 | 78.64% | +33 | +23 |
+| Second | 1,764 | 4 | 99.77% | 0 | 0 |
+
+The overall resolver hit rate ended at 90.41%. The second run's four misses and zero
+cache-entry growth show that the selected names were warm without claiming every DNS
+record type exists for every domain. Logs are `localadmin:staff` mode 0600 under
+`/Users/localadmin/warmup/monitoring-warm-20260715-042252-408c825`.
 
 ### Live PromQL validation
 
@@ -513,56 +573,48 @@ series labels or values.
 
 | Evaluation | Nonempty | Empty requiring classification | API/parse errors |
 |---|---:|---:|---:|
-| Instant | 87 | 64 | 0 |
-| 15 m | 87 | 64 | 0 |
-| 1 h | 87 | 64 | 0 |
-| 6 h | 88 | 63 | 0 |
-| 24 h | 91 | 60 | 0 |
-| 7 d | 91 | 60 | 0 |
-| Requested 30 d | 97 | 54 | 0 |
+| Instant | 111 | 40 | 0 |
+| 15 m | 112 | 39 | 0 |
+| 1 h | 117 | 34 | 0 |
+| 6 h | 122 | 29 | 0 |
+| 24 h | 121 | 30 | 0 |
+| 7 d | 116 | 35 | 0 |
+| Requested 30 d | 123 | 28 | 0 |
 
 The 30 d request proves query behavior only over retained samples (about 10.2 d), not a
-full 30 d history. Empty results include healthy non-firing alert expressions,
-data-dependent idle populations, and expected undeployed candidate records/jobs/Time
-Machine metrics. They are not called “legitimate” by the tool. Deployment acceptance
-uses `--require-deployed-state` to fail if 13 canonical new record/probe/collector
-families remain empty.
+full 30 d history. Empty results include healthy non-firing alert expressions and
+data-dependent idle populations. They are not called “legitimate” merely because the
+query parsed. Deployment acceptance used `--require-deployed-state`; all 13 canonical
+record/probe/collector checks returned data.
 
-Client-variable results were All=8 returned series across the two panels, one=2,
-multiple=4, and no-match=0. The label values themselves were never printed.
+The final client-variable run returned data for All, one, and multiple selections and
+zero series for the deliberate no-match selection. The exact All count varies with the
+rolling sampled population; label values themselves were never printed.
 
 ### Offline regression and visual validation
 
-The deterministic dashboard generator check passed for five dashboards, the inherited
-inventory generator check passed for 95 rows, six repository JSON files parsed, all
-changed Python files compiled, and the Time Machine collector self-test passed. The 23
-dashboard/repository/Time Machine/PromQL-validator contract tests and 24 focused
-collector/notifier/rule tests passed (47 focused tests total).
+The deterministic dashboard generator and 95-row inherited inventory checks passed.
+Full target-native discovery ran 72 tests and all passed, including the 11 shell cases
+that the Windows workstation could not execute. Repository validation also parsed all
+JSON/YAML, compiled all Python, checked Bash/zsh syntax, linted every plist, validated
+documentation/contracts, and ran the collector self-tests. `git diff --check` and the
+repository-wide LF policy check passed.
 
-Full unittest discovery ran 65 tests: 54 completed and passed; 11 ended before an
-assertion because this Windows workstation has no `bash` executable. The affected tests
-are exclusively Bash-script execution/redaction tests (six collection-tool cases and
-five monitoring shell-script cases). `tools/check-docs.py` likewise reached its
-shell-example check and then stopped for the same missing executable.
-`bash tools/validate-repository.sh` could not start because Bash is unavailable. These
-are explicitly unrun native-shell checks, not passing results and not equivalent
-coverage. The documentation checker's link, backticked-path, Mermaid, implementation
-inventory, contract, and secret checks passed when invoked independently of its blocked
-shell-example stage. `git diff --check` passed; Git emitted only its existing
-LF-to-CRLF working copy warnings.
-
-Candidate visual provisioning/rendering was not performed: deployment/restart was not
-authorized, and the live Grafana browser session did not expose authenticated dashboard
-content. Static validation covers schema, query modes, descriptions, datasource UID,
-unique IDs/refIDs, grid bounds/non-overlap, open rows, links, variables, units,
-thresholds, value mappings, and no opaque transformations. Post-deployment laptop,
-narrow-width, theme, table-column, wrapping, and rendered no-data checks remain required.
+Grafana rendered all five provisioned dashboards at 1440×900 and 1024×768 in the
+configured dark theme. Programmatic measurements found no first-viewport title
+overflow at either width, and the rendered DOM contained no query, datasource, or
+transformation error. The first pass exposed unreadable 4-column health-card titles;
+commits `b08201b` and `408c825` corrected title length and responsive grid width without
+changing PromQL, reducers, thresholds, panel IDs/types, or panel count. The final visual
+pass confirmed the correction. A live upstream degradation appeared during rendering,
+and the dashboard and matching alert changed state together, demonstrating rather than
+assuming their semantic alignment.
 
 ### Material commands run
 
-All commands were read-only except repository edits, creation/removal of named target
-`/tmp` validation copies, and local generated artifacts. No runtime file was replaced.
-The material command record is below. On the audit workstation, `python3` in the
+The material command record includes the read-only audit, repository edits, exact
+staging, deployment, and post-deployment validation. Secret-bearing files and domain
+values were never printed or copied into Git. On the audit workstation, `python3` in the
 repository documentation was executed using the exact bundled interpreter assigned to
 `$PY` here:
 
@@ -605,6 +657,12 @@ ssh -o BatchMode=yes localadmin@192.168.0.100 \
    --dashboard-dir /tmp/unbound-dashboard-validation-019f6290 \
    --rules /tmp/unbound-dashboard-validation-019f6290/prometheus.rules.yml \
    --prometheus-url http://127.0.0.1:9090 --workers 4"
+
+sudo /bin/bash /Users/localadmin/unbound-monitoring-stage-20260715-023434-feat-eb54322/deploy-monitoring-eb54322.sh deploy
+/bin/bash /Users/localadmin/unbound-monitoring-stage-20260715-033312-feat-408c825/deploy-dashboards-408c825.sh deploy
+sudo /bin/bash /Users/localadmin/unbound-monitoring-stage-20260715-033312-feat-408c825/warm-dns-408c825.sh generate
+sudo /bin/bash /Users/localadmin/unbound-monitoring-stage-20260715-033312-feat-408c825/warm-dns-408c825.sh warm
+/bin/bash /Users/localadmin/unbound-monitoring-stage-20260715-033312-feat-408c825/diagnose-post-deploy-408c825.sh
 ```
 
 Read-only discovery also used Prometheus `/api/v1/metadata`, `/targets`, `/series`,
@@ -668,7 +726,9 @@ Removed from the candidate repository (recoverable exactly from Git baseline):
 - `config/grafana/dashboards/storage-backups.json`
 - `config/grafana/dashboards/system-stats.json`
 
-No file was moved. No commit or push was made.
+No file was moved. Changes were committed by concern on
+`feat/monitoring-dashboard-reimplementation`. The branch is eligible for push only after
+the final report commit passes target-native validation and the worktree is clean.
 
 ## Remaining limitations
 
@@ -690,77 +750,75 @@ No file was moved. No commit or push was made.
   with no first backup is conservatively grouped with an unreadable/unparseable latest
   backup as collection failure; TCC/permission versus genuinely empty history still
   requires `tmutil`/launchd inspection.
-- The Time Machine LaunchDaemon's real TCC behavior cannot be proven over SSH or unit
-  tests; the actual system job and emitted file must be verified after deployment.
+- The deployed Time Machine LaunchDaemon is verified healthy and its textfile is fresh.
+  It still depends on the privacy-safe `defaults export` fallback because macOS returns
+  exit 80 for `tmutil latestbackup` in the real system LaunchDaemon context.
 - Only about 10.2 days of Prometheus history existed despite 90-day configuration, so
   full 30-day behavior remains empirically unavailable.
 - No trustworthy deploy/restart event source exists, so candidate annotations remain
   empty instead of fabricating heuristics.
 - Running Prometheus/node_exporter versions lagged installed Homebrew versions. This
   audit did not restart them merely to reconcile versions.
-- Candidate Grafana rendering, responsive reflow, dark/light theme contrast, and
-  provisioned deletion of obsolete UIDs remain unverified until authorized deployment.
+- The configured dark Grafana theme and responsive reflow are verified at 1440×900 and
+  1024×768. An alternate unconfigured light theme was not used as an acceptance gate.
 
 ## Deployment
 
-**Not executed.** This is state-changing and requires explicit deployment authority.
-Use the fuller component procedures in [DEPLOYMENT.md](../DEPLOYMENT.md); the required
-order below keeps every activation behind its native validator.
+Deployment completed on 2026-07-15 through the reviewed helper for commit
+`eb5432286388ba2872db29f4d996b60b3b3abc86`, after two pre-activation Time Machine
+preflight failures and one post-activation rollback exposed and corrected helper/runtime
+assumptions. The successful full deployment created
+`/Users/localadmin/unbound-monitoring-rollbacks/monitoring-rollback-20260715-024436-eb54322`,
+installed the repository-managed monitoring files, removed only the four named retired
+dashboard JSON files, and recovered Unbound, blackbox_exporter, Prometheus, Grafana, and
+the Time Machine collector in dependency order. No Prometheus history was deleted.
 
-1. Record `git status`, candidate commit/worktree identity, and a mode-0700 on-host
-   rollback directory. Copy current Prometheus/blackbox/provider/dashboard files and
-   any existing affected scripts/plists into it without reading secrets.
-2. Run offline generator, inventory, JSON, Python, docs, and repository checks.
-3. Stage the Time Machine collector/plist and updated blocklist producer. Run collector
-   `--test`, `py_compile`, and `plutil -lint`; install and bootstrap only after they pass.
-   Verify the real LaunchDaemon exit/output, textfile mtime, and privacy-safe metric
-   families. Seed the blocklist source-floor metric with the reviewed updater.
-4. Stage `blackbox.yml`; run the staged binary `--config.check`; replace it, then
-   `sudo launchctl kickstart -k system/local.unbound.blackbox`. Require exporter health.
-5. Stage Prometheus config/rules. Run both target `promtool` checks, replace them, and
-   `sudo launchctl kill SIGHUP system/local.unbound.prometheus`. Require reload-success
-   value 1, exact target/job/result inventories, 11 records, and 39 alerts.
-6. Run the live validator against the staged dashboards/rules with
-   `--require-deployed-state`. New histories legitimately begin at deployment; do not
-   backfill or touch TSDB data.
-7. Back up every watched dashboard JSON, install the five candidate files, and move only
-   the four named obsolete files into the backup. Verify SHA-256 and wait two 30 s scans.
-8. Verify Grafana HTTP 200/database `ok` and exact UIDs using the commands in
-   `DEPLOYMENT.md`. Install the validated provider YAML and use the smallest restart,
-   `sudo launchctl kickstart -k system/local.unbound.grafana`.
-9. Inspect all five dashboards at normal laptop and narrow width, both configured
-   themes: query/data/transform errors, variables, units, thresholds, legends, missing
-   states, alert label table, links, first viewport, and responsive wrapping.
-10. Run repository deployment verification and DNS/monitoring canaries. Treat
-    `INCOMPLETE` as unverified, not success.
+Rendered QA then exposed title truncation at normal and narrow widths. Two focused,
+query-neutral commits were staged and deployed through non-root dashboard-only helpers.
+The final activation from `408c825` changed exactly these files:
 
-Expected results are: eight exact target instances, four exact blackbox result jobs,
-zero textfile parse errors, fresh candidate producer metrics, 11 recording rules,
-39 alert definitions, five exact dashboard UIDs, Grafana database `ok`, and no query or
-transform error. No Unbound, Prometheus, Grafana, exporter, or collector is restarted
-before its own staged validation passes.
+- `/opt/homebrew/etc/grafana/dashboards/apple-content-cache.json`
+- `/opt/homebrew/etc/grafana/dashboards/host-services.json`
+- `/opt/homebrew/etc/grafana/dashboards/operations-overview.json`
+- `/opt/homebrew/etc/grafana/dashboards/prometheus-monitoring.json`
+- `/opt/homebrew/etc/grafana/dashboards/unbound-dns.json`
+
+The provider loaded them without a Grafana restart. The final dashboard rollback is
+`/Users/localadmin/unbound-dashboard-rollbacks/monitoring-dashboard-rollback-20260715-035300-408c825`.
+Post-activation checks proved exact live bytes, owner/group/mode, Grafana database `ok`,
+five exact UIDs, 8/8 targets, 5/5 probes, 11 recording rules, 39 alert definitions,
+fresh exporters, and passing DNS/DNSSEC/RPZ canaries.
+
+After a transient upstream-path alert recovered to 100% and repeated checks returned
+zero alerts, the reviewed warm list was generated and the cache was warmed twice through
+the exact staged helper. A final diagnostic after warming again passed targets, probes,
+rules, alerts, Grafana, textfiles, Time Machine, Content Cache, notifier, blocklist,
+DNS canaries, and all service checks.
 
 ## Rollback
 
-Use the timestamped mode-0700 on-host backup created immediately before deployment.
 Do not delete Prometheus data, Grafana database history, or monitoring history.
 
-1. Restore the inherited seven dashboard JSON files from the dashboard backup; remove
-   only the two new watched files (`operations-overview.json`, `host-services.json`),
-   restore the prior provider, and
-   `sudo launchctl kickstart -k system/local.unbound.grafana`. Wait two scans and verify
-   the seven inherited UIDs plus database `ok`.
-2. Restore the prior Prometheus config/rules, run both `promtool` checks, replace them,
-   signal reload, and require reload-success 1 plus the inherited 29-rule API inventory.
-3. Restore the prior blackbox config, run `--config.check`, replace it, and kickstart
-   `system/local.unbound.blackbox`. Verify the inherited DNS probes.
-4. Only after rules/dashboards no longer consume new Time Machine metrics, boot out
-   `system/local.unbound.timemachine` and remove its new plist/script/textfile if full
-   rollback is required. These exact removals are destructive and must use the recorded
-   paths, not globs. Restore the prior blocklist producer; do not hand-edit generated
-   metric files or RPZ data.
-5. Restore any other backed-up runtime files with their recorded owner/mode, run native
-   validators again, and run the inherited functional canaries.
+To undo only the final responsive dashboard activation and return to the immediately
+preceding five-dashboard set, run as `localadmin`:
+
+```sh
+/bin/bash /Users/localadmin/unbound-monitoring-stage-20260715-033312-feat-408c825/deploy-dashboards-408c825.sh rollback /Users/localadmin/unbound-dashboard-rollbacks/monitoring-dashboard-rollback-20260715-035300-408c825
+```
+
+The helper restores the five backed-up JSON files with owner/group/mode, waits for two
+provider scans, and requires Grafana database `ok` plus the exact five UIDs.
+
+To undo the complete monitoring reimplementation and return to the exact pre-deployment
+runtime, run the privileged helper preserved inside the full rollback backup:
+
+```sh
+sudo /bin/bash /Users/localadmin/unbound-monitoring-rollbacks/monitoring-rollback-20260715-024436-eb54322/deploy-monitoring-eb54322.sh rollback /Users/localadmin/unbound-monitoring-rollbacks/monitoring-rollback-20260715-024436-eb54322
+```
+
+After a full rollback, repeat native config checks, service health, targets/probes/rules,
+Grafana UID, exporter, notifier, and DNS canaries. The helper restores files from its
+recorded inventory and metadata; it does not touch Prometheus TSDB history.
 
 Repository rollback needs no ad hoc backup: every inherited dashboard is recoverable
 from `b91a7d02e24c1df02cd6d213dc4dc2736d280bbf`, whose seven SHA-256 values were recorded
@@ -769,16 +827,18 @@ destructive worktree reset when unrelated changes exist.
 
 ## Final verdict
 
-**Monitoring verdict: partially trustworthy.** The repository candidate has a
-defensible operational purpose, metric semantics, reducer, unit, threshold, and
-missing-state policy for every retained panel, and all candidate PromQL parses across
-the tested ranges. It cannot yet be called operationally trustworthy because it is not
-deployed, its new metrics/records/probe are therefore not live, the responsive visual
-result is unverified, retained history is shorter than 30 days, and there is no
-independent outage witness. After the documented deployment/visual/failure-state checks,
-the expected verdict is “trustworthy with documented limitations.”
+**Monitoring verdict: trustworthy with documented limitations.** Every retained panel
+has a defensible purpose, query mode, reducer, unit, threshold, and missing-state policy;
+all 151 expressions passed live instant/range validation; deployed targets, probes,
+rules, collectors, Grafana UIDs, and canaries were verified. The principal trust limit
+is architectural, not hidden UI uncertainty: the Mac mini, LAN, Prometheus, Grafana, and
+local notification path still lack an independent external witness, and retained
+history is shorter than the requested 30 days.
 
-**UI verdict: clear with documented usability limitations.** Static hierarchy, grid,
-panel selection, state text, units, color semantics, navigation, and incident routing
-are materially clearer and machine-checked. Actual Grafana rendering, narrow responsive
-layout, table columns, and theme contrast still require post-provisioning review.
+**UI verdict: operationally clear.** The first viewport presents health, alerts,
+resolver paths, RPZ, host metrics, notifier, backup age, Grafana, and the missing
+external witness before routine trends. Final rendered QA found no first-screen title
+overflow or panel error at normal or narrow width. During validation, a real upstream
+degradation changed both the canonical status card and matching Prometheus alert,
+providing concrete evidence that the interface tells the same story as its alerting
+rule.
