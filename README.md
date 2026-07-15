@@ -98,3 +98,9 @@ This entrypoint is offline. It validates repository structure, documentation, JS
 YAML, shell, Python, plists, tests, and diff hygiene. It does not contact the mini or
 prove live state. Component-specific validators are listed in
 [DEPLOYMENT.md](DEPLOYMENT.md#validation-matrix).
+
+GitHub Actions runs the same entrypoint on every push and pull request through
+`.github/workflows/validate.yml`. The workflow uses a macOS runner for native `plutil`
+coverage, checks out full history without persisting credentials, and has read-only
+repository permission. A green workflow proves the checked-out repository passed the
+offline suite; it does not prove deployment parity or live service health.

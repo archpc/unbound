@@ -405,6 +405,25 @@ class RepositoryContractTests(unittest.TestCase):
         self.assertNotRegex(validator, network_commands)
         self.assertNotIn("verify-deployment.py", validator)
 
+    def test_ci_wraps_canonical_offline_validator_without_credentials(self):
+        workflow = (ROOT / ".github/workflows/validate.yml").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("\n  pull_request:\n", workflow)
+        self.assertIn("\n  push:\n", workflow)
+        self.assertIn("contents: read", workflow)
+        self.assertIn("uses: actions/checkout@v6", workflow)
+        self.assertIn("fetch-depth: 0", workflow)
+        self.assertIn("persist-credentials: false", workflow)
+        self.assertEqual(
+            workflow.count("run: tools/validate-repository.sh"),
+            1,
+        )
+        self.assertNotRegex(
+            workflow,
+            re.compile(r"\b(?:ssh|scp|rsync|curl|wget)\b", re.IGNORECASE),
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

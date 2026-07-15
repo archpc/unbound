@@ -8,6 +8,7 @@ are never treated as deployed source.
 
 | Path | Responsibility | Deployed? |
 |---|---|---|
+| `.github/workflows/` | Offline repository CI definitions | No |
 | `config/unbound/` | Unbound config, RPZ allowlist and selector, curated warm list | Selected files |
 | `config/prometheus/` | Prometheus rules/config, blackbox modules, exporter arguments | Yes |
 | `config/grafana/` | Grafana config, provisioning and dashboard JSON | Yes |
@@ -123,3 +124,7 @@ tools/validate-repository.sh
 The script is the canonical offline validation entrypoint. It MUST NOT contact the
 target host. Component-specific and target-host validators are defined in
 [DEPLOYMENT.md](DEPLOYMENT.md#validation-matrix).
+
+`.github/workflows/validate.yml` invokes this same script on `macos-latest` for every
+push and pull request. The workflow is a wrapper around the canonical entrypoint, not a
+separate validation definition, and its success is not evidence of live deployment.
