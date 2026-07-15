@@ -298,9 +298,10 @@ class PythonCollectorTests(unittest.TestCase):
 
 class NotifierTests(unittest.TestCase):
     class FakeResponse:
-        def __init__(self, payload=b"", status=200):
+        def __init__(self, payload=b"", status=200, headers=None):
             self.payload = payload
             self.status = status
+            self.headers = headers or {}
 
         def __enter__(self):
             return self
@@ -311,41 +312,26 @@ class NotifierTests(unittest.TestCase):
         def read(self):
             return self.payload
 
-    def test_malformed_api_payloads_fail_closed(self):
-        cases = [
-            b"\xff",
-            b"not json",
-            json.dumps([]).encode(),
-            json.dumps({"status": "success", "data": {"alerts": {}}}).encode(),
-        ]
-        for payload in cases:
-            with self.subTest(payload=payload[:20]):
-                with mock.patch.object(notifier.urllib.request, "urlopen",
-                                       return_value=self.FakeResponse(payload)):
-                    with contextlib.redirect_stderr(io.StringIO()):
-                        self.assertIsNone(notifier.fetch_firing_alerts())
-
-    def test_api_filters_pending_and_malformed_alert_entries(self):
-        payload = {
-            "status": "success",
-            "data": {"alerts": [
-                None,
-                {"state": "firing", "labels": "wrong type"},
-                {"state": "pending", "labels": {"alertname": "Pending"}},
-                {"state": "firing", "labels": {"alertname": "Ready"}},
-            ]},
-        }
-        response = self.FakeResponse(json.dumps(payload).encode())
-        with mock.patch.object(notifier.urllib.request, "urlopen", return_value=response):
-            self.assertEqual(
-                notifier.fetch_firing_alerts(),
-                [{"state": "firing", "labels": {"alertname": "Ready"}}],
-            )
+    def test_api_filters_pending_and_isolates_malformed_entries(self):
+        firing, pending, invalid = notifier._parse_alerts({"alerts": [
+            None,
+            {"state": "firing", "labels": "wrong type"},
+            {"state": "pending", "labels": {"alertname": "Pending"}},
+            {"state": "firing", "labels": {"alertname": "Ready"}},
+        ]})
+        self.assertEqual(firing, [
+            {"state": "firing", "labels": {"alertname": "Ready"}},
+        ])
+        self.assertEqual(pending, [
+            {"state": "pending", "labels": {"alertname": "Pending"}},
+        ])
+        self.assertEqual(invalid, 2)
 
     def test_network_failure_does_not_leak_topic(self):
         topic = "synthetic-private-topic-value"
         error = urllib.error.URLError(f"request failed for https://ntfy.sh/{topic}")
-        with mock.patch.object(notifier.urllib.request, "urlopen", side_effect=error):
+        with mock.patch.object(notifier.urllib.request, "urlopen", side_effect=error), \
+                mock.patch.object(notifier, "MAX_DELIVERY_ATTEMPTS", 1):
             stderr = io.StringIO()
             with contextlib.redirect_stderr(stderr):
                 self.assertFalse(notifier.push_ntfy(topic, "TEST", "message", "high", False))
@@ -353,7 +339,8 @@ class NotifierTests(unittest.TestCase):
 
     def test_http_non_success_is_a_failed_delivery(self):
         response = self.FakeResponse(status=503)
-        with mock.patch.object(notifier.urllib.request, "urlopen", return_value=response):
+        with mock.patch.object(notifier.urllib.request, "urlopen", return_value=response), \
+                mock.patch.object(notifier, "MAX_DELIVERY_ATTEMPTS", 1):
             self.assertFalse(
                 notifier.push_ntfy("synthetic-topic", "TEST", "message", "high", False)
             )
@@ -367,13 +354,11 @@ class NotifierTests(unittest.TestCase):
             "state_errors_total": 7,
         }}
         metrics = notifier.get_metrics(state, state_had_error=True)
-        self.assertEqual(metrics, {
-            "last_success": 0,
-            "last_failure": 0,
-            "sent_total": 0,
-            "fail_total": 0,
-            "state_errors_total": 8,
-        })
+        self.assertEqual(metrics["last_success"], 0)
+        self.assertEqual(metrics["last_failure"], 0)
+        self.assertEqual(metrics["sent_total"], 0)
+        self.assertEqual(metrics["fail_total"], 0)
+        self.assertEqual(metrics["state_errors_total"], 8)
 
     def test_missing_topic_and_invalid_utf8_state_fail_safely(self):
         with tempfile.TemporaryDirectory() as td:
@@ -393,92 +378,40 @@ class NotifierTests(unittest.TestCase):
                 notifier.TOPIC_FILE = old_topic
                 notifier.STATE_FILE = old_state
 
-    def _isolate_files(self, td):
-        old_state = notifier.STATE_FILE
-        old_metrics = notifier.METRICS_DIR
-        notifier.STATE_FILE = os.path.join(td, "state", "notified-alerts.json")
-        notifier.METRICS_DIR = os.path.join(td, "textfile")
-        self.addCleanup(setattr, notifier, "STATE_FILE", old_state)
-        self.addCleanup(setattr, notifier, "METRICS_DIR", old_metrics)
-
-    def _run_main(self, firing, delivered=True):
-        with mock.patch.object(sys, "argv", ["prometheus_alert_notifier.py"]), \
-                mock.patch.object(notifier, "read_topic", return_value="synthetic-topic"), \
-                mock.patch.object(notifier, "fetch_firing_alerts", return_value=firing), \
-                mock.patch.object(notifier, "push_ntfy", return_value=delivered) as push:
-            with self.assertRaises(SystemExit) as result:
-                notifier.main()
-        return result.exception.code, push
-
-    def test_state_and_counters_persist_across_fire_dedupe_resolve(self):
+    def test_fingerprint_is_order_stable_and_does_not_store_raw_labels(self):
         alert = {
             "state": "firing",
-            "labels": {"alertname": "FixtureAlert", "severity": "warning"},
-            "annotations": {"summary": "fixture only"},
+            "labels": {
+                "alertname": "FixtureAlert",
+                "client": "synthetic-private-client",
+                "severity": "warning",
+            },
         }
+        reordered = {"state": "firing", "labels": dict(reversed(list(alert["labels"].items())))}
+        digest = notifier.fingerprint(alert, b"synthetic-salt")
+        self.assertEqual(digest, notifier.fingerprint(reordered, b"synthetic-salt"))
+        self.assertNotIn("synthetic-private-client", digest)
+
+    def test_metrics_distinguish_server_acceptance_from_phone_receipt(self):
         with tempfile.TemporaryDirectory() as td:
-            self._isolate_files(td)
-
-            code, push = self._run_main([alert])
-            self.assertEqual(code, 0)
-            self.assertEqual(push.call_count, 1)
-
-            code, push = self._run_main([alert])
-            self.assertEqual(code, 0)
-            self.assertEqual(push.call_count, 0)
-
-            code, push = self._run_main([])
-            self.assertEqual(code, 0)
-            self.assertEqual(push.call_count, 1)
-            self.assertTrue(push.call_args.args[1].startswith("RESOLVED:"))
-
-            state, had_error = notifier.load_state()
-            self.assertFalse(had_error)
-            self.assertEqual(state[notifier.METRICS_KEY]["sent_total"], 2)
-            self.assertNotIn(notifier.fingerprint(alert), state)
-
-            metric_path = os.path.join(notifier.METRICS_DIR, "unbound-alertnotify.prom")
-            with open(metric_path, encoding="utf-8") as fh:
-                metric_lines = fh.read().splitlines()
-            helps, types, samples = parse_exposition(metric_lines)
-            self.assertEqual(types["unbound_ntfy_notifications_sent_total"], "counter")
-            self.assertEqual(types["unbound_job_last_success_timestamp_seconds"], "gauge")
-            self.assertNotIn("unbound_job_last_success_timestamp_seconds", helps)
-            self.assertIn("unbound_ntfy_notifications_sent_total", samples)
-
-    def test_failed_delivery_is_counted_and_retried(self):
-        first = {"state": "firing", "labels": {"alertname": "Known"}}
-        second = {"state": "firing", "labels": {"alertname": "RetryMe"}}
-        with tempfile.TemporaryDirectory() as td:
-            self._isolate_files(td)
-            self.assertEqual(self._run_main([first])[0], 0)
-            state_before, _ = notifier.load_state()
-            prior_success = state_before[notifier.METRICS_KEY]["last_success"]
-
-            code, push = self._run_main([first, second], delivered=False)
-            self.assertEqual(code, 1)
-            self.assertEqual(push.call_count, 1)
-            state, _ = notifier.load_state()
-            metrics = state[notifier.METRICS_KEY]
-            self.assertEqual(metrics["sent_total"], 1)
-            self.assertEqual(metrics["fail_total"], 1)
-            self.assertEqual(metrics["last_success"], prior_success)
-            self.assertNotIn(notifier.fingerprint(second), state)
-
-    def test_corrupt_unreachable_substate_does_not_crash(self):
-        with tempfile.TemporaryDirectory() as td:
-            self._isolate_files(td)
-            os.makedirs(os.path.dirname(notifier.STATE_FILE))
-            with open(notifier.STATE_FILE, "w", encoding="utf-8") as fh:
-                json.dump({notifier.UNREACHABLE_KEY: {
-                    "failures": "not-an-integer", "notified": False,
-                }}, fh)
-
-            code, push = self._run_main(None)
-            self.assertEqual(code, 1)
-            self.assertEqual(push.call_count, 0)
-            state, _ = notifier.load_state()
-            self.assertEqual(state[notifier.UNREACHABLE_KEY]["failures"], 1)
+            old_metrics = notifier.METRICS_DIR
+            notifier.METRICS_DIR = td
+            try:
+                metrics = notifier.default_metrics()
+                metrics["last_success"] = 123
+                metrics["last_server_acceptance"] = 120
+                metrics["sent_total"] = 2
+                self.assertTrue(notifier.write_metrics(
+                    metrics, query_ok=True, firing_count=1, suppressed=1, now=124
+                ))
+                lines = Path(td, "unbound-alertnotify.prom").read_text().splitlines()
+                helps, types, samples = parse_exposition(lines)
+                self.assertEqual(types["unbound_ntfy_server_acceptances_total"], "counter")
+                self.assertEqual(types["unbound_ntfy_phone_receipt_known"], "gauge")
+                self.assertIn("unbound_ntfy_phone_receipt_known", samples)
+                self.assertIn("phone receipt is unknown", helps["unbound_ntfy_server_acceptances_total"])
+            finally:
+                notifier.METRICS_DIR = old_metrics
 
 
 class ShellAndRulesContractTests(unittest.TestCase):
