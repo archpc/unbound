@@ -74,7 +74,7 @@
     },
     {
       "id": 2,
-      "title": "Target inventory",
+      "title": "Inventory",
       "description": "Each provisioned job must have its exact expected target count, with eight targets total. This catches missing, duplicate, and substituted jobs that sum(1-up) cannot see.",
       "type": "stat",
       "datasource": {
@@ -84,8 +84,8 @@
       "gridPos": {
         "x": 0,
         "y": 1,
-        "w": 4,
-        "h": 4
+        "w": 6,
+        "h": 3
       },
       "fieldConfig": {
         "defaults": {
@@ -165,10 +165,10 @@
         "uid": "prometheus"
       },
       "gridPos": {
-        "x": 4,
+        "x": 6,
         "y": 1,
-        "w": 4,
-        "h": 4
+        "w": 6,
+        "h": 3
       },
       "fieldConfig": {
         "defaults": {
@@ -233,10 +233,10 @@
         "uid": "prometheus"
       },
       "gridPos": {
-        "x": 8,
+        "x": 12,
         "y": 1,
-        "w": 4,
-        "h": 4
+        "w": 6,
+        "h": 3
       },
       "fieldConfig": {
         "defaults": {
@@ -293,7 +293,7 @@
     },
     {
       "id": 5,
-      "title": "Config reload",
+      "title": "Reload",
       "description": "Prometheus reports whether its most recent configuration reload succeeded.",
       "type": "stat",
       "datasource": {
@@ -301,10 +301,10 @@
         "uid": "prometheus"
       },
       "gridPos": {
-        "x": 12,
+        "x": 18,
         "y": 1,
-        "w": 4,
-        "h": 4
+        "w": 6,
+        "h": 3
       },
       "fieldConfig": {
         "defaults": {
@@ -376,7 +376,7 @@
     },
     {
       "id": 6,
-      "title": "Rule failures (5m)",
+      "title": "Rules (5m)",
       "description": "Boolean state aligned with PrometheusRuleEvaluationFailures: any positive counter increase in the last five minutes is a failure, including extrapolated fractional increases.",
       "type": "stat",
       "datasource": {
@@ -384,10 +384,10 @@
         "uid": "prometheus"
       },
       "gridPos": {
-        "x": 16,
-        "y": 1,
-        "w": 4,
-        "h": 4
+        "x": 0,
+        "y": 4,
+        "w": 6,
+        "h": 3
       },
       "fieldConfig": {
         "defaults": {
@@ -468,10 +468,10 @@
         "uid": "prometheus"
       },
       "gridPos": {
-        "x": 20,
-        "y": 1,
-        "w": 4,
-        "h": 4
+        "x": 6,
+        "y": 4,
+        "w": 6,
+        "h": 3
       },
       "fieldConfig": {
         "defaults": {
@@ -533,7 +533,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 5,
+        "y": 7,
         "w": 24,
         "h": 10
       },
@@ -618,7 +618,7 @@
       "collapsed": false,
       "gridPos": {
         "x": 0,
-        "y": 15,
+        "y": 17,
         "w": 24,
         "h": 1
       },
@@ -635,7 +635,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 16,
+        "y": 18,
         "w": 12,
         "h": 8
       },
@@ -727,7 +727,7 @@
       },
       "gridPos": {
         "x": 12,
-        "y": 16,
+        "y": 18,
         "w": 12,
         "h": 8
       },
@@ -819,7 +819,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 24,
+        "y": 26,
         "w": 24,
         "h": 8
       },
@@ -918,7 +918,7 @@
       "collapsed": false,
       "gridPos": {
         "x": 0,
-        "y": 32,
+        "y": 34,
         "w": 24,
         "h": 1
       },
@@ -935,7 +935,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 33,
+        "y": 35,
         "w": 24,
         "h": 8
       },

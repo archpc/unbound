@@ -84,8 +84,8 @@
       "gridPos": {
         "x": 0,
         "y": 1,
-        "w": 4,
-        "h": 4
+        "w": 6,
+        "h": 3
       },
       "fieldConfig": {
         "defaults": {
@@ -165,10 +165,10 @@
         "uid": "prometheus"
       },
       "gridPos": {
-        "x": 4,
+        "x": 6,
         "y": 1,
-        "w": 4,
-        "h": 4
+        "w": 6,
+        "h": 3
       },
       "fieldConfig": {
         "defaults": {
@@ -248,10 +248,10 @@
         "uid": "prometheus"
       },
       "gridPos": {
-        "x": 8,
+        "x": 12,
         "y": 1,
-        "w": 4,
-        "h": 4
+        "w": 6,
+        "h": 3
       },
       "fieldConfig": {
         "defaults": {
@@ -323,18 +323,18 @@
     },
     {
       "id": 5,
-      "title": "Upstream (10m)",
-      "description": "The healthier of the two public-recursive UDP/53 probes. These are reachability witnesses, not Unbound's actual root/authoritative destinations.",
+      "title": "Upstream",
+      "description": "The healthier of the two public-recursive UDP/53 probes over 10 minutes. These are reachability witnesses, not Unbound's actual root/authoritative destinations.",
       "type": "stat",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "gridPos": {
-        "x": 12,
+        "x": 18,
         "y": 1,
-        "w": 4,
-        "h": 4
+        "w": 6,
+        "h": 3
       },
       "fieldConfig": {
         "defaults": {
@@ -405,10 +405,10 @@
         "uid": "prometheus"
       },
       "gridPos": {
-        "x": 16,
-        "y": 1,
-        "w": 4,
-        "h": 4
+        "x": 0,
+        "y": 4,
+        "w": 6,
+        "h": 3
       },
       "fieldConfig": {
         "defaults": {
@@ -488,10 +488,10 @@
         "uid": "prometheus"
       },
       "gridPos": {
-        "x": 20,
-        "y": 1,
-        "w": 4,
-        "h": 4
+        "x": 6,
+        "y": 4,
+        "w": 6,
+        "h": 3
       },
       "fieldConfig": {
         "defaults": {
@@ -557,7 +557,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 5,
+        "y": 7,
         "w": 24,
         "h": 8
       },
@@ -686,7 +686,7 @@
       "collapsed": false,
       "gridPos": {
         "x": 0,
-        "y": 13,
+        "y": 15,
         "w": 24,
         "h": 1
       },
@@ -703,7 +703,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 14,
+        "y": 16,
         "w": 12,
         "h": 8
       },
@@ -804,7 +804,7 @@
       },
       "gridPos": {
         "x": 12,
-        "y": 14,
+        "y": 16,
         "w": 12,
         "h": 8
       },
@@ -896,7 +896,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 22,
+        "y": 24,
         "w": 24,
         "h": 8
       },
@@ -993,7 +993,7 @@
       "collapsed": false,
       "gridPos": {
         "x": 0,
-        "y": 30,
+        "y": 32,
         "w": 24,
         "h": 1
       },
@@ -1010,7 +1010,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 31,
+        "y": 33,
         "w": 6,
         "h": 5
       },
@@ -1091,7 +1091,7 @@
       },
       "gridPos": {
         "x": 6,
-        "y": 31,
+        "y": 33,
         "w": 9,
         "h": 8
       },
@@ -1192,7 +1192,7 @@
       },
       "gridPos": {
         "x": 15,
-        "y": 31,
+        "y": 33,
         "w": 9,
         "h": 8
       },
@@ -1300,7 +1300,7 @@
       "collapsed": false,
       "gridPos": {
         "x": 0,
-        "y": 39,
+        "y": 41,
         "w": 24,
         "h": 1
       },
@@ -1317,7 +1317,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 40,
+        "y": 42,
         "w": 6,
         "h": 5
       },
@@ -1389,7 +1389,7 @@
       },
       "gridPos": {
         "x": 6,
-        "y": 40,
+        "y": 42,
         "w": 9,
         "h": 8
       },
@@ -1456,7 +1456,7 @@
       },
       "gridPos": {
         "x": 15,
-        "y": 40,
+        "y": 42,
         "w": 9,
         "h": 8
       },

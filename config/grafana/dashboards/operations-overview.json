@@ -419,7 +419,7 @@
     },
     {
       "id": 6,
-      "title": "Upstream (10m)",
+      "title": "Upstream",
       "description": "Success ratio of the healthier public DNS probe path. Red matches the alert threshold below 95%; amber means partial loss; green means effectively all probes succeeded.",
       "type": "stat",
       "datasource": {

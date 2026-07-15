@@ -84,8 +84,8 @@
       "gridPos": {
         "x": 0,
         "y": 1,
-        "w": 5,
-        "h": 4
+        "w": 6,
+        "h": 3
       },
       "fieldConfig": {
         "defaults": {
@@ -171,10 +171,10 @@
         "uid": "prometheus"
       },
       "gridPos": {
-        "x": 5,
+        "x": 6,
         "y": 1,
-        "w": 5,
-        "h": 4
+        "w": 6,
+        "h": 3
       },
       "fieldConfig": {
         "defaults": {
@@ -260,10 +260,10 @@
         "uid": "prometheus"
       },
       "gridPos": {
-        "x": 10,
+        "x": 12,
         "y": 1,
-        "w": 5,
-        "h": 4
+        "w": 6,
+        "h": 3
       },
       "fieldConfig": {
         "defaults": {
@@ -341,7 +341,7 @@
     },
     {
       "id": 5,
-      "title": "Since-reset data",
+      "title": "Reset data",
       "description": "Complete only while the reset epoch lies inside Apple's documented 30-day Metrics.db retention used by this collector. It is not applicable while disabled; last-24h metrics remain independent.",
       "type": "stat",
       "datasource": {
@@ -349,10 +349,10 @@
         "uid": "prometheus"
       },
       "gridPos": {
-        "x": 15,
+        "x": 18,
         "y": 1,
-        "w": 5,
-        "h": 4
+        "w": 6,
+        "h": 3
       },
       "fieldConfig": {
         "defaults": {
@@ -438,10 +438,10 @@
         "uid": "prometheus"
       },
       "gridPos": {
-        "x": 20,
-        "y": 1,
-        "w": 4,
-        "h": 4
+        "x": 0,
+        "y": 4,
+        "w": 6,
+        "h": 3
       },
       "fieldConfig": {
         "defaults": {
@@ -507,7 +507,7 @@
       "collapsed": false,
       "gridPos": {
         "x": 0,
-        "y": 5,
+        "y": 7,
         "w": 24,
         "h": 1
       },
@@ -524,7 +524,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 6,
+        "y": 8,
         "w": 14,
         "h": 8
       },
@@ -638,7 +638,7 @@
       },
       "gridPos": {
         "x": 14,
-        "y": 6,
+        "y": 8,
         "w": 10,
         "h": 8
       },
@@ -701,7 +701,7 @@
       "collapsed": false,
       "gridPos": {
         "x": 0,
-        "y": 14,
+        "y": 16,
         "w": 24,
         "h": 1
       },
@@ -718,7 +718,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 15,
+        "y": 17,
         "w": 6,
         "h": 5
       },
@@ -781,7 +781,7 @@
       },
       "gridPos": {
         "x": 6,
-        "y": 15,
+        "y": 17,
         "w": 6,
         "h": 5
       },
@@ -847,7 +847,7 @@
       },
       "gridPos": {
         "x": 12,
-        "y": 15,
+        "y": 17,
         "w": 6,
         "h": 5
       },
@@ -913,7 +913,7 @@
       },
       "gridPos": {
         "x": 18,
-        "y": 15,
+        "y": 17,
         "w": 6,
         "h": 5
       },
@@ -979,7 +979,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 20,
+        "y": 22,
         "w": 24,
         "h": 8
       },

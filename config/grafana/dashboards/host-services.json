@@ -74,7 +74,7 @@
     },
     {
       "id": 2,
-      "title": "Host exporter",
+      "title": "Host metrics",
       "description": "Scrape health for the shared host and textfile-exporter path. If this fails, all host and custom textfile metrics disappear together.",
       "type": "stat",
       "datasource": {
@@ -84,8 +84,8 @@
       "gridPos": {
         "x": 0,
         "y": 1,
-        "w": 4,
-        "h": 4
+        "w": 6,
+        "h": 3
       },
       "fieldConfig": {
         "defaults": {
@@ -165,10 +165,10 @@
         "uid": "prometheus"
       },
       "gridPos": {
-        "x": 4,
+        "x": 6,
         "y": 1,
-        "w": 4,
-        "h": 4
+        "w": 6,
+        "h": 3
       },
       "fieldConfig": {
         "defaults": {
@@ -248,10 +248,10 @@
         "uid": "prometheus"
       },
       "gridPos": {
-        "x": 8,
+        "x": 12,
         "y": 1,
-        "w": 4,
-        "h": 4
+        "w": 6,
+        "h": 3
       },
       "fieldConfig": {
         "defaults": {
@@ -304,7 +304,7 @@
     },
     {
       "id": 5,
-      "title": "TM configured",
+      "title": "TM setup",
       "description": "Whether tmutil reports a configured destination, shown only while the collector file is fresh. Configuration is neutral context, not verified backup health.",
       "type": "stat",
       "datasource": {
@@ -312,10 +312,10 @@
         "uid": "prometheus"
       },
       "gridPos": {
-        "x": 12,
+        "x": 18,
         "y": 1,
-        "w": 4,
-        "h": 4
+        "w": 6,
+        "h": 3
       },
       "fieldConfig": {
         "defaults": {
@@ -395,10 +395,10 @@
         "uid": "prometheus"
       },
       "gridPos": {
-        "x": 16,
-        "y": 1,
-        "w": 4,
-        "h": 4
+        "x": 0,
+        "y": 4,
+        "w": 6,
+        "h": 3
       },
       "fieldConfig": {
         "defaults": {
@@ -478,10 +478,10 @@
         "uid": "prometheus"
       },
       "gridPos": {
-        "x": 20,
-        "y": 1,
-        "w": 4,
-        "h": 4
+        "x": 6,
+        "y": 4,
+        "w": 6,
+        "h": 3
       },
       "fieldConfig": {
         "defaults": {
@@ -558,7 +558,7 @@
       "collapsed": false,
       "gridPos": {
         "x": 0,
-        "y": 5,
+        "y": 7,
         "w": 24,
         "h": 1
       },
@@ -575,7 +575,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 6,
+        "y": 8,
         "w": 12,
         "h": 8
       },
@@ -667,7 +667,7 @@
       },
       "gridPos": {
         "x": 12,
-        "y": 6,
+        "y": 8,
         "w": 12,
         "h": 8
       },
@@ -792,7 +792,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 14,
+        "y": 16,
         "w": 8,
         "h": 8
       },
@@ -893,7 +893,7 @@
       },
       "gridPos": {
         "x": 8,
-        "y": 14,
+        "y": 16,
         "w": 8,
         "h": 8
       },
@@ -989,7 +989,7 @@
       },
       "gridPos": {
         "x": 16,
-        "y": 14,
+        "y": 16,
         "w": 8,
         "h": 8
       },
@@ -1057,7 +1057,7 @@
       "collapsed": false,
       "gridPos": {
         "x": 0,
-        "y": 22,
+        "y": 24,
         "w": 24,
         "h": 1
       },
@@ -1074,7 +1074,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 23,
+        "y": 25,
         "w": 8,
         "h": 8
       },
@@ -1172,7 +1172,7 @@
       },
       "gridPos": {
         "x": 8,
-        "y": 23,
+        "y": 25,
         "w": 4,
         "h": 8
       },
@@ -1261,7 +1261,7 @@
       },
       "gridPos": {
         "x": 12,
-        "y": 23,
+        "y": 25,
         "w": 4,
         "h": 8
       },
@@ -1330,7 +1330,7 @@
       },
       "gridPos": {
         "x": 16,
-        "y": 23,
+        "y": 25,
         "w": 8,
         "h": 11
       },
@@ -1496,7 +1496,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 31,
+        "y": 33,
         "w": 16,
         "h": 8
       },

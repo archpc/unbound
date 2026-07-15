@@ -808,7 +808,7 @@ fi
             'max(avg_over_time(probe_success{job="blackbox_upstream"}[10m]))',
             rules,
         )
-        self.assertIn("Upstream (10m)", dashboard)
+        self.assertIn('"title": "Upstream"', dashboard)
         self.assertIn("dns:upstream_best_success_ratio_10m", dashboard)
 
     def test_dns_dashboard_separates_path_state_from_histogram_latency(self):
