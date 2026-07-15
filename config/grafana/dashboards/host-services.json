@@ -1949,6 +1949,17 @@
           "range": true,
           "refId": "E",
           "legendFormat": "Topic ready"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "unbound_ntfy_blocked_transitions == bool 0",
+          "instant": false,
+          "range": true,
+          "refId": "F",
+          "legendFormat": "No blocked transitions"
         }
       ]
     }

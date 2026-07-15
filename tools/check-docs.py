@@ -67,6 +67,7 @@ REQUIRED_CUSTOM_METRICS = {
     "unbound_ntfy_resolutions_enabled",
     "unbound_ntfy_state_persistence_success",
     "unbound_ntfy_topic_ready",
+    "unbound_ntfy_blocked_transitions",
     "unbound_ntfy_phone_receipt_known",
     "unbound_ntfy_firing_alerts",
     "unbound_ntfy_pending_alerts",

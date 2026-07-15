@@ -3,7 +3,8 @@
 # This file is never called by offline repository validation.  The deploy,
 # rollback, and acceptance modes change live state and must be invoked
 # deliberately on the mini by the operator.
-set -euo pipefail
+set -Eeuo pipefail
+export PYTHONDONTWRITEBYTECODE=1
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 PROMTOOL="/opt/homebrew/opt/prometheus/bin/promtool"
@@ -13,6 +14,11 @@ RUNTIME_CONFIG="/opt/homebrew/etc/prometheus.yml"
 RUNTIME_DASHBOARDS="/opt/homebrew/etc/grafana/dashboards"
 STATE_DIR="/Users/localadmin/monitoring/state"
 STATE_FILE="$STATE_DIR/notified-alerts.json"
+NOTIFIER_JOB="system/local.unbound.alertnotify"
+NOTIFIER_PLIST="/Library/LaunchDaemons/local.unbound.alertnotify.plist"
+NOTIFIER_DISABLED=0
+NOTIFIER_STOPPED=0
+RECOVERY_BACKUP=""
 
 usage() {
   echo "usage: $0 acceptance | deploy BACKUP_DIR | rollback BACKUP_DIR | verify" >&2
@@ -34,17 +40,17 @@ require_mini() {
   }
 }
 
-require_idle_notifier() {
-  if /usr/bin/pgrep -f '/prometheus_alert_notifier[.]py' >/dev/null; then
-    echo "the notifier is currently running; wait for the short periodic run to finish" >&2
+require_clean_checkout() {
+  /usr/bin/git -C "$ROOT" rev-parse --verify HEAD >/dev/null
+  if [ -n "$(/usr/bin/git -C "$ROOT" status --porcelain=v1 --untracked-files=normal)" ]; then
+    echo "candidate checkout must be clean and fully committed" >&2
     exit 1
   fi
 }
 
 validate_candidate() {
-  /usr/bin/python3 -m py_compile \
-    "$ROOT/scripts/monitoring/prometheus_alert_notifier.py"
-  /usr/bin/python3 "$ROOT/scripts/monitoring/prometheus_alert_notifier.py" \
+  require_clean_checkout
+  /usr/bin/python3 -B "$ROOT/scripts/monitoring/prometheus_alert_notifier.py" \
     --selftest
   "$PROMTOOL" check config "$ROOT/config/prometheus/prometheus.yml"
   "$PROMTOOL" check rules "$ROOT/config/prometheus/prometheus.rules.yml"
@@ -52,6 +58,7 @@ validate_candidate() {
   for file in "$ROOT"/config/grafana/dashboards/*.json; do
     /usr/bin/python3 -m json.tool "$file" >/dev/null
   done
+  require_clean_checkout
 }
 
 backup_live() {
@@ -70,10 +77,22 @@ backup_live() {
   if [ -f "$STATE_FILE" ]; then
     /bin/cp "$STATE_FILE" "$backup/notified-alerts.json"
     /bin/chmod 600 "$backup/notified-alerts.json"
+    /usr/bin/touch "$backup/state-present"
+  else
+    /usr/bin/touch "$backup/state-absent"
   fi
   /usr/bin/git -C "$ROOT" rev-parse HEAD >"$backup/candidate-commit.txt"
   /bin/chmod -R go-rwx "$backup"
   echo "rollback backup prepared at $backup"
+}
+
+install_atomic_user() {
+  source=$1
+  destination=$2
+  mode=$3
+  stage="${destination}.stage.$$"
+  /usr/bin/install -m "$mode" "$source" "$stage"
+  /bin/mv "$stage" "$destination"
 }
 
 install_atomic() {
@@ -88,11 +107,88 @@ install_atomic() {
   /usr/bin/sudo /bin/mv "$stage" "$destination"
 }
 
+restore_backup_files() {
+  backup=$1
+  install_atomic "$backup/prometheus_alert_notifier.py" \
+    "$RUNTIME_SCRIPT" root wheel 0755
+  install_atomic "$backup/prometheus.rules.yml" \
+    "$RUNTIME_RULES" localadmin admin 0644
+  install_atomic "$backup/dashboards/host-services.json" \
+    "$RUNTIME_DASHBOARDS/host-services.json" localadmin admin 0644
+  install_atomic "$backup/dashboards/operations-overview.json" \
+    "$RUNTIME_DASHBOARDS/operations-overview.json" localadmin admin 0644
+  if [ -f "$backup/state-present" ]; then
+    [ -f "$backup/notified-alerts.json" ]
+    install_atomic_user "$backup/notified-alerts.json" "$STATE_FILE" 0600
+  elif [ -f "$backup/state-absent" ]; then
+    /bin/rm -f -- "$STATE_FILE"
+  else
+    echo "backup does not record whether notifier state existed" >&2
+    return 1
+  fi
+}
+
+quiesce_notifier() {
+  /usr/bin/sudo /bin/launchctl disable "$NOTIFIER_JOB"
+  NOTIFIER_DISABLED=1
+  for _attempt in $(/usr/bin/seq 1 30); do
+    if ! /usr/bin/pgrep -f '/prometheus_alert_notifier[.]py' >/dev/null; then
+      break
+    fi
+    /bin/sleep 1
+  done
+  if /usr/bin/pgrep -f '/prometheus_alert_notifier[.]py' >/dev/null; then
+    echo "notifier did not become idle within 30 seconds" >&2
+    return 1
+  fi
+  /usr/bin/sudo /bin/launchctl bootout "$NOTIFIER_JOB"
+  NOTIFIER_STOPPED=1
+}
+
+resume_notifier() {
+  if [ "$NOTIFIER_DISABLED" -eq 1 ]; then
+    /usr/bin/sudo /bin/launchctl enable "$NOTIFIER_JOB"
+    NOTIFIER_DISABLED=0
+  fi
+  if [ "$NOTIFIER_STOPPED" -eq 1 ]; then
+    /usr/bin/sudo /bin/launchctl bootstrap system "$NOTIFIER_PLIST"
+    NOTIFIER_STOPPED=0
+  fi
+}
+
+recover_failed_operation() {
+  rc=$1
+  trap - ERR INT TERM
+  set +e
+  echo "operation failed; restoring the exact pre-operation backup" >&2
+  if [ -n "$RECOVERY_BACKUP" ]; then
+    restore_backup_files "$RECOVERY_BACKUP"
+    "$PROMTOOL" check config "$RUNTIME_CONFIG"
+    "$PROMTOOL" check rules "$RUNTIME_RULES"
+    /usr/bin/pkill -HUP -x prometheus
+  fi
+  resume_notifier
+  exit "$rc"
+}
+
+arm_recovery_trap() {
+  trap 'recover_failed_operation $?' ERR
+  trap 'recover_failed_operation 130' INT
+  trap 'recover_failed_operation 143' TERM
+}
+
+clear_recovery_trap() {
+  trap - ERR INT TERM
+  RECOVERY_BACKUP=""
+}
+
 deploy() {
   backup=$1
-  require_idle_notifier
   validate_candidate
   backup_live "$backup"
+  RECOVERY_BACKUP=$backup
+  arm_recovery_trap
+  quiesce_notifier
 
   install_atomic \
     "$ROOT/scripts/monitoring/prometheus_alert_notifier.py" \
@@ -111,36 +207,40 @@ deploy() {
   "$PROMTOOL" check config "$RUNTIME_CONFIG"
   "$PROMTOOL" check rules "$RUNTIME_RULES"
   /usr/bin/pkill -HUP -x prometheus
+  resume_notifier
+  clear_recovery_trap
   echo "deployment files installed and Prometheus reloaded"
   echo "wait at least 130 seconds, then run: $0 verify"
 }
 
 rollback() {
   backup=$1
-  require_idle_notifier
+  require_clean_checkout
   [ -f "$backup/prometheus_alert_notifier.py" ]
   [ -f "$backup/prometheus.rules.yml" ]
   [ -f "$backup/dashboards/host-services.json" ]
   [ -f "$backup/dashboards/operations-overview.json" ]
   /usr/bin/python3 "$backup/prometheus_alert_notifier.py" --selftest
   "$PROMTOOL" check rules "$backup/prometheus.rules.yml"
+  /usr/bin/python3 -m json.tool \
+    "$backup/dashboards/host-services.json" >/dev/null
+  /usr/bin/python3 -m json.tool \
+    "$backup/dashboards/operations-overview.json" >/dev/null
+  [ -f "$backup/state-present" ] || [ -f "$backup/state-absent" ]
 
-  install_atomic "$backup/prometheus_alert_notifier.py" \
-    "$RUNTIME_SCRIPT" root wheel 0755
-  install_atomic "$backup/prometheus.rules.yml" \
-    "$RUNTIME_RULES" localadmin admin 0644
-  install_atomic "$backup/dashboards/host-services.json" \
-    "$RUNTIME_DASHBOARDS/host-services.json" localadmin admin 0644
-  install_atomic "$backup/dashboards/operations-overview.json" \
-    "$RUNTIME_DASHBOARDS/operations-overview.json" localadmin admin 0644
-  if [ -f "$backup/notified-alerts.json" ]; then
-    /bin/cp "$backup/notified-alerts.json" "$STATE_FILE"
-    /bin/chmod 600 "$STATE_FILE"
-  fi
+  guard="${backup}.rollback-guard-$(/bin/date +%Y%m%d-%H%M%S)"
+  backup_live "$guard"
+  RECOVERY_BACKUP=$guard
+  arm_recovery_trap
+  quiesce_notifier
+  restore_backup_files "$backup"
   "$PROMTOOL" check config "$RUNTIME_CONFIG"
   "$PROMTOOL" check rules "$RUNTIME_RULES"
   /usr/bin/pkill -HUP -x prometheus
+  resume_notifier
+  clear_recovery_trap
   echo "rollback restored and Prometheus reloaded"
+  echo "pre-rollback recovery backup retained at $guard"
 }
 
 verify() {

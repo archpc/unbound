@@ -92,7 +92,7 @@ Use the manifest for individual filenames; wildcard rows above are summaries onl
 | Textfile metrics | `/opt/homebrew/var/lib/node_exporter/textfile/*.prom` | Atomic producer writes; not tracked |
 | Prometheus TSDB | `/opt/homebrew/var/prometheus` | Runtime only |
 | Grafana database | `/opt/homebrew/var/lib/grafana/grafana.db` | Sensitive runtime state |
-| Notifier state and lock | `/Users/localadmin/monitoring/state/{notified-alerts.json,notified-alerts.lock}` | Runtime only; directory 0700, files 0600, salted alert identities |
+| Notifier state and lock | `/Users/localadmin/monitoring/state/{notified-alerts.json,notified-alerts.lock}` | Runtime only; directory 0700, files 0600, salted alert identities and keyed entry-integrity checks |
 | ntfy topic | `/Users/localadmin/monitoring/ntfy.topic` | Secret; existence and metadata only |
 | Personal warm list | `/Users/localadmin/warmup/dns-warm-domains.personal.txt` | Private, mode 0600; existence and metadata only |
 | Root trust anchor | `/opt/homebrew/var/lib/unbound/root.key` | Unbound-managed state |

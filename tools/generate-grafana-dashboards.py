@@ -625,6 +625,7 @@ def host_dashboard():
             ("unbound_ntfy_resolutions_enabled", "Resolutions enabled"),
             ("unbound_ntfy_state_persistence_success", "Durable state"),
             ("unbound_ntfy_topic_ready", "Topic ready"),
+            ("unbound_ntfy_blocked_transitions == bool 0", "No blocked transitions"),
         ], grid(16, 41, 8, 8), "Independent current-run gates behind monitoring:notifier_local_path_healthy. Gaps are UNKNOWN; a zero identifies the failed local stage without claiming anything about phone receipt."),
     ]
     return make_dashboard(

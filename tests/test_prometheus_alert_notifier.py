@@ -10,6 +10,7 @@ from pathlib import Path
 import re
 import socket
 import ssl
+import sys
 import tempfile
 import threading
 import time
@@ -492,6 +493,76 @@ class StateMachineTests(unittest.TestCase):
             self.process(state, metrics, active)
             self.assertEqual(push.call_count, 0)
 
+    def test_parseable_structural_corruption_is_quarantined_without_notification(self):
+        state, _metrics = self.ready_state()
+        digest = "a" * 64
+        state[f"{notifier.ALERT_KEY_PREFIX}{digest}"] = notifier._new_alert_entry(
+            alert("CorruptFixture"), digest, self.now, status="firing_notified"
+        )
+        notifier.save_state(state)
+        parsed = json.loads(Path(notifier.STATE_FILE).read_text())
+        parsed[f"{notifier.ALERT_KEY_PREFIX}{digest}"]["safe_labels"] = {
+            "instance": "synthetic-private-value\n"
+        }
+        Path(notifier.STATE_FILE).write_text(json.dumps(parsed), encoding="utf-8")
+
+        snap = snapshot([])
+        with mock.patch.object(notifier, "fetch_alert_snapshot", return_value=snap), \
+                mock.patch.object(notifier, "read_topic", return_value="synthetic-topic"), \
+                mock.patch.object(notifier, "push_ntfy") as push, \
+                mock.patch.object(notifier, "write_metrics", return_value=True):
+            self.assertEqual(notifier.run_once(), 0)
+        self.assertEqual(push.call_count, 0)
+        self.assertTrue(list(Path(notifier.STATE_DIR).glob("*.invalid-*")))
+        self.assertNotIn("synthetic-private-value", Path(notifier.STATE_FILE).read_text())
+
+    def test_legacy_outage_state_migrates_all_delivery_fields(self):
+        legacy = {
+            notifier.UNREACHABLE_KEY: {"failures": 2, "notified": False},
+            notifier.METRICS_KEY: notifier.default_metrics(),
+        }
+        migrated = notifier._migrate_state(legacy, self.now)
+        outage = migrated[notifier.UNREACHABLE_KEY]
+        self.assertEqual(outage["sequence_id"], "unbound-prometheus-alert-state")
+        self.assertFalse(outage["blocked"])
+        self.assertFalse(outage["resolution_blocked"])
+        accepted = notifier.DeliveryResult(True, attempts=1, status_code=202)
+        with mock.patch.object(notifier, "push_ntfy", return_value=accepted) as push:
+            self.process(
+                migrated,
+                notifier.get_metrics(migrated),
+                [],
+                query_ok=False,
+                evidence_fresh=False,
+            )
+        self.assertEqual(push.call_count, 1)
+        self.assertEqual(
+            push.call_args.kwargs["sequence"], "unbound-prometheus-alert-state"
+        )
+
+    def test_dry_run_does_not_read_lock_repair_or_quarantine_state(self):
+        Path(notifier.STATE_DIR).mkdir(mode=0o700)
+        Path(notifier.STATE_FILE).write_text("{synthetic invalid", encoding="utf-8")
+        before = Path(notifier.STATE_FILE).read_bytes()
+        snap = snapshot([])
+        with mock.patch.object(notifier, "fetch_alert_snapshot", return_value=snap), \
+                mock.patch.object(notifier, "read_topic", return_value="synthetic-topic"), \
+                mock.patch.object(notifier, "load_state") as load, \
+                contextlib.redirect_stdout(io.StringIO()):
+            self.assertEqual(notifier.run_once(dry_run=True), 0)
+        self.assertEqual(load.call_count, 0)
+        self.assertEqual(Path(notifier.STATE_FILE).read_bytes(), before)
+        self.assertFalse(Path(notifier.LOCK_FILE).exists())
+        self.assertFalse(list(Path(notifier.STATE_DIR).glob("*.invalid-*")))
+
+        with mock.patch.object(sys, "argv", ["notifier", "--dry-run"]), \
+                mock.patch.object(notifier, "run_once", return_value=0), \
+                mock.patch.object(notifier, "RunLock") as lock:
+            with self.assertRaises(SystemExit) as exited:
+                notifier.main()
+        self.assertEqual(exited.exception.code, 0)
+        self.assertEqual(lock.call_count, 0)
+
     def test_restart_with_durable_state_does_not_reannounce(self):
         state, metrics = self.ready_state()
         fixture = alert(instance="stable")
@@ -549,9 +620,97 @@ class StateMachineTests(unittest.TestCase):
         )
         with mock.patch.object(notifier, "push_ntfy", return_value=rejected) as push:
             self.process(state, metrics, [alert("Blocked")])
-            self.process(state, metrics, [alert("Blocked")])
+            _failed, failures, observation = self.process(
+                state, metrics, [alert("Blocked")]
+            )
             self.assertEqual(push.call_count, 1)
             self.assertEqual(metrics["permanent_rejections_total"], 1)
+            self.assertEqual(metrics["fail_total"], 1)
+            self.assertEqual(failures, 1)
+            self.assertEqual(observation["blocked_transitions"], 1)
+
+    def test_direct_recovery_shares_event_cap_and_rejection_stays_unhealthy(self):
+        state, metrics = self.ready_state()
+        state[notifier.UNREACHABLE_KEY] = {
+            "failures": 3,
+            "notified": True,
+            "blocked": False,
+            "resolution_blocked": False,
+            "sequence_id": "unbound-prometheus-alert-state",
+            "next_attempt_at": 0,
+            "firing_failure_counted": False,
+            "resolution_failure_counted": False,
+        }
+        active = [alert(f"CapFixture{index}") for index in range(10)]
+        accepted = notifier.DeliveryResult(True, attempts=1, status_code=202)
+        with mock.patch.object(notifier, "push_ntfy", return_value=accepted) as push:
+            _failed, failures, _observation = self.process(state, metrics, active)
+        self.assertEqual(push.call_count, notifier.MAX_EVENTS_PER_RUN)
+        self.assertEqual(failures, 1)  # one rule transition remains queued
+
+        state, _metrics = self.ready_state()
+        state[notifier.UNREACHABLE_KEY] = {
+            "failures": 3,
+            "notified": True,
+            "blocked": False,
+            "resolution_blocked": False,
+            "sequence_id": "unbound-prometheus-alert-state",
+            "next_attempt_at": 0,
+            "firing_failure_counted": False,
+            "resolution_failure_counted": False,
+        }
+        notifier.save_state(state)
+        transient = notifier.DeliveryResult(False, attempts=3, retry_after=300)
+        snap = snapshot([])
+        with mock.patch.object(notifier, "fetch_alert_snapshot", return_value=snap), \
+                mock.patch.object(notifier, "read_topic", return_value="synthetic-topic"), \
+                mock.patch.object(notifier, "push_ntfy", return_value=transient) as push, \
+                mock.patch.object(notifier, "write_metrics", return_value=True), \
+                mock.patch.object(notifier.time, "time", return_value=self.now):
+            self.assertEqual(notifier.run_once(), 1)
+        persisted, status_value = notifier.load_state()
+        persisted = notifier._migrate_state(persisted, self.now)
+        self.assertEqual(status_value, "ok")
+        self.assertEqual(
+            persisted[notifier.UNREACHABLE_KEY]["next_attempt_at"], self.now + 300
+        )
+        self.assertEqual(persisted[notifier.METRICS_KEY]["consecutive_failures"], 1)
+        self.assertEqual(persisted[notifier.METRICS_KEY]["fail_total"], 1)
+
+        with mock.patch.object(notifier, "fetch_alert_snapshot", return_value=snap), \
+                mock.patch.object(notifier, "read_topic", return_value="synthetic-topic"), \
+                mock.patch.object(notifier, "push_ntfy") as deferred_push, \
+                mock.patch.object(notifier, "write_metrics", return_value=True), \
+                mock.patch.object(notifier.time, "time", return_value=self.now + 120):
+            self.assertEqual(notifier.run_once(), 1)
+        self.assertEqual(deferred_push.call_count, 0)
+        persisted, _status = notifier.load_state()
+        persisted = notifier._migrate_state(persisted, self.now + 120)
+        self.assertEqual(persisted[notifier.METRICS_KEY]["consecutive_failures"], 2)
+        self.assertEqual(persisted[notifier.METRICS_KEY]["fail_total"], 1)
+
+        state, metrics = self.ready_state()
+        state[notifier.UNREACHABLE_KEY] = {
+            "failures": 3,
+            "notified": True,
+            "blocked": False,
+            "resolution_blocked": False,
+            "sequence_id": "unbound-prometheus-alert-state",
+            "next_attempt_at": 0,
+            "firing_failure_counted": False,
+            "resolution_failure_counted": False,
+        }
+        permanent = notifier.DeliveryResult(
+            False, permanent=True, attempts=1, status_code=403
+        )
+        with mock.patch.object(notifier, "push_ntfy", return_value=permanent) as push:
+            _failed, failures, observation = self.process(state, metrics, [])
+            self.assertEqual(failures, 1)
+            self.assertEqual(observation["blocked_transitions"], 1)
+            self.process(state, metrics, [])
+        self.assertEqual(push.call_count, 1)
+        self.assertTrue(state[notifier.UNREACHABLE_KEY]["resolution_blocked"])
+        self.assertEqual(metrics["fail_total"], 1)
 
     def test_transient_failure_is_deferred_and_bounded_across_runs(self):
         state, metrics = self.ready_state()
@@ -665,6 +824,27 @@ class StateMachineTests(unittest.TestCase):
             with self.assertRaises(notifier.OverlapError):
                 with notifier.RunLock(notifier.LOCK_FILE):
                     pass
+
+
+class OperatorHelperContractTests(unittest.TestCase):
+    def test_helper_quiesces_and_restores_exact_state_on_failure(self):
+        helper = (
+            ROOT / "tools" / "ntfy-delivery-hardening-operator.sh"
+        ).read_text(encoding="utf-8")
+        for required in (
+            "require_clean_checkout",
+            'launchctl disable "$NOTIFIER_JOB"',
+            'launchctl bootout "$NOTIFIER_JOB"',
+            "recover_failed_operation",
+            'restore_backup_files "$RECOVERY_BACKUP"',
+            'touch "$backup/state-present"',
+            'touch "$backup/state-absent"',
+            'rm -f -- "$STATE_FILE"',
+            'install_atomic_user "$backup/notified-alerts.json"',
+            "rollback-guard-",
+        ):
+            with self.subTest(required=required):
+                self.assertIn(required, helper)
 
 
 if __name__ == "__main__":

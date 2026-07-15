@@ -260,7 +260,7 @@ tail -100 /opt/homebrew/var/log/unbound-alertnotify.log
 ```
 
 Expected result: query, state processing, resolution safety, persistence, and topic
-readiness gauges are one; consecutive failures are zero; the firing/pending counts match
+readiness gauges are one; blocked transitions and consecutive failures are zero; the firing/pending counts match
 the valid alerts API entries after the next 120-second poll. The state directory is mode
 0700; state and topic files are mode 0600. `unbound_ntfy_phone_receipt_known` remains
 zero by design. A recent server-acceptance timestamp proves only ntfy HTTP 2xx.

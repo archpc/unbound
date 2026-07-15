@@ -26,14 +26,14 @@ Evidence is classified as:
 | Alert APIs | The notifier reads `/api/v1/alerts`, `/api/v1/rules?type=alert`, and `/api/v1/status/runtimeinfo`. Pending and firing entries are parsed independently; only firing entries are eligible to notify. | Repository implementation; isolated malformed/pending/firing tests. The live alerts API had zero active entries. |
 | Freshness | Every alert-rule group must be nonempty, healthy, and evaluated within the larger of 60 seconds or four group intervals, measured against Prometheus `serverTime`. No fixed rule-count constant is trusted. | Isolated fresh/stale/missing/unhealthy/restart tests. |
 | Identity | Exact sorted alert labels are HMAC-SHA-256 identified with a random per-state-file salt. Label order is irrelevant; any label change creates another identity. Raw identity labels are not state keys. | Isolated ordering, changed-label, privacy, migration, and state-file assertions. |
-| State | State directory is 0700; JSON state and advisory lock are 0600. Writes use same-directory temporary files, file `fsync`, atomic replace, and directory `fsync`. | Repository implementation and isolated write/permission/cleanup tests; target-host validation remains required. |
+| State | State directory is 0700; JSON state and advisory lock are 0600. Writes use same-directory temporary files, file `fsync`, atomic replace, and directory `fsync`. Strict schema and keyed entry-integrity checks quarantine parseable structural corruption. | Repository implementation and isolated write/permission/corruption/cleanup tests; target-host validation remains required. |
 | Transition detection | New firing identities create a durable pending intent before HTTP. Known firing identities suppress repeats. Missing identities require two complete dependency-qualified polls before resolution. | Isolated fire/repeat/resolve, restart, dependency, API failure, malformed entry, and crash-window tests. |
 | Corrupt/missing state | The old state is privately quarantined when safe; current firing alerts become a no-replay baseline. This avoids restart/corruption storms and deliberately does not invent past delivery history. | Isolated missing/corrupt baseline tests. |
 | ntfy request | Maximum three attempts per logical transition, 10-second request timeout, 1/2-second backoff, bounded `Retry-After`, and at most 10 transitions per run. Permanent 4xx responses other than 429 are blocked without repeated sends. | Isolated 200/202, 4xx, 429, 5xx, timeout/reset/DNS/TLS, rate-limit, and storm-bound tests. |
 | Crash dedupe | A deterministic ntfy sequence ID is stored before HTTP. A crash retry uses the same sequence so supported clients update one notification. | Isolated pre-send and post-acceptance crash tests; real client behavior unverified. |
 | Acceptance | HTTP 2xx increments server-acceptance metrics even if the body is malformed. Timeout/reset is recorded separately as acceptance-unknown. | Isolated HTTP endpoint and response-body tests. |
 | Metrics | Process attempt, query success, complete state processing, resolution readiness, persistence, topic readiness, server acceptance, failures, ambiguity, staleness, and receipt-unknown are distinct metrics. | Repository implementation, exposition tests, rule/dashboard alignment. |
-| Dashboard/alerts | `monitoring:notifier_local_path_healthy` requires every current local readiness gate and zero consecutive failures. Host diagnostics show attempt age, last server acceptance, processing gates, failure counters, and phone receipt UNKNOWN. | Repository rule/generator/generated JSON; live validation required after deployment. |
+| Dashboard/alerts | `monitoring:notifier_local_path_healthy` requires every current local readiness gate, zero blocked transitions, and zero consecutive failures. Host diagnostics show attempt age, last server acceptance, processing gates, failure counters, and phone receipt UNKNOWN. | Repository rule/generator/generated JSON; live validation required after deployment. |
 | Operator device | HTTP acceptance is not a delivery receipt. The local stack has no device acknowledgment. | Architectural fact; `unbound_ntfy_phone_receipt_known 0`; real acceptance test intentionally unverified. |
 
 Observed live baseline before hardening:
@@ -126,11 +126,11 @@ and nonnumeric values never enter a notification.
 |---|---|---|
 | Missing/invalid state | Create private salted schema; adopt current firing set without sending. | `observed_baseline`; state-reset/error counters advance. |
 | Pending alert | Count and use as dependency evidence; never publish. | No alert transition. |
-| New firing identity | Persist `pending_firing`; publish with stable sequence ID. | On 2xx: `firing_notified`; transient: pending with bounded next-attempt; permanent 4xx: `blocked_firing`. |
+| New firing identity | Persist `pending_firing`; publish with stable sequence ID. | On 2xx: `firing_notified`; transient: pending with bounded next-attempt; permanent 4xx: `blocked_firing` and a nonzero blocked gauge. One logical failure is counted across retry cycles. |
 | Repeated firing identity | Reset missing-poll count. | No HTTP; duplicate counter advances for the run. |
 | Same labels in another order | HMAC canonicalization produces the same identity. | No HTTP. |
 | Any label changes | Create a new firing identity; old identity begins qualified disappearance handling. | New firing can notify; old resolution waits independently. |
-| API/rule/runtime unavailable or stale | Increment evidence-failure streak; after three failures publish one direct state-unavailable transition if possible. | Known alert states remain untouched; no resolution. |
+| API/rule/runtime unavailable or stale | Increment evidence-failure streak; after three failures publish one direct state-unavailable transition if possible. | Known alert states remain untouched; no resolution. Recovery rejection remains durable, unhealthy, and subject to the persisted `Retry-After`. |
 | One malformed alert plus valid alerts | Valid new firing identities remain eligible; all resolutions are held. | Malformed count advances; after three incomplete polls direct state-unavailable transition is eligible. |
 | Prometheus uptime under ten minutes | Firing additions allowed with fresh evidence; resolutions held. | No false restart resolution. |
 | Missing alert with dependency blocker pending/firing | Hold and reset disappearance confirmation. | No resolution. |
@@ -154,9 +154,15 @@ and nonnumeric values never enter a notification.
 | ntfy pre-connect | DNS failure, connection refusal, TLS verification failure | PASS; known non-acceptance and sanitized error |
 | Local state | Missing/corrupt state, invalid metrics/timestamps, mode/atomic cleanup, unwritable state | PASS, isolated |
 | Process lifecycle | First fire, repeat, two-poll resolution, changed labels, label order, restart/reboot-equivalent reload, two crash windows | PASS, isolated |
-| Concurrency/rate | Advisory overlap lock, maximum ten transitions per run, permanent/transient suppression | PASS, isolated |
+| Concurrency/rate | Advisory overlap lock, maximum ten total rule/direct transitions per run, permanent/transient suppression | PASS, isolated |
 | Privacy | Synthetic topic, URL, body, annotation, private labels, mountpoint, file path, exception text, state and metrics | PASS; leak assertions |
 | Metrics/dashboard | Metric types, server-acceptance alias, explicit receipt unknown, rule/dependency inventory alignment | PASS, repository tests; live post-deploy unverified |
+
+The one independent post-implementation review found seven defects. The remediation
+regressions verify outage-recovery rejection/deferral health, read-only dry-run,
+complete legacy outage migration, parseable state corruption quarantine, helper
+quiesce/automatic restoration, a shared ten-transition budget, and latched permanent
+rejections counted once per logical transition. No repeated review loop was performed.
 
 ## Privacy and credential handling
 
@@ -165,11 +171,14 @@ and nonnumeric values never enter a notification.
   state, helper commands, diffs, or this report.
 - Network exceptions print only an exception class and a generic endpoint-withheld
   message. HTTP errors print only the status class/code.
-- Dry-run output withholds bodies and labels. The real test-send path requires an
+- Dry-run performs no state read, lock creation, permission repair, or quarantine and
+  withholds bodies and labels. The real test-send path requires an
   explicit operator confirmation in the helper and reports “server accepted,” never
   “delivered.”
 - The operator helper never reads or backs up the topic. Its rollback bundle is mode
-  0700 and includes private notifier state because schema rollback requires it.
+  0700 and records state presence because schema rollback requires exact restoration.
+  It quiesces the notifier job and automatically restores the pre-operation bundle on
+  an install or validation error.
 - Synthetic fixtures contain obvious fake secret strings and assert absence from logs,
   metrics, state, and notification bodies.
 

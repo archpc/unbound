@@ -163,7 +163,9 @@ There is no Alertmanager. `prometheus_alert_notifier.py` observes pending and fi
 alerts but publishes only firing transitions. It verifies the alerts API against fresh
 alert-rule evaluation timestamps and Prometheus runtime evidence. Exact sorted labelsets
 are identified by a per-state-file salted HMAC; raw private labels are not stored as
-keys. Notification bodies admit only `job`, `exported_job`, `instance`, `mountpoint`,
+keys. Each persisted transition also has a keyed integrity check, so structurally
+corrupt but parseable state is quarantined instead of rendered into a notification.
+Notification bodies admit only `job`, `exported_job`, `instance`, `mountpoint`,
 `task`, `file`, `rule_group`, and `fstype`; file paths become basenames and private
 non-system mountpoints become a generic filesystem marker. Annotations and every other
 label remain local. Missing severity and `warning` map to high priority; `critical` maps
@@ -182,9 +184,11 @@ ten-minute Prometheus-restart grace, and while its explicit collection dependenc
 not pending or firing. API failure, stale rule evaluation, malformed entries, target
 inventory mismatch, node/textfile failure, blackbox failure, and Unbound-exporter
 failure therefore hold affected resolutions instead of converting UNKNOWN into
-RESOLVED. Permanent ntfy 4xx errors are not retried; 429 and transient failures use
-bounded attempts and bounded `Retry-After` deferral. At most ten transitions are sent in
-one run.
+RESOLVED. Permanent ntfy 4xx errors are not retried and remain visible through a
+blocked-transition gauge while their transition is relevant; 429 and transient
+failures use bounded attempts and bounded `Retry-After` deferral. Direct Prometheus
+outage/recovery notices consume the same budget as rule alerts, so at most ten
+transitions are sent in one run.
 
 The notifier can report unavailable or stale Prometheus alert-state evidence directly
 after three failed/incomplete polls. It cannot report its own complete death.

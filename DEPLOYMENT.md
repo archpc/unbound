@@ -379,14 +379,19 @@ is intentionally authorized. Deployment procedures MUST NOT read or print the to
 
 The reviewed operator helper stages no secret and defaults to no action. Its `deploy`,
 `rollback`, and `acceptance` modes are live state changes and MUST be invoked manually
-on the mini from the exact reviewed checkout. Do not run them during repository review.
+on the mini from the exact clean committed checkout. Do not run them during repository
+review.
 
 Before deployment, require a clean committed checkout, the full repository suite, the
 focused notifier matrix, target `promtool` for the config and all 50 rules, and live
-dashboard PromQL validation. The helper validates the candidate again, refuses to race
-an active notifier process, creates a private rollback bundle, atomically installs the
-notifier/rules/two changed dashboards, hardens the state directory/file modes, validates
-the live Prometheus files, and sends SIGHUP only after validation succeeds. Grafana's
+dashboard PromQL validation. The helper validates the candidate and clean checkout
+again, disables new notifier launches, waits for any active run to finish, boots out the
+periodic job, creates a private rollback bundle, atomically installs the notifier/rules/
+two changed dashboards, hardens the state directory/file modes, validates the live
+Prometheus files, and sends SIGHUP only after validation succeeds. It then enables and
+bootstraps the notifier job. An error trap restores the exact pre-operation files and
+state-presence marker before resuming the job; rollback similarly keeps a private
+pre-rollback guard bundle. Grafana's
 file provider discovers the two dashboard files without a restart.
 
 ```sh
@@ -394,10 +399,10 @@ backup="$HOME/monitoring/rollback/ntfy-hardening-$(date +%Y%m%d-%H%M%S)"
 tools/ntfy-delivery-hardening-operator.sh deploy "$backup"
 ```
 
-The rollback bundle contains the pre-deployment notifier state because the hardened
-schema stores salted fingerprints that the inherited script does not understand. It is
-mode 0700 and sensitive even though it never includes the topic. Preserve the exact
-printed path for rollback:
+The rollback bundle records whether pre-deployment notifier state existed and contains
+that state when present because the hardened schema stores salted fingerprints that the
+inherited script does not understand. It is mode 0700 and sensitive even though it
+never includes the topic. Preserve the exact printed path for rollback:
 
 ```sh
 tools/ntfy-delivery-hardening-operator.sh rollback "$backup"

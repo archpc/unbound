@@ -68,6 +68,7 @@ groups:
             * on() (max(unbound_ntfy_resolutions_enabled) == bool 1)
             * on() (max(unbound_ntfy_state_persistence_success) == bool 1)
             * on() (max(unbound_ntfy_topic_ready) == bool 1)
+            * on() (max(unbound_ntfy_blocked_transitions) == bool 0)
             * on() (max(unbound_ntfy_consecutive_failures) == bool 0)
 
       # The healthier public-recursive path is the established WAN/UDP-53
@@ -365,10 +366,11 @@ groups:
         annotations:
           summary: "clientstats breadcrumb metric absent - job never seeded, .prom file gone, or sample rejected in the textfile merge"
 
-      # >= 2 failed pushes in 30m = the phone channel itself is broken, not a
-      # blip. Inherently dashboard-only (a broken channel can't push its own
-      # failure) - same circular gap as AlertNotifierStale. Counter persists
-      # in the notifier's state file; increase() tolerates a reset.
+      # >= 2 distinct logical transitions not accepted in 30m is sustained
+      # server-path failure, not one transition's repeated bounded retry.
+      # Inherently dashboard-only (a broken channel cannot push its own
+      # failure) - same circular gap as AlertNotifierStale. The counter
+      # persists in notifier state; increase() tolerates a reset.
       - alert: NtfyDeliveryFailures
         expr: increase(unbound_ntfy_delivery_failures_total[30m]) >= 2
         annotations:

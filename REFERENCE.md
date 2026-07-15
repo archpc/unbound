@@ -142,7 +142,7 @@ the global 15-second interval and are listed by exact name in the rules file.
 | `monitoring:active_alerts` | Current firing-alert count | Zero only while Prometheus evaluates the rule |
 | `monitoring:collection_path_healthy` | Core scrape and inventory health | Empty if the canonical inputs disappear |
 | `monitoring:textfile_path_healthy` | node_exporter plus textfile parse health | Empty if node scrape state disappears |
-| `monitoring:notifier_local_path_healthy` | Fresh complete notifier processing, resolution safety, persistence, topic readiness, and no current run failure | Empty if any required notifier input disappears; never proves a recent ntfy request or phone receipt |
+| `monitoring:notifier_local_path_healthy` | Fresh complete notifier processing, resolution safety, persistence, topic readiness, zero blocked transitions, and no current run failure | Empty if any required notifier input disappears; never proves a recent ntfy request or phone receipt |
 | `dns:upstream_best_success_ratio_10m` | Better of two public probe paths | Empty unless both result series exist |
 | `unbound:cache_hit_ratio_15m` | Hit ratio above one cache lookup/s | Empty during low traffic or missing input |
 | `apple_content_cache:local_hit_ratio_24h` | Local-cache bytes / all client bytes | Empty at zero traffic or unavailable source |
@@ -221,12 +221,13 @@ delivery path is the failed component.
 | Alert notifier | `unbound_ntfy_prometheus_query_success` | Whether the alerts API envelope parsed this run |
 | Alert notifier | `unbound_ntfy_alert_state_processed`, `unbound_ntfy_resolutions_enabled` | Whether rule/runtime evidence was fresh and whether restart/dependency safety permitted resolutions |
 | Alert notifier | `unbound_ntfy_state_persistence_success`, `unbound_ntfy_topic_ready` | Current durable-state and credential-file readiness |
+| Alert notifier | `unbound_ntfy_blocked_transitions` | Current transitions latched after permanent ntfy rejection; must be zero for local-path health |
 | Alert notifier | `unbound_ntfy_phone_receipt_known` | Always zero: the architecture has no operator-device receipt |
 | Alert notifier | `unbound_ntfy_firing_alerts`, `unbound_ntfy_pending_alerts`, `unbound_ntfy_invalid_alerts` | Current valid firing/pending and isolated malformed alert counts |
 | Alert notifier | `unbound_ntfy_suppressed_duplicates`, `unbound_ntfy_resolutions_suppressed` | Current dedupe and safety-held resolution counts |
 | Alert notifier | `unbound_ntfy_server_acceptances_total` | Persistent ntfy HTTP-acceptance counter; not phone delivery |
 | Alert notifier | `unbound_ntfy_notifications_sent_total` | Deprecated compatibility alias of server acceptances |
-| Alert notifier | `unbound_ntfy_delivery_failures_total`, `unbound_ntfy_delivery_outcome_unknown_total` | Logical non-acceptances and timeout/reset ambiguity |
+| Alert notifier | `unbound_ntfy_delivery_failures_total`, `unbound_ntfy_delivery_outcome_unknown_total` | Distinct logical non-acceptances (one count across bounded retry cycles) and timeout/reset ambiguity |
 | Alert notifier | `unbound_ntfy_state_errors_total`, `unbound_ntfy_state_write_errors_total`, `unbound_ntfy_state_resets_total` | State validation, durable-write, and no-replay baseline counters |
 | Alert notifier | `unbound_ntfy_retry_attempts_total`, `unbound_ntfy_permanent_rejections_total`, `unbound_ntfy_consecutive_failures` | Bounded retry, permanent rejection, and current failure-streak state |
 | Content cache | `apple_content_cache_active`, `apple_content_cache_activated`, `apple_content_cache_status_ok` | Service state gauges |
@@ -271,7 +272,7 @@ UI saves, and every query references the Prometheus datasource UID `prometheus`.
 | Grafana config/dashboards | `/opt/homebrew/etc/grafana/` | SHA-256 comparison |
 | Grafana database | `/opt/homebrew/var/lib/grafana/grafana.db` | Sensitive runtime state; optional backup |
 | Textfiles | `/opt/homebrew/var/lib/node_exporter/textfile/*.prom` | Generated; existence only |
-| Notifier state and lock | `/Users/localadmin/monitoring/state/{notified-alerts.json,notified-alerts.lock}` | Runtime only; directory mode 0700 and files mode 0600; alert identities are salted HMACs rather than raw labels |
+| Notifier state and lock | `/Users/localadmin/monitoring/state/{notified-alerts.json,notified-alerts.lock}` | Runtime only; directory mode 0700 and files mode 0600; alert identities are salted HMACs and transition entries carry keyed integrity checks rather than trusting raw labels or arbitrary JSON |
 | ntfy topic | `/Users/localadmin/monitoring/ntfy.topic` | Secret; existence only; MUST NOT be read by repository tooling |
 | Personal warm list | `/Users/localadmin/warmup/dns-warm-domains.personal.txt` | `localadmin:staff` mode 0600; private household profile; optional; MUST NOT be committed |
 | Root trust anchor | `/opt/homebrew/var/lib/unbound/root.key` | Managed runtime state |
